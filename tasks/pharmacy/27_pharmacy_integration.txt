@@ -1,0 +1,634 @@
+================================================================================
+TASK 27: PHARMACY INTEGRATION SYSTEM
+================================================================================
+Module: Support Services
+Phase: Phase 1 - Implementation
+Priority: HIGH
+Effort Estimate: 36 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Task 22 (Prescription System), Task 26 (Inventory)
+Blocking: Task 28 (Analytics/Reporting)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Pharmacy Integration System connects the clinic's prescription workflow with
+external pharmacy networks and internal pharmacy operations. It manages e-prescribing
+transmission to community pharmacies, tracks prescription fulfillment status, enables
+direct medication dispensing at the clinic (in-house pharmacy), manages pharmacy
+inventory, handles refill requests, and provides real-time medication availability
+information. The system ensures prescription accuracy, prevents medication errors,
+tracks patient medication usage, and maintains complete audit trails for regulatory
+compliance.
+
+Key Responsibilities:
+- E-prescribing transmission to retail pharmacies (NCPDP standards)
+- Pharmacy network integration (CVS, Walgreens, local independent pharmacies)
+- In-house pharmacy operations (medication dispensing, inventory)
+- Prescription status tracking and patient notifications
+- Refill request management and approval workflows
+- Medication interaction checking before dispensing
+- Drug-allergy verification before dispensing
+- Pharmacy inventory synchronization with clinical system
+- Patient medication reconciliation and adherence tracking
+- Pharmacy quality metrics and compliance reporting
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 E-PRESCRIBING TO RETAIL PHARMACIES
+Prescription Transmission:
+- Doctor issues prescription in EMR (see Task 22: Prescription System)
+- Prescription marked ISSUED and transmission initiated
+- System validates prescription format (strength, quantity, refills)
+- Doctor reviews and electronically signs prescription
+- System transmits via e-prescribing network (SureScripts, Surescripts, Change Healthcare)
+- Transmission status logged (pending, transmitted, acknowledged, rejected)
+- Rejection handling: System alerts doctor, prescription returned to draft
+
+Transmission Format (NCPDP standards):
+- Patient demographics (name, DOB, insurance)
+- Prescription details (drug, dose, quantity, refills)
+- Prescriber details (NPI, DEA number, license)
+- Insurance and prior authorization information
+- Pharmacy selection (patient-selected or doctor-recommended)
+- Allergy and interaction information
+
+Patient Notification:
+- SMS notification: "Your prescription for [drug] has been sent to [pharmacy]"
+- Patient can view transmission status in patient portal
+- Estimated fill time: "Ready in 2 hours" (pre-negotiated with pharmacy)
+- Patient can redirect prescription to different pharmacy
+
+2.2 PHARMACY NETWORK INTEGRATION
+Pharmacy Directory:
+- Database of 50,000+ retail pharmacies nationwide
+- Major chains (CVS, Walgreens, Kroger, Target, local pharmacies)
+- Pharmacy details: Address, phone, hours, e-prescribe capability
+- Pharmacy performance metrics: Average fill time, availability, ratings
+- Insurance accepted by pharmacy
+
+Prescription Routing:
+- Patient selects preferred pharmacy or doctor recommends
+- System checks pharmacy's e-prescribe capability
+- If not e-capable: Generate printable prescription for patient delivery
+- If e-capable: Auto-transmit via NCPDP network
+- Fallback: Fax prescription if e-transmit fails
+
+2.3 PRESCRIPTION STATUS TRACKING
+Status Lifecycle:
+- TRANSMITTED: Sent to pharmacy, awaiting acknowledgment
+- ACKNOWLEDGED: Pharmacy received and accepted
+- PROCESSING: Pharmacy verifying, checking stock
+- READY_FOR_PICKUP: Medication filled and available for patient
+- PICKED_UP: Patient retrieved medication
+- EXPIRED: 1-year expiration or patient cancelled
+
+Pharmacy Communication:
+- Real-time status updates via NCPDP response
+- Pharmacy can notify patient of issues (need insurance verification, etc.)
+- System polls pharmacy network for status updates (every 2 hours)
+- Patient portal shows current status with pickup instructions
+
+Patient Notifications:
+- SMS when prescription ready: "Your prescription is ready at [pharmacy]"
+- SMS when issues arise: "Pharmacy needs info about insurance"
+- Patient portal shows all active prescriptions and their status
+- Email summary of upcoming prescriptions (weekly digest)
+
+2.4 IN-HOUSE PHARMACY OPERATIONS
+Clinic-Based Pharmacy:
+- Clinic operates small in-house pharmacy for common medications
+- Medications dispensed immediately after visit (convenient for patient)
+- In-house inventory managed via Task 26 (Inventory Management)
+- When to dispense in-house vs refer to retail:
+  * In-house: Common antibiotics, antihistamines, pain relievers
+  * Retail: Specialty drugs, long-term therapy (not cost-effective in-house)
+  * Decision: Made by clinical guideline + cost analysis
+
+In-House Dispensing Process:
+1. Doctor writes prescription → System checks in-house inventory
+2. If in-house: Shows "Available in clinic pharmacy"
+3. Patient can choose: Dispense now or use retail pharmacy
+4. If patient chooses in-house:
+   - Pharmacist/tech verifies prescription
+   - Confirms no interactions/allergies (double-check)
+   - Dispenses from inventory (barcode scan)
+   - Inventory decremented
+   - Patient receives medication with patient instruction sheet
+   - Dispensing logged with timestamp, dispenser ID, lot number
+5. If inventory insufficient: Fall back to retail pharmacy
+
+In-House Inventory Management:
+- Medications stocked based on usage patterns
+- Inventory tracked via Task 26 (Inventory Management)
+- Reorder triggered when stock below threshold
+- Expiration dates monitored, near-expiry pulled from circulation
+- Controlled substance tracking per DEA requirements
+
+2.5 REFILL REQUEST WORKFLOWS
+Patient-Initiated Refill:
+- Patient requests refill via portal, phone, or pharmacy
+- Request routed to pharmacy system → prescribing doctor queue
+- Doctor reviews patient's medication usage (not too soon, not overdue)
+- Doctor approves or denies:
+  * Approve: If medication refills remaining and appropriate
+  * Deny: If overuse, patient needs visit, or medication changed
+  * Request visit: If medication evaluation needed
+
+Automatic Refill (Chronic Medications):
+- Identified chronic medications: Hypertension, diabetes, depression, etc.
+- Auto-refill enabled on prescription: "Allow auto-refill"
+- System auto-renews prescription (no refills left) before runs out:
+  * Check date: 7 days before expected supply runs out
+  * Doctor auto-approves (or optional pre-approval required)
+  * Prescription transmitted to patient's pharmacy
+  * Patient notified: "Your [drug] prescription auto-renewed"
+- Safety: Tracked prescription count per period (prevent overuse)
+
+Refill Workflow:
+1. Request received from patient/pharmacy
+2. System checks refill allowance (any remaining?)
+3. If refills remaining:
+   - Prescription renewed locally
+   - Transmitted to pharmacy
+   - Patient notified
+4. If no refills remaining:
+   - Doctor queue notification
+   - Doctor reviews and approves/denies
+   - If approved: Prescription renewed, transmitted to pharmacy
+   - If denied: Patient notified of denial with reason
+
+2.6 MEDICATION RECONCILIATION & ADHERENCE
+Medication Reconciliation:
+- On new patient visit: Patient lists all current medications
+- Pharmacy review: Cross-check against active prescriptions + retail fills
+- Discrepancy investigation:
+  * Did patient stop medication?
+  * Did pharmacy fill different medication?
+  * Drug name confusion?
+- Reconciliation documented, differences addressed
+
+Adherence Tracking:
+- Pharmacy reports fill dates and quantity filled
+- System calculates medication possession ratio (MPR):
+  * MPR = (days supply on hand) / (prescription interval)
+  * Good adherence: MPR 80-100% (patient has medication available)
+  * Poor adherence: MPR <80% (patient running out)
+- Adherence alerts: Clinical staff notified of patients with poor adherence
+- Follow-up: Call patient, address barriers (cost, side effects, understanding)
+
+Medication Safety:
+- Drug-drug interactions checked at dispensing (pharmacy system)
+- Allergy screening before dispensing
+- Duplicate therapy detection (patient on same drug from different doctors)
+- Age-appropriate dosing for pediatric patients
+- Renal/hepatic dose adjustments verified
+
+2.7 RETAIL PHARMACY NETWORK COORDINATION
+Network Partners:
+- Major chains: CVS, Walgreens, Kroger Pharmacy, Target, Rite Aid
+- Independent pharmacies: Local community pharmacies
+- Specialty pharmacies: For expensive/complex medications
+- Mail-order pharmacies: For maintenance medications
+
+Network Capabilities:
+- E-prescribe capability: Can receive electronic prescriptions
+- Prior authorization: Can file PA with insurance automatically
+- Medication therapy management (MTM): Can provide counseling
+- Synchronization: Can align prescription refill dates
+
+Coordination Features:
+- Real-time inventory checking: "Is drug X available at pharmacy Y?"
+- Estimated fill time: Pharmacy provides expected wait time
+- Pickup notification: Patient receives SMS when ready
+- Insurance benefits: Pharmacy checks patient's coverage pre-fill
+- Drug alternatives: If drug unavailable, pharmacy suggests alternative
+
+2.8 QUALITY & COMPLIANCE
+Quality Metrics:
+- E-prescribe success rate: >99% transmission successful
+- Pharmacy fill rate: >95% medications filled within estimated time
+- Patient satisfaction: Pharmacy experience ratings
+- Medication error rate: Zero tolerance for dispensing errors
+- Insurance claim success: >98% claims adjudicated without issues
+
+Compliance Requirements:
+- HIPAA: Patient privacy, secure transmission
+- DEA: Controlled substance tracking, traceability
+- State Board of Pharmacy: Prescription validity, pharmacist supervision
+- Insurance requirements: Prior authorization, formulary compliance
+- Patient education: Counseling on medications, side effects, interactions
+
+Audit Trail:
+- Every prescription transmission logged (timestamp, recipient, status)
+- Every dispensing event logged (medication, dose, patient, dispenser)
+- Every refill logged (reason, approval, timing)
+- Tamper-proof, cannot be modified after creation
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: pharmacy_network
+- pharmacy_id (UUID, PK)
+- pharmacy_name (VARCHAR)
+- pharmacy_chain (VARCHAR, nullable, e.g., "CVS", "Independent")
+- address (VARCHAR)
+- phone (VARCHAR)
+- e_prescribe_capable (BOOLEAN)
+- ncpdp_id (VARCHAR, unique, NCPDP transmission ID)
+- average_fill_time_minutes (INT, e.g., 120)
+- accepts_new_patients (BOOLEAN)
+- hours_of_operation (JSON, e.g., {"monday": "08:00-22:00"})
+- is_active (BOOLEAN)
+- created_at (TIMESTAMP)
+- INDEX: (ncpdp_id, phone)
+
+TABLE: e_prescriptions
+- e_rx_id (UUID, PK)
+- prescription_id (UUID, FK → prescriptions)
+- patient_id (UUID, FK → patients)
+- pharmacy_id (UUID, FK → pharmacy_network)
+- transmission_method (ENUM: "ncpdp_electronic", "fax", "print")
+- transmission_status (ENUM: "pending", "transmitted", "acknowledged", "rejected", "filled", "picked_up")
+- transmission_timestamp (TIMESTAMP)
+- acknowledgment_timestamp (TIMESTAMP, nullable)
+- acknowledgment_reason (VARCHAR, nullable, if rejected)
+- fill_status (ENUM: "pending", "processing", "ready", "picked_up")
+- fill_timestamp (TIMESTAMP, nullable)
+- expiration_date (DATE, 1 year from transmission)
+- patient_notification_sent (BOOLEAN)
+- created_at (TIMESTAMP)
+- INDEX: (prescription_id, patient_id, transmission_status)
+
+TABLE: in_house_dispenses
+- dispense_id (UUID, PK)
+- prescription_id (UUID, FK → prescriptions)
+- patient_id (UUID, FK → patients)
+- medication_id (UUID, FK → inventory_items)
+- lot_number (VARCHAR)
+- quantity_dispensed (DECIMAL 10,2, e.g., 30 tablets)
+- unit (ENUM: "tablet", "capsule", "ml", "vial")
+- dispensed_at (TIMESTAMP)
+- dispensed_by (UUID, FK → users)
+- pharmacist_verified_by (UUID, FK → users, nullable)
+- verified_at (TIMESTAMP, nullable)
+- patient_instruction_sheet_id (VARCHAR, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (prescription_id, patient_id, dispensed_at)
+
+TABLE: refill_requests
+- refill_id (UUID, PK)
+- prescription_id (UUID, FK → prescriptions)
+- patient_id (UUID, FK → patients)
+- request_date (TIMESTAMP)
+- request_source (ENUM: "patient_portal", "patient_call", "pharmacy", "automatic")
+- request_reason (VARCHAR, nullable)
+- status (ENUM: "pending", "approved", "denied", "expired")
+- approval_date (TIMESTAMP, nullable)
+- approved_by (UUID, FK → users, nullable)
+- denial_reason (VARCHAR, nullable)
+- action_taken (ENUM: "refill_approved", "refill_denied", "visit_requested", "medication_changed")
+- INDEX: (prescription_id, patient_id, status)
+
+TABLE: medication_reconciliation
+- reconciliation_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- visit_id (UUID, FK → consultations, nullable)
+- reconciliation_date (DATE)
+- patient_reported_meds (JSON, list of meds patient claims taking)
+- system_active_meds (JSON, list of active prescriptions in system)
+- pharmacy_filled_meds (JSON, list of fills at pharmacies in past 90 days)
+- discrepancies_found (BOOLEAN)
+- discrepancy_details (JSON, nullable, description of differences)
+- reconciled_by (UUID, FK → users)
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, reconciliation_date DESC)
+
+TABLE: medication_adherence
+- adherence_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- medication_id (UUID, FK → medications)
+- tracking_period_start (DATE)
+- tracking_period_end (DATE)
+- days_supply_dispensed (INT)
+- medication_possession_ratio (DECIMAL 5,2, e.g., 92.5)
+- fill_count (INT)
+- adherence_status (ENUM: "excellent", "good", "fair", "poor")
+- last_fill_date (DATE)
+- next_expected_fill_date (DATE)
+- adherence_alert_sent (BOOLEAN)
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, medication_id, tracking_period_end)
+
+TABLE: pharmacy_integrations
+- integration_id (UUID, PK)
+- network_type (ENUM: "ncpdp", "hl7", "fax", "manual")
+- network_name (VARCHAR, e.g., "SureScripts", "Change Healthcare")
+- api_endpoint (VARCHAR, nullable)
+- authentication_method (ENUM: "oauth2", "api_key", "x509_certificate")
+- api_key (VARCHAR encrypted, nullable)
+- is_active (BOOLEAN)
+- last_sync_at (TIMESTAMP)
+- sync_status (ENUM: "active", "degraded", "offline")
+- created_at (TIMESTAMP)
+- INDEX: (network_type, is_active)
+
+TABLE: prescription_status_history
+- history_id (UUID, PK)
+- prescription_id (UUID, FK → prescriptions)
+- e_rx_id (UUID, FK → e_prescriptions)
+- previous_status (VARCHAR)
+- new_status (VARCHAR)
+- status_change_timestamp (TIMESTAMP)
+- status_change_reason (VARCHAR, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (prescription_id, status_change_timestamp DESC)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 E-PRESCRIBING API
+
+POST /api/v1/pharmacy/e-prescribe
+Request:
+{
+  "prescription_id": "uuid",
+  "patient_id": "uuid",
+  "pharmacy_id": "uuid"
+}
+Response:
+{
+  "e_rx_id": "uuid",
+  "transmission_status": "transmitted",
+  "transmission_timestamp": "2026-01-31T10:30:00Z"
+}
+
+GET /api/v1/pharmacy/e-prescribe/{e_rx_id}/status
+Response:
+{
+  "transmission_status": "acknowledged",
+  "fill_status": "ready",
+  "estimated_pickup_time": "2 hours"
+}
+
+4.2 PHARMACY NETWORK API
+
+GET /api/v1/pharmacy/network/search
+Query: location (zipcode or address), radius (miles)
+Response: List of nearby pharmacies with fill times
+
+GET /api/v1/pharmacy/network/{pharmacy_id}/inventory
+Query: drug_name
+Response:
+{
+  "pharmacy_id": "uuid",
+  "drug": "Lisinopril 10mg",
+  "availability": "in_stock",
+  "estimated_fill_time": 120
+}
+
+4.3 IN-HOUSE DISPENSING API
+
+POST /api/v1/pharmacy/dispense
+Request:
+{
+  "prescription_id": "uuid",
+  "medication_id": "uuid",
+  "quantity": 30,
+  "lot_number": "LOT-12345"
+}
+Response:
+{
+  "dispense_id": "uuid",
+  "status": "dispensed",
+  "patient_instruction_sheet_url": "..."
+}
+
+4.4 REFILL REQUEST API
+
+POST /api/v1/pharmacy/refills/request
+Body:
+{
+  "prescription_id": "uuid",
+  "patient_id": "uuid",
+  "reason": "Patient requested refill"
+}
+Response: Refill request queued for doctor review
+
+GET /api/v1/pharmacy/refills/pending
+Response: List of pending refill requests requiring approval
+
+PUT /api/v1/pharmacy/refills/{refill_id}/approve
+PUT /api/v1/pharmacy/refills/{refill_id}/deny
+
+4.5 RECONCILIATION & ADHERENCE API
+
+POST /api/v1/pharmacy/reconciliation
+Body:
+{
+  "patient_id": "uuid",
+  "patient_reported_medications": [...]
+}
+Response: Reconciliation report with discrepancies
+
+GET /api/v1/pharmacy/adherence/{patient_id}
+Response: Adherence metrics for all medications
+
+4.6 PHARMACY PORTAL API
+
+GET /api/v1/pharmacy/patient-portal/prescriptions
+Response: Patient's active prescriptions with status
+
+GET /api/v1/pharmacy/patient-portal/refill-status
+Response: Status of refill requests and auto-refills
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 NCPDP E-PRESCRIBING STANDARDS
+- NCPDP standards compliance (industry standard for e-prescribing)
+- NCPDP network connectivity (SureScripts, Surescripts endpoints)
+- Transmission format: XML or HL7v2
+- Security: SSL/TLS encryption, digital signatures
+- Timeout: Handles delays gracefully, retries if transmission fails
+
+5.2 PHARMACY NETWORK CONNECTIONS
+- Direct connection to major pharmacy chains API (CVS, Walgreens if available)
+- Fallback: NCPDP network for non-API pharmacies
+- Real-time inventory checking (if pharmacy supports)
+- Pharmacy hours and holiday calendars maintained
+
+5.3 INTEGRATION WITH INTERNAL SYSTEMS
+- Prescription System (Task 22): Triggered on prescription ISSUED
+- Inventory System (Task 26): Decrement in-house inventory on dispense
+- Patient Portal: Display prescription status and refill options
+- Notifications: SMS/email on status changes
+
+5.4 COMPLIANCE & SECURITY
+- DEA compliance: Controlled substance transmission verification
+- HIPAA: Prescription data encryption, access logging
+- Data retention: 7-year retention per DEA requirements
+- Audit trails: Complete transaction history
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 DAILY WORKFLOW
+- Morning: Check for pending refills, auto-approvals for chronic meds
+- Throughout day: Process new prescriptions, transmit via e-prescribe
+- Mid-day: Monitor transmission acknowledgments
+- End-day: Generate dispensing summary, patient notifications
+
+6.2 WEEKLY WORKFLOW
+- Pharmacy performance review (fill rates, errors)
+- Adherence monitoring for high-risk patients
+- Inventory review (in-house pharmacy)
+
+6.3 MONTHLY WORKFLOW
+- Pharmacy reconciliation with network partners
+- Quality metrics review
+- Compliance audit (controlled substance tracking)
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (20+ test cases):
+- E-prescribe message formatting
+- Pharmacy network search algorithm
+- In-house inventory decrement logic
+- Refill request approval workflow
+- Medication reconciliation logic
+- Adherence ratio calculations
+
+Integration Tests (18+ test cases):
+- End-to-end e-prescribe workflow
+- NCPDP network transmission and response
+- Pharmacy status update polling
+- In-house dispensing with inventory integration
+- Refill request routing to doctor queue
+- Patient notification triggers
+- Adherence alert generation
+
+Performance Tests (6+ test cases):
+- E-prescribe transmission latency (<5 seconds)
+- Pharmacy inventory search (<3 seconds)
+- Daily refill processing (1000 refills <30 seconds)
+- Adherence calculations (1000 patients <1 minute)
+
+Edge Cases (8+ test cases):
+- E-prescribe retry on network failure
+- Pharmacy offline/unavailable handling
+- In-house inventory insufficient (fallback to retail)
+- Controlled substance transmission verification
+- Patient allergy/interaction alerts
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. E-prescribe transmission success rate >99%
+2. Pharmacy status updates in real-time (<5 minute latency)
+3. In-house dispensing integration with inventory system
+4. Refill approval workflow within 2 hours
+5. Patient notifications sent within 5 minutes of status change
+6. Support for 50,000+ retail pharmacies nationwide
+7. Medication reconciliation accuracy >95%
+8. Adherence tracking for 100% of active medications
+9. NCPDP compliance verified
+10. DEA controlled substance tracking auditable
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Pharmacy network directory (50,000+ pharmacies)
+2. E-prescribing integration (NCPDP compliance)
+3. Prescription status tracking system
+4. In-house pharmacy dispensing workflow
+5. Inventory synchronization with Task 26
+6. Refill request management (automatic + manual)
+7. Medication reconciliation tools
+8. Adherence tracking and analytics
+9. Patient notification system
+10. API endpoints (18 total)
+11. Compliance and audit logging
+
+Dependencies:
+- Task 1-10 (Phase 0): Foundation, API layer
+- Task 22 (Prescription System): Prescription data and workflow
+- Task 26 (Inventory Management): In-house pharmacy inventory
+
+Blockers For:
+- Task 28 (Analytics: pharmacy data needed)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design & Architecture: 4 hours
+- NCPDP integration planning
+- Pharmacy network architecture
+- In-house dispensing workflow design
+
+Development: 22 hours
+- NCPDP e-prescribe integration (6h)
+- Pharmacy network connectivity (4h)
+- In-house dispensing workflow (4h)
+- Refill management and auto-approval (3h)
+- Adherence tracking and reconciliation (5h)
+
+Testing: 7 hours
+- Unit tests (2h)
+- Integration tests with NCPDP (3h)
+- In-house dispensing tests (1h)
+- Adherence and reconciliation tests (1h)
+
+Documentation: 2 hours
+- Integration guide
+- Workflow documentation
+- Compliance documentation
+
+Contingency: 1 hour (5%)
+
+Total: 36 hours (1 developer, 1+ week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: NCPDP network unavailability or delays
+Mitigation: Fallback to fax/print, queue system for retry
+
+Risk: Pharmacy inventory data outdated
+Mitigation: Real-time checking where available, user override option
+
+Risk: Patient medication adherence poor despite system tracking
+Mitigation: Clinical staff follow-up, behavioral interventions
+
+Risk: Controlled substance tracking compliance
+Mitigation: Automated compliance checks, monthly DEA audits
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- E-prescribe success rate: >99%
+- Pharmacy fill rate: >95% within estimated time
+- Patient satisfaction: >4.5/5 stars
+- Medication reconciliation accuracy: >95%
+- Adherence improvement: 20% increase over baseline
+- In-house dispensing utilization: 30% of applicable medications
+- Prescription error rate: <0.1%
+- DEA compliance: 100% audit trail coverage
+
+================================================================================

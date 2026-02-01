@@ -1,0 +1,408 @@
+================================================================================
+TASK: Authentication & Authorization System
+Module: CORE - SECURITY
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Blocks all user access)
+Duration: 5-7 days
+Effort: 25 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement a comprehensive authentication and authorization system supporting
+multi-tenant clinic access, role-based access control (RBAC), and HIPAA/GDPR
+compliance requirements.
+
+BUSINESS LOGIC
+--------------
+User Roles in Clinic System:
+
+1. SUPER ADMIN (SaaS Platform Level)
+   - Platform administration
+   - Clinic management
+   - Billing oversight
+   - System monitoring
+   - Cannot access clinic data directly
+
+2. CLINIC ADMIN (Per-Clinic)
+   - Full control of clinic
+   - Staff management
+   - Configuration
+   - Billing reconciliation
+   - Access to all clinic data
+
+3. DOCTOR / PRACTITIONER
+   - View own patients
+   - Create/update medical records
+   - Write prescriptions
+   - View appointments
+   - Limited access scope
+
+4. NURSE / CLINICAL STAFF
+   - View assigned patients
+   - Record vitals/observations
+   - Assist with appointments
+   - View patient history
+   - Limited write access
+
+5. RECEPTIONIST / FRONT DESK
+   - Manage appointments
+   - Patient scheduling
+   - Check-in/check-out
+   - Insurance verification
+   - No clinical access
+
+6. PATIENT (Self-Service Portal)
+   - View own records
+   - Book appointments
+   - Message clinic
+   - Request prescriptions
+   - Billing information
+
+7. BILLING STAFF
+   - Manage invoices
+   - Process payments
+   - Insurance claims
+   - Revenue reports
+   - No clinical access
+
+Authentication Flow:
+1. User provides email + password
+2. System validates credentials
+3. Verify clinic_id/tenant_id association
+4. Generate JWT with claims (user_id, clinic_id, roles, permissions)
+5. Return access_token + refresh_token
+6. Client includes token in Authorization header
+7. API validates JWT on every request
+8. Check permissions against required scope
+
+SESSION MANAGEMENT
+------------------
+Access Token:
+- Duration: 15 minutes
+- Claims: user_id, tenant_id, clinic_id, roles, permissions_hash
+- Signing: RS256 (asymmetric)
+- Validation: On every API request
+
+Refresh Token:
+- Duration: 30 days
+- Stored: Secure HTTP-only cookie (or encrypted localStorage)
+- Rotation: Issue new refresh token on each use
+- Revocation: On logout, password change, role change
+
+Multi-Clinic Access:
+- User can belong to multiple clinics
+- Token includes primary clinic_id
+- API allows clinic_id in request header to switch context
+- Audit log tracks clinic context
+
+PERMISSION STRUCTURE
+--------------------
+Granular Permissions (NOT roles):
+- patient:read:own
+- patient:read:all
+- patient:write
+- patient:delete
+- medical_record:read:own
+- medical_record:read:all
+- medical_record:write
+- appointment:read
+- appointment:write
+- appointment:delete
+- prescription:read
+- prescription:write
+- prescription:approve (doctors only)
+- invoice:read:own
+- invoice:read:all
+- staff:read
+- staff:write
+- staff:delete
+- clinic:configure
+- clinic:delete
+- analytics:read
+- audit_logs:read
+- audit_logs:delete
+
+Role → Permission Mapping:
+SUPER_ADMIN: all permissions
+CLINIC_ADMIN: all clinic-scoped permissions
+DOCTOR: patient:read, medical_record:read/write, appointment:read, prescription:write/approve
+NURSE: patient:read, medical_record:read, appointment:read, vital_signs:write
+RECEPTIONIST: appointment:read/write, patient:read, check_in:write
+PATIENT: patient:read:own, appointment:read:own, appointment:write
+BILLING: invoice:read/write, payment:read/write, claims:read/write
+
+MULTI-FACTOR AUTHENTICATION (MFA)
+---------------------------------
+Optional but Recommended for HIPAA:
+- SMS-based OTP (6 digits, 5-minute validity)
+- TOTP/Authenticator app (Google Authenticator, Authy)
+- Backup codes (10 single-use codes for account recovery)
+- Enforce MFA for clinic admins (mandatory)
+- Optional MFA for clinical staff
+
+MFA Flow:
+1. User enters email + password
+2. System validates credentials
+3. If MFA enabled, send OTP/prompt authenticator
+4. User enters OTP
+5. System validates OTP
+6. Issue JWT token
+
+PASSWORD POLICY
+---------------
+✓ Minimum 12 characters
+✓ Must include: uppercase, lowercase, number, special character
+✓ Cannot reuse last 5 passwords
+✓ Expiration: 90 days (reminder at 80 days)
+✓ Account lockout: 5 failed attempts → 30-minute lockout
+✓ Lockout alerts: Send email on lockout attempt
+
+PASSWORD RESET FLOW
+------------------
+1. User clicks "Forgot Password"
+2. Enter email address
+3. System generates 24-hour reset token
+4. Send reset link via email
+5. User clicks link, enters new password
+6. System validates token, updates password
+7. All active sessions invalidated
+8. User logs in with new password
+9. Log password reset event (audit trail)
+
+SOCIAL LOGIN (OPTIONAL, LATER PHASES)
+------------------------------------
+Consider integrating:
+- Google OAuth2 (for ease of use)
+- Microsoft Azure AD (for enterprise)
+- Apple Sign-In (for iOS)
+Each requires additional configuration per clinic
+
+DATA INVOLVED
+-------------
+- Users table (with multi-clinic mapping)
+- Roles table (definition)
+- Permissions table (definition)
+- Role_Permissions junction table
+- User_Roles junction table
+- Sessions/tokens table (for tracking)
+- Password history table
+- MFA settings per user
+- Audit logs (all auth events)
+
+USER TABLE SCHEMA
+----------------
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  phone VARCHAR(20),
+  status ENUM('active', 'inactive', 'suspended', 'deleted'),
+  is_mfa_enabled BOOLEAN DEFAULT FALSE,
+  mfa_method ENUM('sms', 'totp', null),
+  mfa_phone VARCHAR(20),
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  last_login TIMESTAMP,
+  password_changed_at TIMESTAMP,
+  
+  -- Constraints
+  UNIQUE(tenant_id, email),
+  INDEX idx_email (email),
+  INDEX idx_tenant_id (tenant_id)
+);
+
+CREATE TABLE user_clinic_assignments (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id),
+  clinic_id UUID NOT NULL,
+  tenant_id UUID NOT NULL,
+  is_primary BOOLEAN DEFAULT FALSE,
+  assigned_at TIMESTAMP,
+  INDEX idx_user_clinic (user_id, clinic_id)
+);
+
+SECURITY CONSIDERATIONS
+-----------------------
+✓ Password Hashing: bcrypt with salt rounds 12 (NOT plain SHA)
+✓ Token Signing: RS256 (RSA, not HS256)
+✓ Token Storage: HTTP-only cookies for web (not localStorage)
+✓ CSRF Protection: SameSite=Strict cookie flag
+✓ Rate Limiting: Max 10 login attempts per IP per 5 minutes
+✓ Session Tracking: Track active sessions, allow logout from all devices
+✓ OAuth2 Scope: Request minimum necessary scopes
+✓ API Key Security: For service-to-service, use strong random keys
+✓ Token Expiration: Short-lived tokens (15 min) + refresh token rotation
+✓ Secure Logout: Invalidate token server-side (Redis blacklist)
+✓ Email Verification: Verify email on signup (prevent spam accounts)
+✓ Account Recovery: Secure process, time-limited recovery tokens
+
+COMPLIANCE REQUIREMENTS
+----------------------
+HIPAA:
+- ✓ Access logging (who accessed what when)
+- ✓ Session logging (login/logout events)
+- ✓ Role-based access enforcement
+- ✓ Password policies meet HIPAA standards
+- ✓ Automatic logout after 15 minutes inactivity
+- ✓ MFA strongly recommended
+- ✓ No shared login credentials (1 user = 1 login)
+
+GDPR:
+- ✓ User can export their authentication data
+- ✓ User can delete their account (with clinic approval)
+- ✓ Audit trail of all auth events
+- ✓ Consent for data processing
+- ✓ Right to rectification (update email/profile)
+
+AUDIT LOGGING
+-------------
+Log all authentication events:
+- User login attempt (success/failure, IP, timestamp)
+- User logout
+- Password change
+- Password reset request
+- MFA enabled/disabled
+- Role changes
+- Permission changes
+- Failed permission attempts (attempted unauthorized access)
+- Session creation/destruction
+- Token refresh
+- Account lockout
+
+Log Entry Format:
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "event_type": "login_success|login_failure|...",
+  "user_id": "uuid",
+  "tenant_id": "uuid",
+  "ip_address": "192.168.1.1",
+  "user_agent": "...",
+  "details": {...},
+  "status": "success|failure"
+}
+
+TESTING STRATEGY
+---------------
+Authentication Tests:
+[ ] Valid login returns valid JWT
+[ ] Invalid password rejected
+[ ] Non-existent user rejected
+[ ] Inactive user cannot login
+[ ] Deleted user cannot login
+[ ] Email verification required before login
+[ ] Multiple login attempts trigger lockout
+[ ] Correct password unlocks after lockout period
+[ ] Password reset link expires after 24 hours
+[ ] Password reset invalidates active sessions
+[ ] MFA code required if enabled
+[ ] Invalid MFA code rejected
+[ ] MFA code expires after 5 minutes
+[ ] Backup code works as fallback
+[ ] Multiple clinic assignments work correctly
+[ ] User can switch between clinics
+[ ] Refresh token rotates on use
+[ ] Token expiration tested (15 min, 30 day)
+[ ] Logout invalidates token
+[ ] Expired token rejected on API calls
+[ ] Invalid JWT signature rejected
+[ ] Modified JWT payload rejected
+
+Authorization Tests:
+[ ] User cannot access other clinic's data
+[ ] User cannot escalate own permissions
+[ ] Receptionist cannot write prescriptions
+[ ] Doctor cannot delete patients
+[ ] Patient can only see own records
+[ ] Deleted role doesn't grant permissions
+[ ] Permission change takes immediate effect
+[ ] Admin can revoke user access
+[ ] Permission denial logged to audit
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] JWT-based authentication fully implemented
+[ ] Multi-tenant isolation enforced in auth
+[ ] Role-based access control (RBAC) working
+[ ] Granular permissions system functional
+[ ] MFA system implemented and tested
+[ ] Password policies enforced
+[ ] Account lockout mechanism works
+[ ] Password reset flow complete and secure
+[ ] Audit logging captures all auth events
+[ ] Session management allows logout-all
+[ ] Refresh token rotation working
+[ ] All auth tests passing (25+ test cases)
+[ ] HIPAA compliance verified
+[ ] GDPR compliance verified
+[ ] Rate limiting on login endpoint
+[ ] Security review completed and approved
+
+DELIVERABLES
+-----------
+1. Authentication System Architecture Document
+2. JWT Token Structure & Validation Code
+3. RBAC Permission Definition Schema
+4. Database Migrations (users, roles, permissions tables)
+5. Authentication Middleware/Decorator
+6. Login/Logout/Reset Endpoints (API)
+7. MFA Implementation (SMS + TOTP)
+8. Audit Logging Integration
+9. Test Suite (50+ test cases)
+10. Security Guidelines for Developers
+
+DEPENDENCIES
+-----------
+BLOCKING: Multi-tenant architecture, Database schema
+BLOCKS: All API endpoints, User-facing features, Clinic access
+
+RELATED TASKS
+-----------
+- Multi-tenant architecture
+- Database schema design
+- API layer design
+- Audit logging system
+- Security & compliance architecture
+
+MIGRATION NOTES
+---------------
+For existing systems migrating to this platform:
+- Need to handle user import/mapping
+- Password reset required for all imported users
+- New audit trail starts from migration date
+- Roles need to be manually mapped from old system
+- Consider gradual rollout with legacy system parallel running
+
+DEPLOYMENT CONSIDERATIONS
+------------------------
+Pre-Production:
+- [ ] Load test authentication (>1000 concurrent logins)
+- [ ] Test token generation at scale
+- [ ] Verify MFA SMS delivery SLA
+- [ ] Test failure scenarios (DB down, Redis down)
+- [ ] Verify audit log performance impact
+- [ ] Security pen test on auth endpoints
+
+Production:
+- [ ] Monitor login failures (spike could indicate attack)
+- [ ] Monitor token generation latency
+- [ ] Track failed permission checks (policy changes?)
+- [ ] Monitor MFA SMS failure rate
+- [ ] Regular audit log archival
+- [ ] Quarterly password policy review
+
+NOTES
+-----
+CRITICAL: Authentication is foundational - do not cut corners.
+This system must support both web and mobile clients.
+Plan for OAuth2/OpenID Connect integration in future phases.
+Consider implementing "Step-Up Authentication" for sensitive operations.
+
+Timeline: Week 1-2 of Phase 0
+Priority: CRITICAL (without this, no one can access system)
+
+STATUS: Ready for implementation
+================================================================================

@@ -1,0 +1,256 @@
+================================================================================
+TASK: Multi-Tenant Architecture Design
+Module: CORE - ARCHITECTURE & INFRASTRUCTURE
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Affects all subsequent development)
+Duration: 5-7 days
+Effort: 20 hours
+================================================================================
+
+OBJECTIVE
+---------
+Design and document the complete multi-tenant architecture that will isolate 
+clinic data while sharing infrastructure efficiently. This is foundational and 
+cannot be retrofitted later.
+
+BUSINESS LOGIC
+--------------
+Multi-Tenancy Strategy:
+- One "tenant" = one clinic (or healthcare organization)
+- Complete logical and physical isolation of tenant data
+- Shared infrastructure for cost efficiency
+- Per-tenant configuration (branding, workflows, integrations)
+
+Isolation Approach (Choose ONE):
+1. SHARED DATABASE + ROW-LEVEL SECURITY (RLS)
+   ✓ Cost efficient
+   ✓ Easier backup/restore
+   ✓ Simpler infrastructure
+   ✗ More complex query security
+   ✗ Risk of data leakage if RLS fails
+   Recommended for: <500 clinics
+
+2. SEPARATE SCHEMAS PER TENANT (Same DB)
+   ✓ Better isolation
+   ✓ Per-tenant migrations
+   ✓ Backup per tenant
+   ✗ More database overhead
+   ✗ Harder to query across tenants
+   Recommended for: 500-2000 clinics
+
+3. SEPARATE DATABASES PER TENANT
+   ✓ Maximum isolation
+   ✓ Per-tenant backups
+   ✓ Per-tenant scaling
+   ✗ Very high operational complexity
+   ✗ Expensive infrastructure
+   Recommended for: Enterprise, >2000 clinics
+
+Tenant Isolation Strategy:
+- tenant_id in EVERY table (primary key component)
+- Enforce tenant_id in all queries (application + database level)
+- Row-level security policies (PostgreSQL: POLICY, MySQL: VIEW-based)
+- Separate storage buckets per tenant (for documents/files)
+- Separate Redis keys per tenant
+- API authentication returns tenant_id, used in all queries
+
+DATA INVOLVED
+-----------
+- Database schema design with tenant partitioning
+- Authentication/Authorization tenant binding
+- API request middleware (tenant_id injection)
+- Database connection pooling strategy
+- File storage organization
+- Cache key naming conventions
+- Backup and recovery procedures
+- Performance testing data
+
+ARCHITECTURE DECISION TREE
+-------------------------
+
+Decision 1: Database Isolation Strategy
+├── Option A: Shared Database + RLS [RECOMMENDED for MVP]
+│   ├── PostgreSQL with POLICY
+│   ├── Application-level tenant_id injection
+│   └── Cost: Low Infrastructure
+│
+├── Option B: Separate Schemas per Tenant
+│   ├── Same database, schema per tenant
+│   ├── Dynamic schema selection per connection
+│   └── Cost: Medium Infrastructure
+│
+└── Option C: Separate Databases per Tenant
+    ├── Tenant registry for connection strings
+    ├── Database-per-tenant routing
+    └── Cost: High Infrastructure
+
+Decision 2: Tenant Identification Method
+├── Option A: JWT Token contains tenant_id
+├── Option B: Subdomain routing (clinic1.app.com)
+├── Option C: Path-based routing (/api/clinic1/...)
+└── Option D: Header-based (X-Tenant-ID header)
+
+Decision 3: Authentication Model
+├── Option A: Each tenant has own auth database (complex)
+├── Option B: Shared auth DB + tenant_id mapping [RECOMMENDED]
+└── Option C: OAuth2 per tenant integration
+
+SECURITY CONSIDERATIONS
+-----------------------
+✓ Cross-Tenant Queries: Prevent queries that don't filter by tenant_id
+✓ Audit Logging: Log all cross-tenant attempts (security breach indicator)
+✓ API Security: Never expose multi-tenant queries to external APIs
+✓ Data Leakage: Row-level security must be enforced at database level
+✓ Migration Safety: Ensure migrations don't break multi-tenancy
+✓ Backup Security: Ensure backups are encrypted and tenant-isolated
+✓ Staff Access: Limit staff access to their clinic's data only
+
+COMPLIANCE REQUIREMENTS
+----------------------
+HIPAA:
+- ✓ Strict access controls (tenant isolation is form of access control)
+- ✓ Audit trails per tenant
+- ✓ Encrypted inter-tenant communication
+- ✓ Separate audit logs per tenant
+
+GDPR:
+- ✓ Ability to export tenant's data
+- ✓ Ability to delete tenant's data (right to erasure)
+- ✓ Data residency controls (per-tenant)
+- ✓ No unintended data sharing between tenants
+
+DATABASE SCHEMA PATTERN
+-----------------------
+All tables MUST follow this pattern:
+
+CREATE TABLE <entity> (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
+  created_by UUID NOT NULL,
+  updated_by UUID NOT NULL,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  -- entity-specific fields
+  
+  -- CRITICAL: Ensure tenant_id is indexed
+  INDEX idx_tenant_id (tenant_id),
+  
+  -- RECOMMENDED: Composite index for common queries
+  INDEX idx_tenant_created (tenant_id, created_at DESC)
+);
+
+-- ROW-LEVEL SECURITY (PostgreSQL)
+ALTER TABLE <entity> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON <entity>
+  USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+
+API MIDDLEWARE PATTERN
+---------------------
+For EVERY API request:
+1. Extract tenant_id from JWT token (or auth header)
+2. Validate tenant_id exists
+3. Validate user has access to tenant_id
+4. Inject tenant_id into all database queries
+5. Log request with tenant_id
+6. Return only tenant-scoped data
+
+Example (Node.js):
+```
+app.use((req, res, next) => {
+  const tenantId = req.user.tenant_id;
+  if (!tenantId) return res.status(403).json({ error: 'No tenant' });
+  
+  // Inject into all queries
+  req.tenantId = tenantId;
+  req.db.query = wrapQuery(req.db.query, tenantId);
+  next();
+});
+```
+
+TESTING STRATEGY
+---------------
+Critical multi-tenant tests:
+[ ] User from Clinic A cannot see Clinic B data
+[ ] Query without tenant_id filter returns error
+[ ] RLS policy blocks row access for wrong tenant
+[ ] Backup contains only tenant-specific data
+[ ] User switching tenants updates tenant_id properly
+[ ] Cross-tenant API calls are blocked
+[ ] Audit logs track tenant boundaries
+[ ] Performance doesn't degrade with multiple tenants
+[ ] Data isolation survives connection pooling
+
+PERFORMANCE CONSIDERATIONS
+--------------------------
+- tenant_id should be first column in composite indexes
+- Partition large tables by tenant_id for very large deployments
+- Cache tenant config per connection
+- Connection pooling per tenant (if using separate DBs)
+- Query planning must account for tenant_id filter
+
+MIGRATION STRATEGY
+------------------
+1. Add tenant_id column to all existing tables (backfill with default tenant)
+2. Create tenants table to manage tenant metadata
+3. Implement RLS policies
+4. Update application code to inject tenant_id
+5. Test thoroughly before production
+6. Monitor for any cross-tenant queries
+
+MONITORING & ALERTING
+---------------------
+[ ] Alert on any query with NULL tenant_id
+[ ] Alert on any attempted cross-tenant access
+[ ] Monitor queries that don't have tenant_id in WHERE clause
+[ ] Log all tenant creation/deletion
+[ ] Track per-tenant database size growth
+[ ] Monitor per-tenant query performance
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Multi-tenancy strategy document approved
+[ ] Database schema includes tenant_id on all tables
+[ ] RLS policies implemented and tested
+[ ] API middleware enforces tenant_id injection
+[ ] No query returns data from multiple tenants
+[ ] All tests pass (especially multi-tenant isolation tests)
+[ ] Documentation for developers on multi-tenancy patterns
+[ ] Performance baseline established
+[ ] Backup/restore validates tenant isolation
+[ ] Security review completed and approved
+
+DELIVERABLES
+-----------
+1. Multi-Tenancy Architecture Document (5-7 pages)
+2. Database Schema Template with tenant_id pattern
+3. API Middleware Implementation (sample code)
+4. RLS/Security Policy Definitions (SQL scripts)
+5. Multi-Tenancy Testing Guide (test cases)
+6. Operational Procedures (backup, migration, monitoring)
+7. Developer Guidelines (how to write multi-tenant code)
+8. Performance Testing Results (baseline)
+
+DEPENDENCIES
+-----------
+BLOCKING: Database design, Authentication system
+BLOCKS: All other feature development
+
+RELATED TASKS
+-----------
+- Database schema design
+- Authentication & authorization system
+- API layer design
+- Security & compliance architecture
+
+NOTES
+-----
+CRITICAL: This task must be completed and reviewed before any production code
+is written. Multi-tenant isolation cannot be retrofitted.
+
+Timeline: Start this IMMEDIATELY in Phase 0
+Priority: This is one of 3 critical tasks (with Auth, DB)
+Risk: Highest risk if done incorrectly
+
+STATUS: Ready for implementation
+================================================================================

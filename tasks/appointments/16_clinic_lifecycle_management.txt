@@ -1,0 +1,695 @@
+================================================================================
+TASK: Clinic Lifecycle Management - Scheduling Infrastructure
+Module: Appointments - Core
+Phase: PHASE 1 (Features)
+Priority: CRITICAL (Foundation for all scheduling)
+Duration: 6-7 days
+Effort: 32 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement clinic management system covering clinic setup, operating hours,
+resource management, and scheduling configuration that forms the foundation
+for appointment scheduling.
+
+BUSINESS LOGIC
+--------------
+Clinic Lifecycle Purpose:
+
+Before patients can book appointments, the system must know:
+1. Which clinics exist (in multi-tenant system)
+2. When each clinic operates (hours, holidays)
+3. What resources are available (doctors, rooms, equipment)
+4. How long different types of visits take
+5. What appointment types are offered
+6. How appointments flow through the clinic
+
+Clinic Operations Model:
+
+Clinic = Facility with doctors, rooms, and schedules
+│
+├─ Operates: Monday-Friday, 8am-5pm
+├─ Has Doctors: Dr. Smith, Dr. Johnson, Dr. Lee
+├─ Has Rooms: Exam Room 1, Exam Room 2, Procedure Room
+├─ Offers Services: General visit (30 min), Procedure (60 min), Consultation (45 min)
+├─ Has Patients: Patient database
+└─ Books Appointments: Requests → Confirmations → Completions
+
+Patient Flow Through Clinic:
+
+1. PATIENT ARRIVES
+   - Check-in at reception
+   - Form verification (insurance, consent)
+   - Vital signs recorded
+   - Wait in lobby
+
+2. SEE DOCTOR
+   - Doctor calls patient
+   - Enter exam room
+   - Doctor performs visit
+   - Discuss treatment plan
+
+3. FOLLOW-UP
+   - Prescriptions given
+   - Appointment scheduled (follow-up)
+   - Patient checks out
+   - Billing processed
+
+CLINIC SETUP & CONFIGURATION
+---------------------------
+Every clinic must be configured with:
+
+1. BASIC INFORMATION
+   ├─ Clinic name (e.g., "Downtown Family Medicine")
+   ├─ Legal name (for billing)
+   ├─ Tax ID / NPI (for insurance billing)
+   ├─ Contact info (phone, fax, email)
+   ├─ Address (street, city, state, zip)
+   ├─ Website
+   ├─ Languages spoken
+   └─ Timezone
+
+2. OPERATING HOURS
+   ├─ Monday: 8:00am - 5:00pm
+   ├─ Tuesday: 8:00am - 5:00pm
+   ├─ Wednesday: 8:00am - 5:00pm
+   ├─ Thursday: 8:00am - 5:00pm
+   ├─ Friday: 8:00am - 5:00pm
+   ├─ Saturday: 9:00am - 1:00pm (Optional)
+   └─ Sunday: Closed
+
+3. HOLIDAYS & CLOSURES
+   ├─ Jan 1: New Year's Day (closed all day)
+   ├─ Dec 25: Christmas (closed all day)
+   ├─ July 4: Independence Day (closed all day)
+   ├─ Thanksgiving: Nov 23-24 (closed)
+   └─ Custom closure: Building renovation March 15-25
+
+4. APPOINTMENT TYPES
+   ├─ General Visit
+   │  ├─ Duration: 30 minutes
+   │  ├─ Buffer time: 5 minutes
+   │  ├─ Resources: 1 doctor, 1 exam room
+   │  └─ Description: Standard office visit for routine care
+   │
+   ├─ Follow-up Visit
+   │  ├─ Duration: 20 minutes
+   │  ├─ Buffer time: 5 minutes
+   │  ├─ Resources: 1 doctor, 1 exam room
+   │  └─ Description: Follow-up for existing condition
+   │
+   ├─ Procedure
+   │  ├─ Duration: 60 minutes
+   │  ├─ Buffer time: 10 minutes
+   │  ├─ Resources: 1 doctor, 1 procedure room, 1 nurse
+   │  └─ Description: Minor medical procedure
+   │
+   ├─ Consultation
+   │  ├─ Duration: 45 minutes
+   │  ├─ Buffer time: 5 minutes
+   │  ├─ Resources: 1 specialist, 1 exam room
+   │  └─ Description: Specialist consultation
+   │
+   └─ Telehealth Visit
+      ├─ Duration: 30 minutes
+      ├─ Buffer time: 2 minutes
+      ├─ Resources: 1 doctor, no physical room
+      └─ Description: Remote video consultation
+
+5. RESOURCES (DOCTORS, NURSES, ROOMS)
+   ├─ Staff
+   │  ├─ Doctor (can conduct any appointment type)
+   │  ├─ Nurse (assists doctors, conducts vitals)
+   │  ├─ Receptionist (administrative only)
+   │  └─ Technician (equipment operation)
+   │
+   ├─ Physical Resources
+   │  ├─ Exam Room (equipped with basic exam tools)
+   │  ├─ Procedure Room (equipped for minor procedures)
+   │  ├─ Waiting Area
+   │  └─ Lab/Testing Area (if applicable)
+   │
+   └─ Equipment
+      ├─ EKG machine
+      ├─ Ultrasound machine
+      └─ Blood pressure monitors
+
+6. CLINIC POLICIES
+   ├─ Patient Cancellation: Allowed until 24 hours before
+   ├─ Doctor Cancellation: Rescheduled automatically
+   ├─ No-show Policy: 3 no-shows → Warning letter
+   ├─ Buffer Time: 5-10 minutes between appointments
+   ├─ Overbooking: Allow 10% overbooking for peak times
+   └─ Waiting Time: Target max 15 minutes from appointment time
+
+CLINIC DATA MODEL
+-----------------
+Clinic Table Structure:
+
+CREATE TABLE clinics (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,  -- Multi-tenant support
+  name VARCHAR(255) NOT NULL,
+  legal_name VARCHAR(255),
+  npi VARCHAR(10),  -- National Provider Identifier
+  tax_id VARCHAR(20),  -- Tax ID for billing
+  phone VARCHAR(20),
+  fax VARCHAR(20),
+  email VARCHAR(255),
+  address_line1 VARCHAR(255),
+  address_line2 VARCHAR(255),
+  city VARCHAR(100),
+  state VARCHAR(50),
+  zip VARCHAR(10),
+  country VARCHAR(100),
+  timezone VARCHAR(50),  -- America/New_York, etc.
+  website VARCHAR(255),
+  status VARCHAR(50),  -- ACTIVE, INACTIVE, CLOSED
+  settings JSON,  -- Configurable settings
+  
+  created_at TIMESTAMP,
+  created_by UUID,
+  updated_at TIMESTAMP,
+  updated_by UUID,
+  is_deleted BOOLEAN
+);
+
+Operating Hours Table:
+
+CREATE TABLE clinic_hours (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,  -- FK to clinics
+  day_of_week INT,  -- 0=Sunday, 1=Monday, ... 6=Saturday
+  is_open BOOLEAN,
+  opening_time TIME,  -- 08:00
+  closing_time TIME,  -- 17:00
+  lunch_start TIME,  -- Optional: 12:00
+  lunch_end TIME,  -- Optional: 13:00
+  
+  UNIQUE(clinic_id, day_of_week)
+);
+
+Appointment Types Table:
+
+CREATE TABLE appointment_types (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  tenant_id UUID NOT NULL,
+  name VARCHAR(100),
+  description TEXT,
+  duration_minutes INT,  -- 30, 60, etc.
+  buffer_minutes_before INT,  -- 5, 10, etc.
+  buffer_minutes_after INT,
+  requires_room BOOLEAN,
+  requires_doctor BOOLEAN,
+  requires_nurse BOOLEAN,
+  color VARCHAR(7),  -- For UI calendar display #FF0000
+  status VARCHAR(50),  -- ACTIVE, INACTIVE
+  
+  created_at TIMESTAMP,
+  created_by UUID,
+  is_deleted BOOLEAN
+);
+
+STAFF & RESOURCE MANAGEMENT
+---------------------------
+Doctor/Staff Availability:
+
+Each doctor has:
+- Schedule (which days/times they work)
+- Specialties (general practice, cardiology, etc.)
+- Appointment types (which visit types they conduct)
+- Maximum patients per day
+- Leave/vacation periods
+
+Doctor Table:
+
+CREATE TABLE doctors (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  tenant_id UUID NOT NULL,
+  user_id UUID NOT NULL,  -- FK to users table
+  specialty VARCHAR(100),
+  npi VARCHAR(10),  -- National Provider Identifier
+  license_number VARCHAR(50),
+  license_state VARCHAR(50),
+  credentials TEXT,  -- MD, DO, etc.
+  max_patients_per_day INT,  -- Default: 20
+  accepting_new_patients BOOLEAN,
+  is_active BOOLEAN,
+  
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+Doctor Weekly Schedule:
+
+CREATE TABLE doctor_schedules (
+  id UUID PRIMARY KEY,
+  doctor_id UUID NOT NULL,  -- FK to doctors
+  week_start_date DATE,  -- Monday of week
+  
+  monday_start TIME,
+  monday_end TIME,
+  monday_is_working BOOLEAN,
+  
+  tuesday_start TIME,
+  tuesday_end TIME,
+  tuesday_is_working BOOLEAN,
+  
+  -- ... and so on for Wed-Sun
+  
+  UNIQUE(doctor_id, week_start_date)
+);
+
+Doctor Leave/Vacation:
+
+CREATE TABLE doctor_leaves (
+  id UUID PRIMARY KEY,
+  doctor_id UUID NOT NULL,
+  leave_type VARCHAR(50),  -- VACATION, SICK, TRAINING, CONFERENCE
+  start_date DATE,
+  end_date DATE,
+  reason TEXT,
+  status VARCHAR(50),  -- PENDING, APPROVED, REJECTED
+  
+  created_at TIMESTAMP
+);
+
+Physical Rooms:
+
+CREATE TABLE clinic_rooms (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  name VARCHAR(100),
+  room_number VARCHAR(20),
+  type VARCHAR(50),  -- EXAM, PROCEDURE, LAB, CONSULTATION
+  capacity INT,  -- Usually 1 (one exam table)
+  equipment TEXT,  -- List of equipment in room
+  is_available BOOLEAN,
+  
+  created_at TIMESTAMP
+);
+
+APPOINTMENT TYPE CONFIGURATIONS
+-------------------------------
+Example 1: General Office Visit
+{
+  "name": "General Office Visit",
+  "duration_minutes": 30,
+  "buffer_minutes_before": 5,
+  "buffer_minutes_after": 5,
+  "requires_room": true,
+  "requires_doctor": true,
+  "requires_nurse": false,
+  "description": "Standard office visit for routine care, acute illness, or checkup"
+}
+
+Timeline for General Visit:
+- 8:55am: Room cleaned/prepared (5 min buffer before)
+- 9:00am: Patient arrives, check-in at reception
+- 9:05am: Nurse takes vital signs
+- 9:10am: Doctor enters room, sees patient
+- 9:30am: Visit complete, patient checks out
+- 9:35am: Room cleaned (5 min buffer after)
+- 9:40am: Next appointment begins
+
+Example 2: Minor Procedure
+{
+  "name": "Minor Procedure",
+  "duration_minutes": 60,
+  "buffer_minutes_before": 10,
+  "buffer_minutes_after": 10,
+  "requires_room": true,
+  "requires_doctor": true,
+  "requires_nurse": true,
+  "description": "Minor surgical procedure (suturing, removal, etc.)"
+}
+
+Timeline for Procedure:
+- 10:50am: Procedure room setup (10 min before)
+- 11:00am: Patient arrives, pre-procedure prep
+- 11:05am: Procedure begins (doctor + nurse)
+- 12:00pm: Procedure complete, post-op monitoring
+- 12:10pm: Patient released, room cleaned (10 min after)
+- 12:20pm: Next appointment begins
+
+CLINIC POLICIES & SETTINGS
+--------------------------
+No-show Policy:
+
+CREATE TABLE clinic_policies (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  
+  -- Cancellation Policy
+  cancellation_allowed BOOLEAN,  -- true/false
+  hours_before_cancellation INT,  -- 24 hours
+  cancellation_fee DECIMAL,  -- Amount charged if late cancel
+  
+  -- No-show Policy
+  no_show_threshold INT,  -- After 3 no-shows
+  no_show_action VARCHAR(50),  -- WARN, SUSPEND, BLOCK
+  no_show_consequences TEXT,  -- "Patient placed on waiting list"
+  
+  -- Overbooking
+  allow_overbooking BOOLEAN,
+  overbooking_percentage INT,  -- 10% overbooking allowed
+  
+  -- Waiting Time
+  target_max_wait_minutes INT,  -- 15 minutes target
+  alert_if_wait_exceeds_minutes INT,  -- 20 minute alert
+  
+  created_at TIMESTAMP
+);
+
+Clinic Settings:
+
+{
+  "clinicId": "uuid-123",
+  "general": {
+    "timezone": "America/New_York",
+    "defaultLanguage": "en-US",
+    "currency": "USD"
+  },
+  "scheduling": {
+    "defaultBufferMinutes": 5,
+    "maxAdvanceBookingDays": 90,
+    "minAdvanceBookingHours": 1,
+    "allowPatientCancellation": true,
+    "cancelationNoticeDays": 1
+  },
+  "notifications": {
+    "reminderEmailBeforeHours": 24,
+    "reminderSmsBeforeHours": 2,
+    "sendConfirmationEmail": true,
+    "sendConfirmationSms": true
+  },
+  "capacity": {
+    "maxAppointmentsPerDay": 50,
+    "maxConcurrentAppointments": 5
+  }
+}
+
+CLINIC LIFECYCLE WORKFLOW
+------------------------
+Clinic Setup Process:
+
+1. CLINIC CREATION
+   Admin creates new clinic:
+   - Basic info (name, address, phone)
+   - Timezone
+   - Legal info (NPI, Tax ID)
+
+   API:
+   POST /clinics
+   {
+     "name": "Downtown Family Medicine",
+     "address": "123 Main St",
+     "city": "New York",
+     "state": "NY",
+     "zip": "10001",
+     "timezone": "America/New_York",
+     "npi": "1234567890"
+   }
+
+2. CONFIGURE OPERATING HOURS
+   Admin sets clinic hours:
+   - Monday-Friday: 8am-5pm
+   - Saturday: 9am-1pm
+   - Sunday: Closed
+
+   API:
+   POST /clinics/{clinicId}/hours
+   {
+     "dayOfWeek": 1,  // Monday
+     "isOpen": true,
+     "openingTime": "08:00",
+     "closingTime": "17:00",
+     "lunchStart": "12:00",
+     "lunchEnd": "13:00"
+   }
+
+3. SET UP HOLIDAYS
+   Admin enters clinic closure dates:
+
+   API:
+   POST /clinics/{clinicId}/holidays
+   {
+     "date": "2024-12-25",
+     "name": "Christmas",
+     "isFullDay": true
+   }
+
+4. CONFIGURE APPOINTMENT TYPES
+   Admin defines appointment types offered:
+   - General visit (30 min)
+   - Follow-up (20 min)
+   - Procedure (60 min)
+   - Telehealth (30 min)
+
+   API:
+   POST /clinics/{clinicId}/appointment-types
+   {
+     "name": "General Office Visit",
+     "durationMinutes": 30,
+     "bufferMinutesBefore": 5,
+     "bufferMinutesAfter": 5
+   }
+
+5. REGISTER DOCTORS
+   Admin adds doctors to clinic:
+
+   API:
+   POST /clinics/{clinicId}/doctors
+   {
+     "userId": "uuid-doctor",
+     "specialty": "Family Medicine",
+     "npi": "1111111111",
+     "maxPatientsPerDay": 20
+   }
+
+6. SET DOCTOR SCHEDULES
+   Admin sets each doctor's weekly hours:
+
+   API:
+   POST /doctors/{doctorId}/schedules
+   {
+     "weekStartDate": "2024-01-08",
+     "monday": { "isWorking": true, "start": "08:00", "end": "17:00" },
+     "tuesday": { "isWorking": true, "start": "08:00", "end": "17:00" },
+     ... etc
+   }
+
+7. ADD CLINIC ROOMS
+   Admin registers physical rooms:
+
+   API:
+   POST /clinics/{clinicId}/rooms
+   {
+     "name": "Exam Room 1",
+     "type": "EXAM",
+     "equipment": ["thermometer", "stethoscope", "bp_monitor"]
+   }
+
+8. CONFIGURE POLICIES
+   Admin sets clinic policies:
+
+   API:
+   POST /clinics/{clinicId}/policies
+   {
+     "cancellationAllowed": true,
+     "hoursBeforreCancellation": 24,
+     "noShowThreshold": 3,
+     "targetMaxWaitMinutes": 15
+   }
+
+CLINIC STATUS & MANAGEMENT
+--------------------------
+Clinic Status Transitions:
+
+SETUP → ACTIVE → INACTIVE → CLOSED
+
+Setup Phase:
+- Clinic created but not yet operational
+- Doctors being added
+- Hours and policies being configured
+- No appointments can be booked yet
+
+Active Phase:
+- Clinic fully operational
+- Accepting appointment bookings
+- All systems functional
+- Patients can schedule
+
+Inactive Phase:
+- Temporary closure (renovation, staffing issue)
+- No new appointments
+- Existing appointments may be rescheduled
+- Can be reactivated
+
+Closed Phase:
+- Permanent closure
+- No appointments possible
+- Historical data retained (HIPAA compliance)
+
+Clinic Status API:
+
+GET /clinics/{clinicId}
+Returns:
+{
+  "id": "uuid-123",
+  "name": "Downtown Family Medicine",
+  "status": "ACTIVE",
+  "operatingHours": {...},
+  "doctors": [...],
+  "rooms": [...],
+  "appointmentTypes": [...],
+  "policies": {...},
+  "createdAt": "2024-01-01"
+}
+
+MULTI-CLINIC CONSIDERATIONS
+----------------------------
+Multi-Clinic Support:
+
+Many healthcare systems have multiple clinics:
+- Main clinic: Downtown location
+- Satellite clinic: Uptown location
+- Urgent care: 24-hour facility
+
+Each clinic:
+- Separate scheduling
+- Separate doctors (some may work at multiple clinics)
+- Separate policies
+- Separate resources
+- Separate appointments
+
+Data Model:
+
+clinics (many clinics per system)
+  └── Relationships:
+      ├─ doctors (many doctors per clinic, some doctors work at multiple)
+      ├─ appointment_types (many types per clinic)
+      ├─ clinic_rooms (many rooms per clinic)
+      └─ clinic_policies (one policy per clinic)
+
+API Design:
+
+GET /clinics → List all clinics
+GET /clinics/{clinicId}/doctors → Doctors at specific clinic
+GET /clinics/{clinicId}/schedule → Schedule for specific clinic
+
+TESTING STRATEGY
+----------------
+Clinic Setup Tests:
+
+[ ] Clinic created with valid data
+[ ] Clinic created with invalid data rejected (missing NPI, etc.)
+[ ] Operating hours set correctly
+[ ] Holidays configured
+[ ] Appointment types created
+[ ] Doctors registered
+[ ] Doctor schedules set
+[ ] Rooms added
+[ ] Policies configured
+[ ] Clinic status transitions correctly (SETUP → ACTIVE)
+
+Operating Hours Tests:
+
+[ ] Clinic open during operating hours
+[ ] Clinic closed outside operating hours
+[ ] Weekend correctly configured
+[ ] Lunch break correctly configured
+[ ] Holiday correctly blocks scheduling
+[ ] Multiple clinics have separate hours
+
+Doctor Management Tests:
+
+[ ] Doctor added to clinic
+[ ] Doctor schedule set correctly
+[ ] Doctor leave/vacation blocks appointments
+[ ] Doctor removed from clinic
+[ ] Multi-clinic doctors handled correctly
+[ ] Doctor availability accurate
+
+Room Management Tests:
+
+[ ] Room created and available
+[ ] Room marked unavailable (maintenance)
+[ ] Room capacity respected
+[ ] Multiple rooms independent
+
+Policy Tests:
+
+[ ] Cancellation policy enforced
+[ ] No-show tracking works
+[ ] Overbooking policy respected
+[ ] Wait time alerts generated
+
+Performance Tests:
+
+[ ] Clinic list loads <500ms
+[ ] Clinic detail loads <1 second
+[ ] Doctor schedule lookup <500ms
+[ ] Room availability query <300ms
+[ ] Holiday check <100ms
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Clinic data model fully implemented
+[ ] Operating hours configuration working
+[ ] Holiday/closure management working
+[ ] Appointment types configurable
+[ ] Doctor management implemented
+[ ] Doctor scheduling working
+[ ] Room management implemented
+[ ] Clinic policies configurable
+[ ] Multi-clinic support working
+[ ] Clinic status management working
+[ ] All APIs functional with examples
+[ ] Performance benchmarks met
+[ ] All tests passing
+[ ] Documentation complete
+
+DELIVERABLES
+-----------
+1. Clinic data model (tables, relationships)
+2. Clinic setup APIs (create clinic, configure)
+3. Operating hours APIs
+4. Holiday/closure management
+5. Appointment type configuration
+6. Doctor management APIs
+7. Doctor scheduling APIs
+8. Room management APIs
+9. Clinic policies APIs
+10. Multi-clinic support
+11. Test suite (50+ tests)
+12. Clinic setup guide
+13. Admin configuration guide
+
+DEPENDENCIES
+-----------
+BLOCKING: Database schema (Phase 0), API layer (Phase 0), Multi-tenant support (Phase 0)
+BLOCKS: Appointment Engine (Task 17), Slot Management (Task 18), All scheduling
+
+RELATED TASKS
+-----------
+- Appointment Engine (Task 17) - Depends on this foundation
+- Slot Management (Task 18) - Depends on clinic hours/doctors
+- Doctor Schedule (Task 19) - Depends on doctor setup
+- Patient Management (Task 12) - References patients for appointments
+
+NOTES
+-----
+Clinic setup is foundation for entire appointment system.
+Must be flexible (different clinic types have different needs).
+Multi-clinic support important (healthcare systems often have multiple locations).
+Performance critical (clinic lookups on every scheduling request).
+
+Timeline: Week 1 of Phase 1 Appointments
+Priority: CRITICAL (unblocks all scheduling)
+
+STATUS: Ready for implementation
+================================================================================

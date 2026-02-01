@@ -1,0 +1,559 @@
+================================================================================
+TASK: Logging, Monitoring, & Observability Framework
+Module: CORE - INFRASTRUCTURE
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Essential for debugging & compliance)
+Duration: 5-7 days
+Effort: 18 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement comprehensive logging and monitoring infrastructure supporting
+HIPAA compliance, system debugging, performance optimization, and security
+incident response.
+
+BUSINESS LOGIC
+--------------
+Three Tiers of Logging:
+
+1. APPLICATION LOGS
+   - What: Code execution flow, business logic decisions
+   - Where: Application files
+   - When: Every important operation
+   - Example: "Patient created", "Prescription approved", "Payment processed"
+
+2. SYSTEM LOGS
+   - What: Infrastructure, OS events, deployment
+   - Where: System event logs
+   - When: Configuration changes, errors
+   - Example: "Database restart", "API deployment"
+
+3. AUDIT LOGS
+   - What: WHO did WHAT to WHICH resource at WHAT TIME
+   - Where: Audit logging database/service
+   - When: All data access and modifications
+   - Example: "User john accessed patient John Doe's record"
+
+LOGGING HIERARCHY
+-----------------
+DEBUG: Detailed debugging information (developers only)
+INFO: Informational messages (normal operations)
+WARN: Warning messages (potential issues)
+ERROR: Error messages (something failed)
+CRITICAL: Critical errors (system down, security breach)
+
+AUDIT EVENTS TO LOG
+-------------------
+MUST log with full context (user, timestamp, IP, resource, action):
+
+User Management:
+- Login attempt (success/failure)
+- Login with multi-factor auth
+- Logout
+- Password change
+- Password reset request/completion
+- MFA enabled/disabled
+- Role assignment
+- Permission changes
+- User deactivation
+- Account lockout
+
+Patient Data Access:
+- Patient record viewed
+- Patient record created
+- Patient record modified
+- Patient record deleted
+- Patient exported
+- Patient EMR accessed
+- Patient contacted (messaging)
+
+Medical Records:
+- Medical record created
+- Medical record modified
+- Medical record signed
+- Medical record deleted
+- Prescription created
+- Prescription approved
+- Prescription filled
+- Diagnosis recorded
+- Lab order created
+- Lab results received
+
+Billing:
+- Invoice created
+- Invoice sent
+- Payment received
+- Payment failed
+- Refund processed
+- Insurance claim filed
+
+Administrative:
+- User role changed
+- Clinic configuration changed
+- Security policy changed
+- Integration setup
+- API key generated
+- API key revoked
+
+Security Events:
+- Failed authentication
+- Authorization denied (user lacked permission)
+- Rate limit exceeded
+- Suspicious activity detected
+- Database access from unusual location
+- Large data export
+- Cross-tenant query attempt
+
+STRUCTURED LOGGING FORMAT
+--------------------------
+All logs should be structured (JSON, not plain text):
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00.123Z",
+  "level": "INFO|WARN|ERROR|CRITICAL",
+  "service": "clinic-api",
+  "request_id": "req_abc123xyz", // For tracing
+  "logger": "PatientService",
+  "message": "Patient record created",
+  "event_type": "patient.created",
+  
+  // Context
+  "user_id": "user-123",
+  "tenant_id": "clinic-001",
+  "ip_address": "192.168.1.1",
+  "user_agent": "Mozilla/5.0...",
+  
+  // Resource
+  "resource_type": "patient",
+  "resource_id": "patient-456",
+  "resource_changes": {
+    "before": {...},
+    "after": {...}
+  },
+  
+  // Performance
+  "duration_ms": 245,
+  "database_queries": 3,
+  
+  // Error info (if applicable)
+  "error_code": "VALIDATION_ERROR",
+  "error_message": "Email already exists",
+  "stack_trace": "..."
+}
+```
+
+LOG RETENTION POLICY
+--------------------
+Compliance Requirements:
+
+HIPAA:
+- Audit logs: Minimum 6 years retention
+- Access logs: Minimum 6 years retention
+- Error logs: Minimum 2 years retention
+
+GDPR:
+- Processing audit: Minimum 3 years
+- Consent logs: Minimum 3 years
+- Data subject audit: Keep with retention period
+
+Recommendation:
+- Hot storage (accessible): 90 days
+- Warm storage (archive): 90 days - 1 year
+- Cold storage (tape): 1 year - 6 years
+- Compliance retention: 6+ years
+
+STRUCTURED LOGGING LIBRARIES
+----------------------------
+Recommended tools:
+- Backend: Winston (Node.js), Serilog (C#), Logback (Java)
+- Format: JSON to stdout
+- Collection: Fluentd, Logstash, Beats
+- Storage: ELK Stack (Elasticsearch), Splunk, CloudWatch, Datadog
+- Analysis: Kibana, Splunk UI
+
+Example (Node.js + Winston):
+```javascript
+const logger = winston.createLogger({
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+
+logger.info('Patient created', {
+  resource_type: 'patient',
+  resource_id: patientId,
+  user_id: userId,
+  tenant_id: tenantId
+});
+```
+
+MONITORING & METRICS
+--------------------
+System Metrics to Track:
+
+Performance:
+- API response time (p50, p95, p99)
+- Database query duration
+- Cache hit rate
+- Background job duration
+
+Availability:
+- API uptime percentage
+- Endpoint availability
+- Database availability
+- Third-party service availability
+
+Usage:
+- Requests per second
+- Errors per second
+- Users online
+- Tenants active
+- Audit log volume
+
+Business:
+- Patients created per day
+- Appointments scheduled per day
+- Invoices generated per day
+- Revenue per day
+
+Security:
+- Failed login attempts
+- Authorization denials
+- Rate limit hits
+- Suspicious activities detected
+- Data export requests
+
+ALERTING STRATEGY
+-----------------
+Set up alerts for critical events:
+
+CRITICAL ALERTS (page on-call):
+- API down (uptime < 95% in 1 minute)
+- Database connection pool exhausted
+- Authentication service unavailable
+- Disk space < 5%
+- Security breach detected (repeated auth failures)
+- PII data export detected
+
+URGENT ALERTS (notify team):
+- Error rate > 5% for 5 minutes
+- Response time p95 > 5 seconds
+- Database replication lag > 30 seconds
+- Audit log ingestion backlog > 10k
+- Failed backups
+
+INFORMATIONAL ALERTS (dashboard only):
+- Daily summary of events
+- Performance trends
+- Usage reports
+
+Example Alert:
+```
+CRITICAL: API Error Rate Spike
+Timestamp: 2024-01-15 10:30:00 UTC
+Error Rate: 15% (threshold: 5%)
+Requests: 10,000
+Errors: 1,500
+Most Common Error: DATABASE_CONNECTION_TIMEOUT
+```
+
+DISTRIBUTED TRACING
+-------------------
+For debugging multi-service calls:
+
+Trace ID: Follows request through entire system
+Span ID: Individual operation within trace
+Parent Span ID: Links to parent operation
+
+Example Flow:
+1. User calls GET /api/v1/patients/123
+   - Trace ID: trace_abc123
+   - Span: api_gateway (100ms total)
+   
+2. API calls database
+   - Parent Span: api_gateway
+   - Span: db_query_patient (80ms)
+   
+3. API calls cache
+   - Parent Span: api_gateway
+   - Span: cache_lookup (5ms)
+
+Tools: Jaeger, Zipkin, Datadog APM
+
+REQUEST ID TRACKING
+-------------------
+Every request gets unique ID for tracing:
+
+1. Client sends request (or system generates)
+2. Request ID added to all logs from that request
+3. Response includes Request ID header
+4. Client can use for support tickets
+5. Support can search all logs for request ID
+
+Header:
+```
+X-Request-ID: req_abc123xyz
+```
+
+Response header includes:
+```
+X-Request-ID: req_abc123xyz
+```
+
+PERFORMANCE LOGGING
+-------------------
+Log performance data for optimization:
+
+```json
+{
+  "request_id": "req_abc123xyz",
+  "endpoint": "GET /api/v1/patients",
+  "total_duration_ms": 245,
+  "breakdown": {
+    "auth_check_ms": 5,
+    "permission_check_ms": 3,
+    "database_query_ms": 180,
+    "response_formatting_ms": 20,
+    "serialization_ms": 37
+  },
+  "database_stats": {
+    "queries": 3,
+    "slow_query": "SELECT * FROM medical_records..."
+  },
+  "cache_stats": {
+    "hits": 2,
+    "misses": 1
+  },
+  "memory_used_mb": 125,
+  "status_code": 200
+}
+```
+
+ERROR LOGGING
+-------------
+Comprehensive error logging:
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "ERROR",
+  "request_id": "req_abc123xyz",
+  "error_code": "DATABASE_ERROR",
+  "error_message": "Connection pool exhausted",
+  "error_class": "DatabasePoolError",
+  "stack_trace": "...",
+  "context": {
+    "operation": "patient.query",
+    "query_sql": "SELECT * FROM patients WHERE tenant_id = ?",
+    "pool_size": 10,
+    "active_connections": 10
+  },
+  "severity": "CRITICAL",
+  "user_id": "user-123",
+  "tenant_id": "clinic-001",
+  "recovery_action": "Retry after 5 seconds",
+  "alert_sent": true
+}
+```
+
+HEALTH CHECKS
+-------------
+Periodic health checks:
+
+```
+GET /health
+GET /health/db
+GET /health/cache
+GET /health/storage
+
+Response:
+{
+  "status": "healthy|degraded|unhealthy",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "checks": {
+    "api": { "status": "healthy", "response_time_ms": 1 },
+    "database": { "status": "healthy", "connection_pool": "8/10" },
+    "cache": { "status": "degraded", "latency_ms": 500 },
+    "storage": { "status": "healthy", "disk_free_gb": 850 }
+  }
+}
+```
+
+DASHBOARD REQUIREMENTS
+---------------------
+Real-time dashboards for:
+
+System Health:
+- API response time (p50, p95, p99)
+- Error rate
+- Uptime percentage
+- Service status
+
+Usage:
+- Requests per second
+- Active users
+- Active tenants
+- Database queries per second
+
+Business:
+- Patients created today
+- Appointments scheduled
+- Revenue today
+- Top errors
+
+Security:
+- Failed login attempts
+- Authorization denials
+- Suspicious activities
+- API key usage
+
+GDPR & HIPAA COMPLIANCE LOGGING
+-------------------------------
+Specific logging requirements:
+
+GDPR Data Subject Access Request:
+- Log all data accessed for subject
+- Log all data shared with third parties
+- Log all uses of data
+- Keep for 3 years minimum
+
+HIPAA Minimum Necessary:
+- Log who accessed what (and justify need)
+- Log date, time, user, resource, action
+- Log unauthorized access attempts
+- Log all administrative actions
+
+Consent Tracking:
+- Log when consent obtained
+- Log consent version
+- Log consent revocation
+- Log data processing after consent
+
+SECURITY LOGGING
+----------------
+Security-specific events:
+
+Failed Login:
+```json
+{
+  "event_type": "login_failure",
+  "reason": "invalid_password|user_not_found|account_locked",
+  "user_email": "user@example.com",
+  "ip_address": "192.168.1.1",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "attempt_number": 3
+}
+```
+
+Unauthorized Access:
+```json
+{
+  "event_type": "authorization_denied",
+  "reason": "insufficient_permissions",
+  "user_id": "user-123",
+  "resource_type": "patient",
+  "resource_id": "patient-456",
+  "required_permission": "patient:read",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+Data Export:
+```json
+{
+  "event_type": "data_export",
+  "user_id": "user-123",
+  "tenant_id": "clinic-001",
+  "resource_type": "patient",
+  "record_count": 1500,
+  "export_format": "CSV",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+LOG AGGREGATION ARCHITECTURE
+----------------------------
+Flow:
+1. Application logs to stdout (JSON)
+2. Log shipper (Fluentd) collects
+3. Fluentd parses and enriches
+4. Sends to Elasticsearch
+5. Kibana provides interface
+6. Alerts trigger from rules
+
+OR
+
+Cloud solution (simpler):
+1. Application logs to CloudWatch/Datadog
+2. Automatic parsing
+3. Dashboard/alerts included
+
+TESTING STRATEGY
+---------------
+[ ] All critical events logged
+[ ] Log format is valid JSON
+[ ] Request IDs propagate through system
+[ ] Performance logs recorded accurately
+[ ] Error details captured
+[ ] No sensitive data in logs (passwords, tokens)
+[ ] Audit logs searchable and queryable
+[ ] Alert rules trigger correctly
+[ ] Health checks work
+[ ] Log retention policy enforced
+[ ] Compliance requirements met
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Structured logging implemented
+[ ] All audit events captured
+[ ] Request ID tracking working
+[ ] Performance monitoring active
+[ ] Health check endpoints implemented
+[ ] Alert rules configured
+[ ] Dashboards created
+[ ] Log retention policy enforced
+[ ] Security logging complete
+[ ] HIPAA/GDPR compliance verified
+[ ] Team trained on log analysis
+
+DELIVERABLES
+-----------
+1. Logging Architecture Document
+2. Audit Event Specification (complete list)
+3. Log Retention Policy
+4. Alert Rule Configuration
+5. Dashboard Templates
+6. Health Check Implementation
+7. Logging Libraries/Utilities
+8. Security Event Logging Specification
+9. Compliance Logging Guide
+10. Troubleshooting Guide (using logs)
+
+DEPENDENCIES
+-----------
+BLOCKING: API layer, Database schema
+BLOCKS: Production deployment, Incident response capability
+
+RELATED TASKS
+-----------
+- API layer design
+- Security & compliance
+- Monitoring infrastructure
+- Incident response procedures
+
+NOTES
+-----
+Logs are your diagnostic tool and compliance proof.
+Do NOT log passwords, API keys, or PII directly.
+But DO log enough context to diagnose issues.
+Plan for log volume growth as system scales.
+
+Timeline: Week 2 of Phase 0
+Priority: CRITICAL
+
+STATUS: Ready for implementation
+================================================================================

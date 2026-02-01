@@ -1,0 +1,595 @@
+================================================================================
+TASK 25: BILLING & PAYMENTS SYSTEM
+================================================================================
+Module: Support Services
+Phase: Phase 1 - Implementation
+Priority: HIGH
+Effort Estimate: 34 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Tasks 11-24 (EMR, Appointments, Clinical)
+Blocking: Tasks 28 (Analytics/Reporting), Task 39 (Scaling Strategy)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Billing & Payments System manages the complete financial lifecycle of patient
+encounters from charge capture through payment processing, reconciliation, and
+reporting. This system integrates with clinical workflows to automatically generate
+charges based on services provided, validates insurance coverage, processes multiple
+payment methods (credit card, ACH, check), manages refunds/adjustments, and maintains
+complete audit trails for healthcare compliance.
+
+Key Responsibilities:
+- Automatic charge capture from consultations, procedures, labs, imaging
+- Insurance verification and eligibility checking (real-time, pre-visit, ongoing)
+- Multiple payment channel support (card, ACH, check, patient payment plans)
+- Balance calculation (patient responsibility, insurance portion, write-offs)
+- Payment processing and reconciliation with accounting system
+- Refund and adjustment workflows with approval processes
+- Financial reporting for practice management
+- Compliance with healthcare financial regulations (CMS, state requirements)
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 BILLING WORKFLOW - AUTOMATED CHARGE CAPTURE
+- Consultation completed → System auto-generates charge based on:
+  * Service code (99213-99215 for office visit, 99401-99404 for preventive)
+  * Provider (physician, PA, NP - different billing rates)
+  * Insurance vs self-pay distinction
+  * Patient age and visit type (new vs established)
+  * Diagnosis codes (drives medical necessity)
+  * Procedures performed during visit (adds charge codes)
+  * Lab orders (generates lab charges if not included in visit)
+  * Imaging orders (generates imaging charges if not included in visit)
+- Auto-charge reviewed by billing staff (can override within 24 hours)
+- Finance hold period (48 hours) before transmission to insurance
+- Charge transmission to insurance with claim details
+- Automatic posting of insurance payments and denials
+
+2.2 INSURANCE VERIFICATION WORKFLOW
+Real-time Insurance Eligibility:
+- Patient registration triggers insurance lookup (eligibility, coverage details)
+- Verification via insurance provider API (real-time or batch, depending on payer)
+- Extract key details:
+  * Insurance active/inactive status
+  * Coverage type (HMO, PPO, HDHP, etc.)
+  * In-network status of provider
+  * Deductible (remaining balance)
+  * Co-insurance percentage
+  * Out-of-pocket maximum (remaining)
+  * Pre-authorization requirements
+- Cache verification for 30 days (can refresh on demand)
+- Pre-visit alerts to patient if not covered or high out-of-pocket
+- Pre-authorization submission for procedures requiring approval
+
+2.3 CHARGE CALCULATION & BILLING BALANCE
+Automatic Balance Calculation:
+- Service charge: CPT code base rate × provider multiplier × location multiplier
+- Deductible application: Applies deductible to self-insured portion first
+- Insurance portion: (Charge - deductible) × co-insurance %
+- Patient responsibility: Charge - insurance portion (before payments)
+- Adjustments: Write-offs, contractual adjustments, professional courtesy
+- Final patient balance = (patient responsibility + adjustments) - advance payments
+
+Example: Office visit charge $150
+- Insurance deductible: $200 remaining
+- Co-insurance: 20%
+- Advance payment: $30
+Calculation:
+- Insurance portion: $0 (deductible not met, patient pays first $150)
+- Patient responsibility: $150
+- Less advance payment: -$30
+- Patient balance: $120
+
+2.4 PAYMENT PROCESSING
+Multiple Payment Methods:
+- Credit Card: Tokenized, PCI-DSS compliant processing via Stripe/Square
+- ACH: Bank account transfer (3-5 day settlement)
+- Check: Manual entry, reconciliation via bank deposit
+- Patient Payment Plans: Installment agreements (3, 6, 12 months) with auto-payment
+- Insurance Payment: Auto-posted from ERA (electronic remittance advice)
+
+Payment Authorization:
+- Real-time card authorization (fraud detection, velocity checks)
+- Failed payment retry (1-3 retries over 3 days)
+- Payment decline messaging with alternative options
+- Duplicate payment detection (within 5 minutes)
+
+Payment Allocation:
+- Insurance payments applied via ERA code (specific visit, general account credit)
+- Patient payments applied to oldest balance first (FIFO)
+- Overpayment management: store as patient credit, offer refund, apply to future
+- Payment posting within 24 hours
+
+2.5 REFUND & ADJUSTMENT WORKFLOWS
+Refund Scenarios:
+- Overpayment refund: Initiated by patient or practice staff
+- Insurance overpayment: Refund to insurance (required by law within 30 days)
+- Denied service: Patient refund if paid out-of-pocket
+- Duplicate charge: Refund and charge removal
+
+Refund Process:
+- Refund request submitted with reason
+- Manager approval required if amount > $100
+- Refund initiated (card refund 3-5 days, check 7-10 days, ACH 1-2 days)
+- Audit trail logged for compliance
+
+Adjustments:
+- Professional courtesy: Full or partial write-off (manager approval)
+- Contractual adjustment: Insurance-mandated reduction (auto-applied from EOB)
+- Hardship adjustment: Financial hardship write-off (manager + CFO approval)
+- Bad debt write-off: After 90+ days and collection attempts (compliance tracked)
+
+2.6 RECONCILIATION & ACCOUNTING
+Daily Reconciliation:
+- Batch comparison: Charges generated vs charges transmitted to insurance
+- Payment reconciliation: ERA payments vs system posting
+- Bank reconciliation: Bank deposits vs payment records
+- Aging report: Accounts receivable aging (0-30, 31-60, 61-90, 90+ days)
+
+Monthly Close:
+- Charge write-off for uncollectible (24+ months, documented collection efforts)
+- Insurance follow-up for aging claims (60+ days no response)
+- Patient payment plan audits (on-track vs delinquent)
+- Financial statement reporting
+
+2.7 FINANCIAL REPORTING
+Standard Reports:
+- Daily deposit report: Charges, payments, adjustments, net revenue
+- Aging analysis: AR aging, insurance vs patient, collectibility analysis
+- Revenue recognition: Monthly revenue by provider, service line, insurance
+- Provider productivity: Charges per provider, collections per provider
+- Payer analysis: Top payers, denial rates, average reimbursement by payer
+
+Compliance Reporting:
+- Credit balance report (refund obligations to patients)
+- 1099 reporting (independent providers paid >$600/year)
+- Insurance audits: Billing practices, coding accuracy, compliance verification
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: charges
+- charge_id (UUID, PK)
+- visit_id (UUID, FK → consultations)
+- provider_id (UUID, FK → providers)
+- patient_id (UUID, FK → patients)
+- service_code (VARCHAR, e.g., "99213") → CPT code
+- service_description (VARCHAR, e.g., "Office visit, established patient")
+- service_category (ENUM: "office_visit", "procedure", "lab", "imaging", "other")
+- charge_amount (DECIMAL 10,2)
+- created_at (TIMESTAMP)
+- created_by (UUID, FK → users)
+- status (ENUM: "pending_review", "approved", "denied", "finalized")
+- reviewed_at (TIMESTAMP)
+- reviewed_by (UUID, FK → users)
+- denial_reason (VARCHAR, nullable)
+- INDEX: (visit_id, patient_id, created_at)
+
+TABLE: patient_balances
+- balance_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- visit_id (UUID, FK → consultations)
+- charge_amount (DECIMAL 10,2)
+- deductible_applied (DECIMAL 10,2)
+- insurance_portion (DECIMAL 10,2)
+- patient_responsibility (DECIMAL 10,2)
+- adjustments_amount (DECIMAL 10,2)
+- payments_received (DECIMAL 10,2)
+- balance_due (DECIMAL 10,2)
+- insurance_id (UUID, FK → insurance_policies)
+- calculated_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+- INDEX: (patient_id, balance_due DESC)
+
+TABLE: insurance_policies
+- policy_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- insurance_company (VARCHAR, e.g., "Blue Cross Blue Shield")
+- plan_name (VARCHAR)
+- member_id (VARCHAR, unique per insurance)
+- group_id (VARCHAR)
+- deductible_amount (DECIMAL 10,2)
+- deductible_remaining (DECIMAL 10,2)
+- copay_amount (DECIMAL 10,2)
+- coinsurance_percentage (DECIMAL 5,2, e.g., 20.00)
+- out_of_pocket_max (DECIMAL 10,2)
+- out_of_pocket_remaining (DECIMAL 10,2)
+- is_primary (BOOLEAN)
+- is_active (BOOLEAN)
+- verified_at (TIMESTAMP)
+- verification_expires_at (TIMESTAMP)
+- INDEX: (patient_id, is_active, is_primary)
+
+TABLE: payments
+- payment_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- payment_method (ENUM: "credit_card", "ach", "check", "insurance")
+- amount (DECIMAL 10,2)
+- status (ENUM: "pending", "authorized", "captured", "failed", "refunded")
+- payment_date (DATE)
+- posted_date (DATE, nullable)
+- reference_number (VARCHAR, unique)
+- transaction_id (VARCHAR, nullable, from payment processor)
+- created_at (TIMESTAMP)
+- posted_at (TIMESTAMP, nullable)
+- posted_by (UUID, FK → users, nullable)
+- notes (TEXT, nullable)
+- INDEX: (patient_id, payment_date, status)
+
+TABLE: payment_plans
+- plan_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- plan_type (ENUM: "3_months", "6_months", "12_months", "custom")
+- total_amount (DECIMAL 10,2)
+- monthly_payment (DECIMAL 10,2)
+- start_date (DATE)
+- end_date (DATE)
+- status (ENUM: "active", "completed", "suspended", "default")
+- auto_pay_enabled (BOOLEAN)
+- auto_pay_method (ENUM: "ach", "credit_card", nullable)
+- payments_received (DECIMAL 10,2)
+- next_payment_date (DATE)
+- INDEX: (patient_id, status)
+
+TABLE: adjustments
+- adjustment_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- visit_id (UUID, FK → consultations)
+- adjustment_type (ENUM: "professional_courtesy", "contractual", "hardship", "bad_debt")
+- amount (DECIMAL 10,2)
+- reason (VARCHAR)
+- approval_status (ENUM: "pending", "approved", "denied")
+- requested_by (UUID, FK → users)
+- approved_by (UUID, FK → users, nullable)
+- approved_at (TIMESTAMP, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, approval_status)
+
+TABLE: claims
+- claim_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- visit_id (UUID, FK → consultations)
+- insurance_id (UUID, FK → insurance_policies)
+- claim_number (VARCHAR, unique, from insurance)
+- total_charges (DECIMAL 10,2)
+- total_approved (DECIMAL 10,2)
+- total_denied (DECIMAL 10,2)
+- total_pended (DECIMAL 10,2)
+- status (ENUM: "submitted", "acknowledged", "processing", "paid", "denied", "appeal")
+- submitted_date (DATE)
+- submitted_by (VARCHAR, e.g., "system" or user ID)
+- received_date (DATE, nullable)
+- paid_date (DATE, nullable)
+- denial_reason (TEXT, nullable)
+- INDEX: (claim_id, patient_id, status)
+
+TABLE: claim_line_items
+- line_item_id (UUID, PK)
+- claim_id (UUID, FK → claims)
+- service_code (VARCHAR, e.g., "99213")
+- charge_amount (DECIMAL 10,2)
+- approved_amount (DECIMAL 10,2)
+- denied_amount (DECIMAL 10,2)
+- denial_reason (VARCHAR, nullable)
+- status (ENUM: "submitted", "approved", "denied", "pended")
+
+TABLE: account_transactions
+- transaction_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- transaction_type (ENUM: "charge", "payment", "adjustment", "refund", "insurance_posting")
+- amount (DECIMAL 10,2)
+- balance_before (DECIMAL 10,2)
+- balance_after (DECIMAL 10,2)
+- reference_id (VARCHAR, nullable, e.g., charge_id, payment_id)
+- description (VARCHAR)
+- created_at (TIMESTAMP)
+- created_by (UUID, FK → users)
+- INDEX: (patient_id, created_at DESC)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 CHARGE MANAGEMENT API
+
+POST /api/v1/charges
+Request:
+{
+  "visit_id": "uuid",
+  "service_codes": ["99213"],  // Array of CPT codes
+  "provider_id": "uuid"
+}
+Response:
+{
+  "charge_id": "uuid",
+  "visit_id": "uuid",
+  "service_code": "99213",
+  "charge_amount": 150.00,
+  "status": "pending_review",
+  "created_at": "2026-01-31T10:30:00Z"
+}
+
+GET /api/v1/charges/{charge_id}
+GET /api/v1/patients/{patient_id}/charges
+Query params: status, date_range, service_code
+
+PUT /api/v1/charges/{charge_id}/approve
+Body: { reviewed_by: uuid }
+
+PUT /api/v1/charges/{charge_id}/deny
+Body: { denial_reason: string }
+
+4.2 BALANCE & INSURANCE API
+
+GET /api/v1/patients/{patient_id}/balance
+Response:
+{
+  "charge_amount": 150.00,
+  "insurance_portion": 0.00,
+  "patient_responsibility": 150.00,
+  "adjustments": 0.00,
+  "payments_received": 0.00,
+  "balance_due": 150.00
+}
+
+POST /api/v1/patients/{patient_id}/insurance/verify
+Body: { policy_id: uuid }
+Response: Insurance verification details with eligibility
+
+GET /api/v1/patients/{patient_id}/insurance/policies
+Response: Array of insurance policies
+
+4.3 PAYMENT API
+
+POST /api/v1/payments
+Request:
+{
+  "patient_id": "uuid",
+  "amount": 100.00,
+  "method": "credit_card",
+  "payment_method_token": "tok_visa"
+}
+Response:
+{
+  "payment_id": "uuid",
+  "status": "authorized",
+  "transaction_id": "ch_xxxxx"
+}
+
+GET /api/v1/patients/{patient_id}/payments
+Query params: status, date_range
+
+POST /api/v1/payments/{payment_id}/refund
+Body: { amount: decimal, reason: string }
+
+4.4 PAYMENT PLAN API
+
+POST /api/v1/payment-plans
+Body:
+{
+  "patient_id": "uuid",
+  "plan_type": "6_months",
+  "total_amount": 600.00,
+  "auto_pay_enabled": true
+}
+
+GET /api/v1/patients/{patient_id}/payment-plans
+PUT /api/v1/payment-plans/{plan_id}/suspend
+PUT /api/v1/payment-plans/{plan_id}/cancel
+
+4.5 ADJUSTMENT & CLAIMS API
+
+POST /api/v1/adjustments
+Body:
+{
+  "patient_id": "uuid",
+  "visit_id": "uuid",
+  "adjustment_type": "professional_courtesy",
+  "amount": 50.00,
+  "reason": "Hardship case"
+}
+
+GET /api/v1/claims/{claim_id}
+GET /api/v1/patients/{patient_id}/claims
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 INSURANCE INTEGRATION
+- Real-time eligibility API: Optum, Availity, Change Healthcare
+- Fallback: SFTP batch files if real-time unavailable
+- Handles multiple insurance networks (>500 payers)
+- Cache eligibility for 30 days, refresh on demand
+- Timeout handling: Return cached data if API exceeds 3 seconds
+
+5.2 PAYMENT PROCESSING
+- PCI-DSS Level 1 compliance: Tokenized processing via Stripe
+- Payment processor webhook: Update payment status in real-time
+- Retry logic: Failed payments retry 1x at 3 days, 1x at 7 days
+- Fraud detection: Built-in Stripe fraud tools + custom velocity checks
+- Supports US credit cards, international cards, ACH
+
+5.3 BANKING & RECONCILIATION
+- Bank API integration: Plaid for real-time bank data
+- Automatic bank reconciliation: Nightly batch matching deposits
+- Unmatched transaction alerts: Manual investigation needed
+- Check imaging: Upload scanned checks for audit trail
+
+5.4 COMPLIANCE & AUDIT
+- HIPAA: All financial data encrypted at rest and in transit
+- PCI-DSS: Tokenized card processing, no card storage
+- SoC 2 Type II: Compliant audit logging on all financial transactions
+- Regulatory reporting: Support for state insurance board audits
+- Data retention: 7-year financial record retention (CMS requirement)
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 DAILY PROCESS
+- 08:00 AM: Auto-charge generation from yesterday's consultations
+- 09:00 AM: Billing staff review pending charges (approve/deny)
+- 10:00 AM: Charge transmission to insurance claims system
+- 02:00 PM: Insurance eligibility verification refresh (100 random patients)
+- 04:00 PM: Payment posting from previous day's transactions
+- 05:00 PM: Daily reconciliation report generation
+- 06:00 PM: Failed payment retry (Day 3 of retry cycle)
+
+6.2 WEEKLY PROCESS
+- Monday 06:00 AM: Full insurance eligibility verification for active patients
+- Wednesday 03:00 PM: Insurance follow-up for claims 30+ days pending
+- Friday 04:00 PM: Weekly financial summary report
+- Friday 05:00 PM: Aging analysis and collection priority list
+
+6.3 MONTHLY PROCESS
+- Close date (last business day of month):
+  * Charge finalization (no retroactive changes after close)
+  * Insurance claim reconciliation
+  * Patient statement generation and mailing
+  * Provider productivity report
+  * Month-end financial close (revenue recognition, accruals)
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (25+ test cases):
+- Charge calculation logic (various CPT codes, modifiers, multipliers)
+- Balance calculation (deductible, copay, coinsurance permutations)
+- Insurance verification parsing (various payer formats)
+- Payment authorization and failure scenarios
+- Adjustment approval workflows (various approval levels)
+
+Integration Tests (20+ test cases):
+- End-to-end charge capture workflow
+- Payment processing with Stripe/ACH
+- Insurance eligibility verification API
+- Charge transmission to claims system
+- Bank reconciliation process
+- Daily/weekly/monthly process execution
+
+Performance Tests (8+ test cases):
+- Batch charge generation for 1000+ visits
+- Daily reconciliation with 5000+ transactions
+- Payment processing concurrency (10+ simultaneous payments)
+- Insurance API timeout handling (3+ second timeout)
+- Report generation time (<5 seconds for monthly close)
+
+Edge Cases (12+ test cases):
+- Multiple insurance coverage (primary, secondary, tertiary)
+- Duplicate payment detection and prevention
+- Overpayment scenarios and refund handling
+- Insurance denial and appeal process
+- Patient payment plan delinquency handling
+- Bad debt write-off with no payment history
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. Automatic charge capture within 2 minutes of consultation completion
+2. Insurance eligibility verification in real-time (<3 second response)
+3. Patient balance calculation accurate to cent across all scenarios
+4. Payment processing with <99.95% success rate (industry standard)
+5. Daily reconciliation completing in <5 minutes for 1000+ transactions
+6. Support for 500+ insurance payers with real-time eligibility
+7. PCI-DSS compliance verified by third-party audit
+8. Payment refund processing within 1 business day
+9. Insurance claim submission within 24 hours of charge approval
+10. HIPAA compliance: All financial data encrypted, audit trails logged
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Billing system database schema (8 tables)
+2. Charge generation and approval workflow
+3. Insurance integration layer (eligibility, claims submission)
+4. Payment processing system (cards, ACH, checks, plans)
+5. Refund and adjustment management
+6. Daily/weekly/monthly reconciliation processes
+7. Financial reporting module
+8. API endpoints for billing operations (12 total)
+9. Compliance logging and audit trails
+10. Integration tests and performance benchmarks
+
+Dependencies:
+- Task 1-10 (Phase 0): Foundation, Auth, Database, API layer
+- Task 11-24 (EMR, Appointments, Clinical): Visit data needed for charges
+- Task 28 (Analytics): Reporting infrastructure
+
+Blockers For:
+- Task 28 (Analytics reporting needs billing data)
+- Task 39 (Scaling: billing system performance critical)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design & Architecture: 4 hours
+- Database schema design
+- API specification and review
+- Integration planning (insurance, payment processing)
+
+Development: 20 hours
+- Core charge generation and approval logic (4h)
+- Balance calculation engine (3h)
+- Insurance integration (5h)
+- Payment processing integration (4h)
+- Reconciliation workflows (4h)
+
+Testing: 6 hours
+- Unit tests (2h)
+- Integration tests (3h)
+- Performance testing (1h)
+
+Documentation: 2 hours
+- API documentation
+- Process documentation for billing staff
+- Integration guide for payment processors
+
+Contingency: 2 hours (10%)
+
+Total: 34 hours (1 developer, 1 week full-time)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Insurance eligibility API downtime
+Mitigation: Fallback to cached data (30-day cache), manual verification option
+
+Risk: Payment processing failures (failed authorizations)
+Mitigation: Automatic retry logic (2 retries over 10 days), SMS/email notifications
+
+Risk: Insurance claim denials and appeals
+Mitigation: Automated denial tracking, appeal workflow, denial reason analysis
+
+Risk: PCI-DSS compliance complexity
+Mitigation: Use tokenized payment processing (Stripe), avoid direct card handling
+
+Risk: Reconciliation discrepancies with insurance
+Mitigation: Manual reconciliation workflow, daily exception reporting
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Automatic charge capture rate: >98% within 2 minutes
+- Payment processing success rate: >99.95%
+- Insurance eligibility verification uptime: 99.9%
+- Daily reconciliation accuracy: 100% (no discrepancies >$1)
+- Patient satisfaction with billing transparency: >4.5/5 stars
+- Revenue cycle time: <45 days from service to payment
+- AR aging: <30% of AR over 90 days old
+- Cost reduction: 40% reduction in manual billing work
+
+================================================================================

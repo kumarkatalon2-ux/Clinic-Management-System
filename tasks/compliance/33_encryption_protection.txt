@@ -1,0 +1,427 @@
+================================================================================
+TASK 33: ENCRYPTION & DATA PROTECTION
+================================================================================
+Module: Security Implementation
+Phase: Phase 1 - Implementation
+Priority: CRITICAL
+Effort Estimate: 36 hours (1 developer, 1+ week)
+Dependencies: Tasks 1-10 (Phase 0), Task 32 (RBAC)
+Blocking: Task 34 (Audit Logging), Task 35 (Privacy/GDPR)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Encryption & Data Protection system secures all sensitive data at rest and
+in transit. It implements TLS/SSL for data transmission, AES-256 encryption for
+data at rest, key management system for encryption keys, secure backup encryption,
+data masking for non-production environments, and secure data deletion. The system
+ensures HIPAA, GDPR, and CCPA compliance for healthcare data protection while
+maintaining performance and usability.
+
+Key Responsibilities:
+- TLS/SSL implementation for all network communication
+- AES-256 encryption for sensitive data at rest
+- Encryption key management and rotation
+- Secure backup and encryption
+- Data masking and tokenization
+- Secure deletion of data
+- Encrypted field-level encryption for PHI
+- Hardware security module (HSM) integration for key storage
+- Compliance with HIPAA, GDPR, CCPA encryption requirements
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 DATA CLASSIFICATION & SENSITIVITY
+Sensitivity Levels:
+- Public: Marketing materials, clinic hours, provider bios (no encryption needed)
+- Confidential: Patient names, email addresses, phone numbers (encrypt)
+- PHI (Protected Health Information): Diagnoses, medications, lab results (encrypt)
+- PII (Personally Identifiable Information): SSN, DOB, insurance ID (encrypt)
+- Sensitive Financial: Credit cards, bank accounts, invoices (tokenize)
+- Biometric: Patient IDs, fingerprints (encrypt)
+
+Encryption Requirements:
+- Confidential: AES-128 minimum (practical balance)
+- PHI: AES-256 required (HIPAA)
+- PII: AES-256 required (GDPR)
+- Sensitive Financial: Tokenization (never store plain credit card numbers)
+- Biometric: AES-256 + HSM storage
+
+2.2 ENCRYPTION AT REST
+Column-Level Encryption:
+- Database schema identifies encrypted columns
+- Trigger: Before insert/update, data encrypted
+- Decryption: On read, data automatically decrypted (transparent to app)
+- Performance: ~5% overhead acceptable
+
+Encrypted Fields:
+- Patients: first_name, last_name, date_of_birth, ssn, phone, email
+- Consultations: chief_complaint (optional), physical_exam_findings (optional)
+- Prescriptions: medication_name (reference data, partially encrypted)
+- Billing: patient_address, patient_phone
+- Payments: last_four_digits (partial), billing_address
+
+Backup Encryption:
+- All database backups encrypted with separate backup key
+- Backup key stored separately from database key
+- Restore requires backup key, database key, and decryption keys
+- Off-site backups: Encrypted in transit, encrypted at rest
+
+2.3 KEY MANAGEMENT SYSTEM (KMS)
+Key Hierarchy:
+- Master Key: Highest level, stored in HSM, never leaves HSM
+- Data Encryption Key (DEK): Used to encrypt data, encrypted by master key
+- Key Encryption Key (KEK): Encrypts other keys, stored in KMS
+
+Key Rotation:
+- Monthly: Generate new DEK for all new data
+- Quarterly: Re-encrypt old data with new DEK (background process)
+- Emergency: Re-encrypt all data if key compromise suspected
+- Audit: Log all key generation, rotation, usage
+
+Key Storage:
+- Master key: Hardware Security Module (AWS CloudHSM, Thales HSM)
+- DEKs: KMS database (encrypted by master key)
+- API access: Only authenticated systems can request key operations
+
+2.4 ENCRYPTION IN TRANSIT
+TLS/SSL Configuration:
+- All traffic: TLS 1.2 minimum (TLS 1.3 preferred)
+- Certificate: Valid HTTPS certificate for domain
+- Certificate pinning: Mobile apps pin certificate for additional security
+- HSTS: Force HTTPS for all connections
+- Perfect forward secrecy: Use ephemeral keys for session security
+
+API Endpoints:
+- All APIs require HTTPS
+- HTTP requests: Redirect to HTTPS
+- WebSocket: Use WSS (WebSocket Secure)
+- Email: Use TLS for SMTP
+
+Mobile Apps:
+- All network traffic encrypted (TLS 1.2+)
+- Certificate pinning: Public key pinning for added security
+- VPN: Optional VPN tunnel for additional security
+- Device encryption: Sensitive data encrypted on device storage
+
+2.5 DATA MASKING & TOKENIZATION
+Production Data Masking (for QA/development):
+- Non-production databases: Mask sensitive data
+- Patient names: Replace with fake names (retained for testing)
+- SSNs: Replace with fake SSNs
+- DOB: Replace with fake dates (retain age for testing)
+- Phone/email: Replace with non-functional values
+- Process: Automated nightly masking of production data to dev environment
+
+Tokenization (for payment data):
+- Credit card: Replace with token (e.g., tok_visa_12345)
+- Never store plain credit card numbers (PCI-DSS violation)
+- Stripe handles card tokenization, clinic stores tokens
+- Tokens used for recurring billing, refunds
+
+PHI Masking (for reports):
+- Aggregate reports: Remove patient identifiers
+- De-identification: Generate fake patient IDs for analysis
+- HIPAA safe harbor: Remove 18 identifiers
+- Research: Obtain patient consent before sharing PHI
+
+2.6 SECURE DELETION
+Deletion Policies:
+- Soft delete: Mark deleted (retain for audit trail, 90 days to hard delete)
+- Hard delete: Cryptographic erasure (destroy encryption key)
+- Shred: Overwrite data with random bytes (3-pass DOD standard)
+- Audit: Log all deletions with who/when/why
+
+Data Retention:
+- Active patient data: Retained while patient active
+- Inactive patients (3+ years): Retained per state law (typically 5-7 years)
+- Non-patient data: Per privacy policy (typically 12-24 months)
+- Backup data: Encrypted backups retained per backup policy
+
+Right to Deletion (GDPR):
+- Patient request to delete all data
+- System: Collect all patient data (all systems)
+- Delete: Hard delete all patient data (crypto shred)
+- Verify: Confirm deletion complete, report to patient
+- Exception: Retain if legal obligation (insurance claims, regulatory)
+
+2.7 SECURITY TESTING & VALIDATION
+Penetration Testing:
+- Quarterly: External pen test on encryption implementation
+- Check: Can encryption be bypassed?
+- Check: Can keys be compromised?
+- Check: Can data be intercepted in transit?
+- Fix: Remediate any findings, re-test
+
+Encryption Audit:
+- Monthly: Verify all required fields are encrypted
+- Monthly: Verify encryption keys properly rotated
+- Monthly: Check key usage patterns for anomalies
+- Yearly: Full encryption audit by external auditor
+
+2.8 COMPLIANCE & STANDARDS
+HIPAA Encryption Requirements:
+- PHI at rest: AES-256 or equivalent
+- PHI in transit: TLS 1.2 or equivalent
+- Key management: Documented KMS process
+- Access controls: RBAC enforced
+- Audit trails: All access logged
+
+GDPR Encryption Requirements:
+- Personal data: "Encryption or pseudonymization" (AES-256)
+- Data minimization: Encrypt only necessary data
+- Data portability: Can export encrypted data (if patient can decrypt)
+- Right to erasure: Crypto-shred old data
+
+CCPA Encryption Requirements:
+- Personal information: Encrypted at rest and in transit
+- Sensitive personal information: Strongly encrypted
+- Service provider: Ensure third-party service providers encrypt
+
+PCI-DSS (Credit Card Data):
+- Do not store credit cards (Stripe tokenization)
+- If stored: AES-256 encryption required
+- Tokenization: Replace card with token
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 ENCRYPTION CONFIGURATION
+
+TABLE: encryption_keys
+- key_id (UUID, PK)
+- key_name (VARCHAR, e.g., "primary_aes_key_2026_01")
+- key_type (ENUM: "master", "dek", "backup")
+- algorithm (VARCHAR, e.g., "AES-256")
+- key_version (INT, incremented on rotation)
+- created_at (TIMESTAMP)
+- rotated_at (TIMESTAMP, nullable)
+- expires_at (TIMESTAMP, nullable)
+- hsm_key_id (VARCHAR, nullable, if stored in HSM)
+- is_active (BOOLEAN)
+- INDEX: (key_type, is_active, created_at DESC)
+
+TABLE: encrypted_fields
+- field_id (UUID, PK)
+- table_name (VARCHAR)
+- column_name (VARCHAR)
+- data_classification (ENUM: "public", "confidential", "phi", "pii", "financial")
+- encryption_required (BOOLEAN)
+- key_id (UUID, FK → encryption_keys)
+- encryption_algorithm (VARCHAR)
+- created_at (TIMESTAMP)
+- UNIQUE(table_name, column_name)
+
+TABLE: key_access_logs
+- log_id (UUID, PK)
+- key_id (UUID, FK → encryption_keys)
+- accessor_id (VARCHAR, service name)
+- access_type (ENUM: "encrypt", "decrypt", "rotate")
+- success (BOOLEAN)
+- timestamp (TIMESTAMP)
+- ip_address (VARCHAR)
+- INDEX: (key_id, timestamp DESC)
+
+TABLE: data_deletion_logs
+- deletion_id (UUID, PK)
+- entity_type (VARCHAR, e.g., "patient")
+- entity_id (UUID)
+- deletion_type (ENUM: "soft_delete", "hard_delete", "crypto_shred")
+- deleted_at (TIMESTAMP)
+- deleted_by (UUID, FK → users)
+- reason (VARCHAR)
+- confirmed_at (TIMESTAMP, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (entity_type, entity_id)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 ENCRYPTION KEY API
+
+GET /api/v1/admin/encryption-keys
+Response: List of active encryption keys
+
+POST /api/v1/admin/encryption-keys/rotate
+Request: { key_name, schedule_time (immediate or future date) }
+Response: Key rotation scheduled
+
+GET /api/v1/admin/encryption-keys/access-logs
+Query: key_id, date_range
+Response: Key access audit trail
+
+4.2 DATA MASKING API
+
+POST /api/v1/admin/data/mask
+Body: { source_environment, target_environment }
+Response: Masking job started
+
+GET /api/v1/admin/data/mask-status
+Response: Masking job progress and status
+
+4.3 SECURE DELETION API
+
+POST /api/v1/admin/data/request-deletion
+Body: { entity_type, entity_id, reason }
+Response: Deletion request queued
+
+GET /api/v1/admin/data/deletion-status
+Query: entity_type, entity_id
+Response: Deletion status and audit trail
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 ENCRYPTION TECHNOLOGY
+- Library: libsodium or cryptography (Python)
+- Algorithm: AES-256-GCM for authenticated encryption
+- TLS: TLS 1.2+ with strong cipher suites
+- HSM: AWS CloudHSM or local Thales HSM for master key
+
+5.2 KEY MANAGEMENT SERVICE
+- AWS KMS or HashiCorp Vault for key management
+- Centralized key storage, no keys in application code
+- Key rotation policy (monthly minimum)
+- Audit logging of all key operations
+
+5.3 COMPLIANCE CERTIFICATIONS
+- HIPAA: Encryption requirements met
+- GDPR: Data protection requirements met
+- PCI-DSS: Card payment security requirements met
+- SOC 2 Type II: Encryption practices audited
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 ENCRYPTION KEY LIFECYCLE
+1. Generate: Create new encryption key
+2. Activate: Set as active for new data encryption
+3. Rotate: Monthly, create new key, re-encrypt old data
+4. Retire: Old key retired after 12 months, archived
+5. Destroy: Archived keys destroyed after 7 years (retention)
+
+6.2 DATA MASKING
+1. Daily: Copy production database to development
+2. Mask: Run masking script to replace sensitive data
+3. Verify: Sample data to ensure masking worked
+4. Deploy: Development database ready for testing
+
+6.3 SECURE DELETION
+1. Request: Patient or admin requests deletion
+2. Collect: System collects all data for deletion
+3. Delete: Hard delete or crypto-shred data
+4. Verify: Confirm deletion complete
+5. Report: Send deletion confirmation to requester
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (18+ test cases):
+- Encryption/decryption logic
+- Key rotation logic
+- Data masking algorithms
+- Deletion processes
+
+Integration Tests (16+ test cases):
+- End-to-end encryption workflow
+- Key management operations
+- TLS connection security
+- Data deletion verification
+- Backup encryption/decryption
+
+Security Tests (12+ test cases):
+- Try to bypass encryption
+- Try to tamper with encrypted data
+- Try to intercept unencrypted data
+- Try to access keys without authorization
+
+Performance Tests (8+ test cases):
+- Encryption overhead (<5%)
+- Key rotation performance (<1 hour)
+- Masking performance (<30 minutes for full DB)
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. All PHI encrypted with AES-256
+2. All data in transit encrypted with TLS 1.2+
+3. Encryption keys rotated monthly
+4. Key access audit trail logged
+5. Production data masked in non-production environments
+6. Secure deletion verified (data unrecoverable)
+7. HIPAA encryption requirements met
+8. GDPR encryption requirements met
+9. PCI-DSS requirements met (if handling cards)
+10. Encryption overhead <5% performance impact
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Database column-level encryption
+2. Encryption key management system
+3. TLS/SSL configuration
+4. Data masking and tokenization
+5. Secure backup encryption
+6. Secure deletion and crypto-shred
+7. Key rotation automation
+8. Compliance documentation
+9. Encryption audit logs
+10. HSM integration (if applicable)
+11. Admin APIs for encryption management
+12. Penetration testing and validation
+
+Dependencies:
+- Task 1-10 (Phase 0)
+- Task 32 (RBAC for key access control)
+
+Blockers For:
+- Tasks 34-35 (Security/compliance)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design: 4 hours (encryption architecture, key management)
+Development: 20 hours (encryption, key management, masking)
+Testing: 8 hours (security testing, performance testing)
+Documentation: 2 hours (compliance documentation)
+Contingency: 2 hours (10%)
+
+Total: 36 hours (1 developer, 1+ week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Key compromise or loss
+Mitigation: HSM storage, key backups, key recovery procedures
+
+Risk: Encryption overhead impacts performance
+Mitigation: Caching, async operations, performance tuning
+
+Risk: Encryption bypass vulnerabilities
+Mitigation: Penetration testing, code review, updates
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Encryption coverage: 100% of PHI encrypted
+- Key rotation success: 100% monthly
+- Encryption overhead: <5%
+- Secure deletion: 100% verified unrecoverable
+- Compliance audit: 100% pass HIPAA/GDPR/PCI-DSS
+- No data breaches: 0 unauthorized access incidents
+
+================================================================================

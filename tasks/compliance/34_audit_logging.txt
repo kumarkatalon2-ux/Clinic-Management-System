@@ -1,0 +1,457 @@
+================================================================================
+TASK 34: AUDIT LOGGING & COMPLIANCE TRACKING
+================================================================================
+Module: Security Implementation
+Phase: Phase 1 - Implementation
+Priority: CRITICAL
+Effort Estimate: 32 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Tasks 32-33 (RBAC, Encryption)
+Blocking: Task 35 (Privacy/GDPR)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Audit Logging system records all significant system events for compliance,
+security, and forensic analysis. It logs user access, data modifications, system
+changes, financial transactions, and security events with immutable, tamper-proof
+records. The system supports audit trail queries, compliance reporting, forensic
+investigation, and regulatory compliance with HIPAA, GDPR, and other requirements.
+
+Key Responsibilities:
+- Immutable audit log storage (cannot be modified after creation)
+- Comprehensive event logging (access, modify, delete, approve)
+- User activity tracking and behavior analysis
+- Data modification history with before/after values
+- Financial transaction logging and reconciliation
+- Security incident logging and alerting
+- Compliance reporting (regulatory, audit, incident)
+- Forensic investigation tools (query audit logs)
+- Data retention and archival (7+ years)
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 AUDIT LOG EVENTS
+User Access Events:
+- User login: Username, timestamp, IP address, success/failure
+- User logout: Timestamp, session duration
+- Permission check: Action, resource, result (allowed/denied)
+- API call: Endpoint, method, parameters (sanitized), response code
+- Failed login: Username, IP address, attempt count
+
+Data Modification Events:
+- Create: New record created, what fields, by whom, when
+- Update: Record modified, which fields changed, old value → new value
+- Delete: Record deleted, what was deleted, by whom, when
+- Restore: Soft-deleted record restored (for audit trail)
+- Archive: Record archived for compliance retention
+
+Financial Events:
+- Charge created: Amount, visit, provider, patient, insurance
+- Payment received: Amount, date, method, patient, applied to
+- Adjustment approved: Amount, reason, approver, patient
+- Refund processed: Amount, reason, method, patient
+- Insurance claim: Submitted, approved, denied, appealed
+
+Security Events:
+- SSH access: Admin login to server, IP, authentication method
+- API key generated: Purpose, expiration, who generated
+- API key revoked: Why revoked, by whom
+- Encryption key rotated: Old key retired, new key activated
+- Failed authentication: Multiple failed attempts trigger alert
+
+System Events:
+- Database backup: Started, completed, size, encryption status
+- System configuration change: What changed, old value → new value
+- Report generated: What report, by whom, when
+- Data export: File exported, by whom, what data, destination
+- Integration sync: External system sync status, record count
+
+2.2 AUDIT LOG STRUCTURE
+Minimum Fields:
+- audit_id: Unique identifier
+- timestamp: When event occurred
+- event_type: Type of event (login, modify, delete, etc.)
+- user_id: Who performed action (or system if automated)
+- entity_type: What entity affected (patient, consultation, etc.)
+- entity_id: Specific entity ID affected
+- action: Specific action (create, read, update, delete)
+- status: Success or failure
+- ip_address: From where action originated
+- user_agent: Device/browser information
+
+Context Fields:
+- resource_accessed: What resource (patient medical record, financial data)
+- data_before: Previous value (for updates)
+- data_after: New value (for updates)
+- reason: Why action performed (for sensitive operations)
+- approval_status: If required approval, status
+- error_message: If failed, why failed
+
+2.3 IMMUTABLE AUDIT LOGS
+Storage:
+- Append-only: New logs added, existing never modified
+- Database: PostgreSQL with trigger to prevent updates/deletes
+- Archive: Logs older than 1 year moved to archive storage
+- Cryptographic hash: Each log entry hashed for tamper detection
+
+Tamper Detection:
+- Hash chain: Each log includes hash of previous log
+- Verification: Can verify chain integrity (detect tampering)
+- Blockchain option: For highly regulated environments
+- Validation: Monthly validation of log integrity
+
+Access Control:
+- Strict RBAC: Only compliance officer, auditor can read logs
+- Immutable: Cannot be modified or deleted (enforced by database)
+- Secured: Logs themselves encrypted at rest
+- Audit of audits: Log when audit logs are accessed
+
+2.4 QUERIES & REPORTING
+Forensic Queries:
+- "What happened to patient X between dates Y and Z?"
+- "Who accessed patient X and when?"
+- "Which records were deleted last week?"
+- "What changes were made to prescription for patient X?"
+- "Show all failed login attempts from IP address Y"
+- "Show all unapproved adjustments over $1000"
+
+Pre-Built Reports:
+- User activity report: Daily activity per user (logins, actions)
+- Data access report: Who accessed what data and when
+- Modification report: All data changes in date range
+- Financial audit: All financial transactions (charges, payments, adjustments)
+- Security report: Failed logins, unauthorized access attempts
+- Compliance report: Actions requiring audit trail (approvals, etc.)
+
+Compliance Queries:
+- HIPAA breach investigation: "Did this person access patient X?"
+- Regulatory audit: "Show all prescriptions for controlled substances"
+- Financial audit: "Reconcile all payments received"
+- Incident investigation: "Timeline of events leading up to incident"
+
+2.5 ALERT GENERATION
+Suspicious Activity Alerts:
+- Unusual access pattern: User accessing 100+ records in 1 minute
+- Bulk data export: Export of 1000+ records flagged
+- Failed login attempts: >5 failed logins from same IP
+- After-hours access: Access outside normal business hours (if applicable)
+- Privilege elevation: Permission granted at unusual time
+- Large financial transaction: Adjustment >$5000 without approval
+
+Automated Responses:
+- Alert severity: Critical (immediate action), Warning (investigate), Info
+- Notification: Email to compliance officer, security team
+- Investigation: Create incident record, link to audit logs
+- Response: Automated or manual based on severity
+
+2.6 DATA RETENTION & ARCHIVAL
+Retention Policy:
+- Active logs: Retain in primary database (1 year)
+- Archive: Move to archive storage (6-7 additional years)
+- Legal hold: Never delete if under litigation
+- Destruction: Securely destroy after retention expired
+
+Compliance Retention:
+- HIPAA: 6 years minimum for audit logs
+- GDPR: 3 years minimum (variable per regulation)
+- CCPA: California retention requirements
+- State regulations: Variable per state (check locally)
+
+Archival Process:
+- Monthly: Move logs older than 1 year to archive
+- Encryption: Archive logs encrypted
+- Backup: Archive stored off-site
+- Verification: Periodically verify archive integrity
+
+2.7 AUDIT LOG ANALYSIS
+Pattern Detection:
+- Bulk access patterns: Identify if user regularly accesses bulk data
+- Unusual times: Alert if user accessing system at unusual times
+- Data exfiltration: Pattern of large exports followed by system exit
+- Escalating privileges: User requesting increasingly higher privileges
+- Device changes: User accessing from new IP/device after anomaly
+
+Machine Learning:
+- Anomaly detection: Identify unusual behavior patterns
+- Clustering: Group similar suspicious activities
+- Baseline: Establish normal behavior per user, alert on deviations
+- Predictive: Flag behaviors likely to be malicious
+
+2.8 COMPLIANCE REPORTING
+Audit Reports:
+- Annual audit: Full audit log summary for SOC 2 Type II audit
+- Regulatory audit: Targeted audit log reports per regulation
+- Incident report: Timeline and details of specific incident
+- Certification: Audit logs support HIPAA BAA, GDPR DPA compliance
+
+HIPAA Accounting of Disclosures:
+- Patient request: "Who accessed my medical record?"
+- System response: Query audit logs, generate disclosure list
+- Report includes: Name, date, purpose of access
+- Provided to patient: Within 30 days
+
+GDPR Data Subject Access Request (DSAR):
+- Patient request: "All data you have about me"
+- System response: Export all patient data + audit trail
+- Report includes: What data, when accessed, by whom
+- Provided to patient: Within 45 days
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: audit_logs (IMMUTABLE)
+- audit_id (UUID, PK)
+- timestamp (TIMESTAMP, indexed)
+- event_type (VARCHAR)
+- user_id (UUID, nullable)
+- entity_type (VARCHAR)
+- entity_id (UUID, nullable)
+- action (VARCHAR)
+- resource (VARCHAR)
+- result (ENUM: "success", "failure")
+- ip_address (VARCHAR)
+- user_agent (VARCHAR)
+- data_before (JSONB, nullable, encrypted)
+- data_after (JSONB, nullable, encrypted)
+- reason (VARCHAR, nullable)
+- error_message (VARCHAR, nullable)
+- previous_log_hash (VARCHAR, nullable, hash chain)
+- log_hash (VARCHAR, unique, tamper detection)
+- created_at (TIMESTAMP)
+- INDEX: (timestamp DESC)
+- INDEX: (user_id, timestamp DESC)
+- INDEX: (entity_type, entity_id, timestamp DESC)
+- IMMUTABLE: Cannot be updated or deleted (database trigger enforced)
+
+TABLE: audit_log_archive (IMMUTABLE)
+- archived_log_id (UUID, PK)
+- original_audit_id (UUID, indexed)
+- audit_log_data (JSONB, encrypted)
+- archived_at (TIMESTAMP)
+- retention_expires_at (TIMESTAMP)
+- INDEX: (original_audit_id)
+
+TABLE: suspicious_activities
+- activity_id (UUID, PK)
+- audit_id (UUID, FK → audit_logs)
+- anomaly_type (VARCHAR)
+- confidence_score (DECIMAL 5,4)
+- severity (ENUM: "critical", "warning", "info")
+- alert_sent (BOOLEAN)
+- alert_sent_at (TIMESTAMP, nullable)
+- investigation_status (ENUM: "new", "investigating", "resolved")
+- notes (TEXT, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (severity, investigation_status)
+
+TABLE: compliance_reports
+- report_id (UUID, PK)
+- report_type (ENUM: "hipaa", "gdpr", "sox", "internal_audit")
+- requested_by (UUID, FK → users)
+- requested_date (DATE)
+- date_range_start (DATE)
+- date_range_end (DATE)
+- generated_at (TIMESTAMP)
+- file_location (VARCHAR)
+- status (ENUM: "generating", "ready", "delivered")
+- created_at (TIMESTAMP)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 AUDIT LOG QUERY API
+
+GET /api/v1/admin/audit-logs
+Query: event_type, user_id, entity_type, entity_id, date_range, limit (max 10000)
+Response: Audit log entries (limited for performance)
+
+GET /api/v1/admin/audit-logs/user/{user_id}
+Query: date_range
+Response: User's activity history
+
+GET /api/v1/admin/audit-logs/entity/{entity_type}/{entity_id}
+Query: date_range
+Response: All modifications to specific entity
+
+4.2 FORENSIC API
+
+GET /api/v1/admin/audit-logs/timeline/{patient_id}
+Query: date_range
+Response: Complete timeline of events affecting patient
+
+POST /api/v1/admin/audit-logs/export
+Body: { query_filters, export_format (json/csv/pdf) }
+Response: Export audit logs for investigation
+
+4.3 COMPLIANCE REPORTING API
+
+POST /api/v1/admin/compliance-reports/generate
+Body: { report_type, date_range }
+Response: Report generation started
+
+GET /api/v1/admin/compliance-reports/{report_id}
+Response: Report status and download link
+
+4.4 SUSPICIOUS ACTIVITY API
+
+GET /api/v1/admin/suspicious-activities
+Query: severity, investigation_status
+Response: List of suspicious activities
+
+PUT /api/v1/admin/suspicious-activities/{activity_id}
+Body: { investigation_status, notes }
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 AUDIT LOG STORAGE
+- PostgreSQL with immutability enforced via triggers
+- Archive: S3 or similar cold storage for old logs
+- Encryption: Logs encrypted at rest
+- Replication: Logs replicated for redundancy
+
+5.2 LOG ANALYSIS
+- ELK Stack: Elasticsearch, Logstash, Kibana for log analysis
+- Splunk: Alternative commercial log management
+- Prometheus: Metrics and alerting
+- Custom dashboards: Query audit logs for investigations
+
+5.3 COMPLIANCE TOOLS
+- HIPAA audit: Generate HIPAA-compliant audit reports
+- GDPR tools: DSAR fulfillment, right-to-erasure verification
+- SOC 2: Audit log reports for SOC 2 Type II certification
+- Incident response: Tools for breach investigation
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 AUDIT LOG CREATION
+- Every action generates log entry
+- Logged before action completes (ensures even on failure)
+- Timestamp recorded server-side (cannot be spoofed by client)
+- Immutable: Stored with protection against modification
+
+6.2 COMPLIANCE REPORTING
+1. Audit request received
+2. Query audit logs per criteria
+3. Generate report with formatted data
+4. Encrypt report for transmission
+5. Deliver to requester (audit firm, regulator)
+6. Verify receipt and delete local copy
+
+6.3 BREACH INVESTIGATION
+1. Breach suspected
+2. Query audit logs: Who accessed data?
+3. Generate timeline: When, from where?
+4. Notify affected parties: Alert patients, regulators
+5. Document response: Corrective actions
+6. Follow-up: Verify no further unauthorized access
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (16+ test cases):
+- Log immutability enforcement
+- Hash chain validation
+- Tamper detection
+- Log archival logic
+
+Integration Tests (14+ test cases):
+- End-to-end audit logging
+- Immutability verification
+- Archive and retrieval
+- Compliance report generation
+- Suspicious activity detection
+
+Forensic Tests (12+ test cases):
+- Timeline reconstruction
+- Data before/after tracking
+- Breach investigation queries
+- DSAR fulfillment
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. All significant events logged to audit trail
+2. Audit logs immutable (cannot be modified after creation)
+3. Audit log queries complete within <5 seconds
+4. Tamper detection verified (hash chain)
+5. 7+ year retention capability
+6. HIPAA compliance verified
+7. GDPR compliance verified (DSAR support)
+8. Forensic investigation queries working
+9. Suspicious activity alerts generated
+10. Compliance reports automated
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Immutable audit log storage and schema
+2. Comprehensive event logging system
+3. Tamper detection (hash chain)
+4. Audit log query and search
+5. Forensic investigation tools
+6. Compliance reporting automation
+7. HIPAA accounting of disclosures
+8. GDPR DSAR fulfillment
+9. Suspicious activity detection
+10. Alert generation and routing
+11. Log archival and retention
+12. Admin APIs for log queries
+
+Dependencies:
+- Task 1-10 (Phase 0)
+- Tasks 32-33 (RBAC, Encryption)
+
+Blockers For:
+- Task 35 (Privacy/GDPR)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design: 3 hours (audit schema, event types)
+Development: 19 hours (logging, queries, reporting)
+Testing: 7 hours (immutability tests, forensic tests)
+Documentation: 2 hours (compliance documentation)
+Contingency: 1 hour (5%)
+
+Total: 32 hours (1 developer, 1 week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Audit logs become performance bottleneck
+Mitigation: Async logging, archival, query optimization
+
+Risk: Log tampering undetected
+Mitigation: Hash chain validation, regular integrity checks
+
+Risk: Compliance report incomplete or inaccurate
+Mitigation: Automated validation, manual review
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Log completeness: 100% of events logged
+- Immutability: 100% enforced (no modifications possible)
+- Query performance: <5 seconds for complex queries
+- Archive success: 100% of old logs archived
+- Compliance: 100% pass HIPAA/GDPR audit
+
+================================================================================

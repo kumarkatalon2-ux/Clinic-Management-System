@@ -1,0 +1,712 @@
+================================================================================
+TASK: Telemedicine Integration - Remote Consultation System
+Module: Appointments - Telemedicine
+Phase: PHASE 1 (Features)
+Priority: HIGH (Post-COVID expansion)
+Duration: 7-8 days
+Effort: 32 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement telemedicine system enabling remote video consultations, screen
+sharing, recording, follow-ups, and integration with clinic scheduling
+system.
+
+BUSINESS LOGIC
+--------------
+Telemedicine Purpose:
+
+Telemedicine enables:
+- Remote diagnosis and consultations
+- Follow-ups without in-office visits
+- Accessibility (rural patients, mobility issues)
+- Convenience (time savings)
+- Cost reduction (less clinic overhead)
+- Pandemic safety (social distancing)
+
+Telemedicine Types:
+
+1. VIDEO CONSULTATION
+   - Live video call
+   - Doctor-patient 1-on-1
+   - Screen sharing (show lab results)
+   - Audio/video recording (optional)
+   - ~30 minutes
+
+2. STORE-AND-FORWARD
+   - Patient uploads symptoms description, photos
+   - Doctor reviews asynchronously
+   - Doctor responds with guidance
+   - Takes 24-48 hours
+   - Lower cost
+
+3. PATIENT PORTAL
+   - Secure messaging
+   - Patient asks questions
+   - Doctor responds
+   - Non-urgent follow-ups
+   - Unlimited duration
+
+4. GROUP CONSULTATION
+   - Multiple patients (educational)
+   - Doctor leads group discussion
+   - Q&A session
+   - Recording provided
+
+For this implementation: Focus on VIDEO CONSULTATION
+
+TELEMEDICINE APPOINTMENT FLOW
+-----------------------------
+Booking Phase:
+
+1. PATIENT SELECTS TELEMEDICINE
+   Patient looking for appointments:
+   - Filter: "Telemedicine" appointment type
+   - Available time slots shown
+   - Remote visit, no room required
+   - Doctor: Dr. Smith (any)
+   - Time: Tomorrow 2pm
+
+   POST /appointments/request
+   {
+     "appointmentTypeId": "uuid-type-telehealth",
+     "appointmentDate": "2024-02-16",
+     "appointmentTime": "14:00",
+     "doctorId": "uuid-dr-smith"
+   }
+
+2. CONFIRMATION
+   Patient confirms:
+   - Appointment confirmed
+   - Email sent with meeting link
+   - SMS reminder sent
+   - Patient instructed to test video/audio
+   - Technology requirements listed
+
+3. PRE-APPOINTMENT TECH CHECK
+   Patient receives email:
+   "Please test your video/audio before appointment"
+   - Link to test room
+   - Patient tests camera, microphone
+   - Audio quality checked
+
+Appointment Day:
+
+4. PATIENT JOINS 5 MINUTES EARLY
+   Patient clicks "Join meeting" link
+   - Video/audio turns on
+   - Waits for doctor
+
+5. DOCTOR JOINS
+   Doctor logs in, sees:
+   - Patient list for today
+   - Current patient: John Doe
+   - Patient medical record (for reference)
+   - Option to record conversation
+   - Screen share enabled
+   - Chat function available
+
+6. CONSULTATION HAPPENS
+   Doctor and patient:
+   - Discuss chief complaint
+   - Doctor asks questions
+   - Patient describes symptoms
+   - Doctor may ask to show area (rash, etc.)
+   - Doctor examines via video
+   - Prescription written (if needed)
+   - Follow-up discussed
+
+7. MEETING ENDS
+   Doctor ends meeting:
+   - Recording stops (if enabled)
+   - Encounter documented in EMR
+   - Prescription sent (if any)
+   - Follow-up appointment scheduled (if needed)
+   - Patient sent summary
+
+8. POST-APPOINTMENT FOLLOW-UP
+   - Prescription available for patient to print
+   - Recording available (if consented)
+   - Patient rated experience
+   - Billing processed
+   - Chart note documented
+
+TELEMEDICINE DATA MODEL
+-----------------------
+Telemedicine Appointment:
+
+CREATE TABLE telemedicine_appointments (
+  id UUID PRIMARY KEY,
+  appointment_id UUID NOT NULL,  -- FK to regular appointments table
+  clinic_id UUID NOT NULL,
+  
+  -- Meeting Details
+  meeting_room_id VARCHAR(255),  -- Unique identifier
+  meeting_link VARCHAR(1024),    -- URL to join meeting
+  meeting_platform VARCHAR(50),  -- ZOOM, TEAMS, WEBRTC
+  
+  -- Status
+  status VARCHAR(50),
+  -- SCHEDULED, STARTED, IN_PROGRESS, RECORDING, COMPLETED
+  
+  -- Participants
+  doctor_id UUID NOT NULL,
+  patient_id UUID NOT NULL,
+  
+  -- Timestamps
+  scheduled_start TIMESTAMP,
+  actual_start TIMESTAMP,
+  actual_end TIMESTAMP,
+  scheduled_duration_minutes INT,
+  actual_duration_minutes INT,
+  
+  -- Recording
+  recording_enabled BOOLEAN,
+  recording_url VARCHAR(1024),
+  recording_status VARCHAR(50),  -- QUEUED, PROCESSING, AVAILABLE, FAILED
+  patient_has_access_to_recording BOOLEAN,
+  
+  -- Quality Metrics
+  average_video_quality VARCHAR(50),  -- HD, SD, LOW
+  average_audio_quality VARCHAR(50),
+  connection_drops INT,  -- Number of disconnects
+  
+  -- Notes
+  doctor_notes TEXT,
+  clinical_summary TEXT,
+  
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+Telemedicine Encounter (in EMR):
+
+{
+  "encounterId": "uuid-encounter-789",
+  "encounterType": "TELEMEDICINE",
+  "date": "2024-02-16",
+  "time": "14:00",
+  "doctor": "Dr. Smith",
+  "patient": "John Doe",
+  "duration": 28,
+  "platform": "Zoom",
+  "recordingAvailable": true,
+  "recordingUrl": "https://vault.zoom.us/...",
+  "chiefComplaint": "Persistent cough",
+  "history": "Cough started 5 days ago, worse at night",
+  "assessment": "Likely viral upper respiratory infection",
+  "plan": "Supportive care, follow-up in 1 week",
+  "prescriptions": ["Cough syrup"],
+  "followUp": "1 week - in-person if symptoms persist"
+}
+
+TECHNOLOGY PLATFORM SELECTION
+-----------------------------
+Options:
+
+1. ZOOM
+   Pros:
+   - Reliable, enterprise-grade
+   - Recording built-in
+   - Waiting room feature
+   - Screen share
+   - Mobile-friendly
+   Cons:
+   - Cost ($150-300/month for clinic license)
+   - Security concerns (Zoom bombing history)
+   - HIPAA compliance requires Business Associate Agreement
+
+2. GOOGLE MEET
+   Pros:
+   - Free with Google Workspace
+   - Simple interface
+   - Screen share
+   - Recording (Google One storage)
+   - Mobile-friendly
+   Cons:
+   - Limited to Google ecosystem
+   - Recording storage limitations
+   - Less healthcare-specific
+
+3. MICROSOFT TEAMS
+   Pros:
+   - Integrates with Microsoft ecosystem
+   - Enterprise features
+   - Recording and transcription
+   - HIPAA compliant
+   Cons:
+   - Requires licenses
+   - Steeper learning curve
+   - Overkill for simple consultations
+
+4. WEBRTC (Custom)
+   Pros:
+   - Full control
+   - Lower cost (just infrastructure)
+   - Privacy (no third-party)
+   - Customizable
+   Cons:
+   - Complex to build
+   - Requires backend development
+   - Bandwidth costs higher
+   - Less reliable
+
+Recommendation for MVP: Zoom (established, HIPAA-compliant, feature-rich)
+
+Integration with Zoom:
+
+1. SYSTEM GENERATES MEETING LINK
+   When appointment created:
+   
+   API Call to Zoom:
+   POST https://api.zoom.us/v2/users/{userId}/meetings
+   {
+     "topic": "Telemedicine Consultation with Dr. Smith",
+     "start_time": "2024-02-16T14:00:00",
+     "duration": 30,
+     "settings": {
+       "host_video": true,
+       "participant_video": true,
+       "waiting_room": true,
+       "recording": "cloud"
+     }
+   }
+   
+   Response:
+   {
+     "id": 123456789,
+     "join_url": "https://zoom.us/j/123456789",
+     "start_url": "https://zoom.us/s/123456789"
+   }
+
+2. MEETING LINK SENT TO PATIENT
+   Email/SMS with:
+   - Join link: https://zoom.us/j/123456789
+   - Time: Tomorrow 2pm
+   - Instructions: Click link 5 min early
+
+3. MEETING STARTS
+   Doctor clicks "start" link
+   System:
+   - Opens Zoom meeting
+   - Starts recording (optional)
+   - Auto-records to Zoom cloud
+
+4. MEETING ENDS
+   Doctor ends meeting
+   System:
+   - Recording stops, saved to Zoom cloud
+   - Recording transcribed (optional)
+   - Download recording or stream
+
+PATIENT EXPERIENCE
+------------------
+Patient-Facing Flow:
+
+1. APPOINTMENT REMINDER
+   Email: "Telemedicine appointment with Dr. Smith tomorrow 2pm"
+   - Join link
+   - Time zone converted
+   - Test link ("Test your video/audio")
+
+2. TEST ROOM
+   Patient clicks test link:
+   - Camera turns on (check if works)
+   - Microphone on (check if works)
+   - Internet speed tested
+   - Browser compatibility checked
+   - "Ready to go!" or error message
+
+3. JOIN APPOINTMENT
+   Patient clicks appointment time (or countdown timer):
+   - "Click here to join" button
+   - Pre-join screen (camera/mic check)
+   - "Join with Video" or "Join with Audio Only"
+   - Waiting room (waiting for doctor)
+
+4. DURING APPOINTMENT
+   Simple interface:
+   - Doctor video on screen (large)
+   - Patient video (corner)
+   - Chat button
+   - Screen share (if doctor shares)
+   - "End meeting" button
+   - Mute/unmute buttons
+
+5. AFTER APPOINTMENT
+   - "Thank you" message
+   - Rate experience (1-5 stars)
+   - Comment: "Doctor was helpful"
+   - Prescription link (if any)
+   - Recording link (if available)
+   - Follow-up appointment button
+
+6. FOLLOW-UP
+   - "Schedule follow-up" link
+   - In 1 week (recommended)
+   - Or telemedicine again
+   - Or in-person
+
+DOCTOR EXPERIENCE
+-----------------
+Doctor-Facing Flow:
+
+1. DAILY SCHEDULE
+   Doctor logs in:
+   - Calendar shows all appointments
+   - Color-coded: In-person (blue), Telemedicine (green)
+   - Telemedicine appointments: "Zoom" label
+
+2. PRE-APPOINTMENT
+   Doctor sees appointment 15 min before:
+   - Patient name, age
+   - Chief complaint
+   - Medical history (relevant)
+   - Allergies prominent
+   - Recent vitals (if in-person previous)
+   - Previous encounter notes
+
+3. START MEETING
+   Doctor clicks "Start Zoom Meeting":
+   - Meeting window opens
+   - Waiting room shows patient
+   - Option to admit patient
+   - Recording status visible
+   - Chat button available
+   - Screen share button available
+
+4. DURING CONSULTATION
+   Doctor can:
+   - See and talk with patient
+   - Share screen (show lab results)
+   - Record conversation (if patient consented)
+   - Request patient show area (rash, etc.)
+   - Take notes during call
+   - Prescribe medications
+
+5. AFTER CONSULTATION
+   Doctor:
+   - Takes final notes
+   - Documents assessment/plan
+   - Writes prescriptions
+   - Schedules follow-up
+   - Ends meeting
+   - Records automatically saved
+
+HYBRID APPOINTMENTS (In-Person + Telemedicine Follow-up)
+----------------------------------------------------------
+Scenario:
+
+Initial Visit: In-person appointment
+- Patient sees Dr. Smith in clinic
+- Full physical exam
+- Lab tests ordered
+- Plan: Follow-up in 1 week
+
+Follow-up Visit: Telemedicine appointment
+- Review lab results
+- See how patient recovering
+- Adjust treatment if needed
+- Schedule next visit
+
+System tracks:
+- Initial encounter: In-person
+- Follow-up encounter: Telemedicine
+- Both linked in chart
+
+Patient Benefits:
+- No need to return to clinic for simple follow-up
+- Time savings
+- Cost savings (no travel)
+
+Doctor Benefits:
+- Efficiently monitor patients
+- Higher throughput (telemedicine faster than in-person)
+- Reduces clinic overhead
+
+CONSENT & RECORDING
+-------------------
+Patient Consent for Telemedicine:
+
+Before first telemedicine appointment, patient consents to:
+1. Remote video consultation
+2. Recording of call (optional)
+3. Storage of recording
+4. Doctor may share screen
+5. Limitations of telemedicine
+
+Consent Form:
+
+"I understand that:
+- This is a telemedicine consultation (video call)
+- The doctor can see and hear me via video
+- Technical issues may occur
+- Telemedicine is not suitable for emergencies
+- Emergency? Hang up and call 911
+- Privacy: I'm calling from secure location
+- Recording: I consent to recording ☐ (optional)
+- If recording, I can access it anytime"
+
+Consent API:
+
+POST /patients/uuid-patient/telemedicine-consent
+{
+  "consentDate": "2024-02-01",
+  "consentType": "INITIAL_TELEMEDICINE",
+  "recordingConsent": true,
+  "acknowledgment": "Patient confirmed understanding"
+}
+
+Recording Storage & Privacy:
+
+If recording enabled:
+- Zoom stores in cloud (encrypted)
+- Stored for retention period (e.g., 7 years HIPAA)
+- Patient can request deletion
+- Access controlled (only patient and doctor)
+- Audit log tracks access
+- Cannot be downloaded by unauthorized users
+
+QUALITY & RELIABILITY
+---------------------
+Network Requirements:
+
+Minimum:
+- Download: 2.5 Mbps
+- Upload: 2.5 Mbps
+- Latency: <100ms
+
+Recommended:
+- Download: 5+ Mbps
+- Upload: 5+ Mbps
+- Latency: <50ms
+
+Quality Issues & Failover:
+
+If network poor:
+- Video quality degraded (SD instead of HD)
+- Patient receives notice
+- Automatic fallback to audio-only
+- Patient can disconnect and rejoin
+- Doctor can switch to telephone if video fails
+
+Connection Stability:
+
+System monitors:
+- Ping time
+- Packet loss
+- Bandwidth
+- Connection drops
+
+If disconnection:
+- Auto-reconnect attempted
+- Waiting for patient to rejoin (30 sec window)
+- If patient doesn't rejoin: Meeting paused
+- Patient notified to rejoin
+
+SECURITY & PRIVACY
+------------------
+HIPAA Compliance:
+
+Zoom Requirements:
+- Business Associate Agreement signed
+- Encryption in transit (TLS)
+- Encryption at rest (AES-256)
+- No recording without consent
+- Audit logging
+- 6-year retention (HIPAA minimum)
+
+Network Security:
+- HTTPS/TLS for all patient-facing URLs
+- API calls to Zoom authenticated (API key/secret)
+- Waiting room enabled (prevents randoms)
+- Meeting password enabled
+- Host key required to start
+
+Patient Privacy:
+- Waiting room: Patient must be admitted
+- Password protection
+- Recording consent obtained
+- Patient data not shared with Zoom
+- Chat messages deleted after meeting (if possible)
+
+Data Residency:
+- Patient data stored in clinic DB (encrypted)
+- Meeting recording stored (encrypted)
+- PHI not shared with Zoom except meeting ID, time
+
+TECHNICAL REQUIREMENTS
+---------------------
+Patient-Side Requirements:
+
+Device:
+- Desktop/laptop OR tablet/smartphone
+- Webcam (usually built-in)
+- Microphone (usually built-in)
+- Speakers or headphones
+
+Software:
+- Modern web browser (Chrome, Safari, Firefox)
+- OR Zoom mobile app
+- Bandwidth: Minimum 2.5 Mbps
+
+Internet:
+- WiFi recommended (stable)
+- Mobile data acceptable if 4G/5G
+
+Physical Space:
+- Quiet, private location
+- Good lighting (face visible)
+- Professional setting (if work)
+
+Doctor-Side Requirements:
+
+Device:
+- Desktop computer (recommended)
+- External monitor (for notes + video)
+- External webcam + microphone (better quality)
+- Headphones with microphone
+
+Software:
+- Zoom provider account
+- EHR system open (notes)
+- Prescription system accessible
+
+Internet:
+- Wired connection preferred (more stable)
+- Backup internet (cellular)
+
+Physical Space:
+- Private office (HIPAA)
+- Professional background
+- Good lighting
+- Professional setting
+
+TESTING STRATEGY
+----------------
+Telemedicine Booking Tests:
+
+[ ] Telemedicine appointment type available
+[ ] Scheduling telemedicine appointment works
+[ ] No room required for telemedicine
+[ ] Zoom meeting link generated
+[ ] Meeting link sent to patient
+[ ] Appointment confirmed
+
+Patient Experience Tests:
+
+[ ] Patient receives email with join link
+[ ] Patient can join meeting
+[ ] Video/audio works for patient
+[ ] Patient sees doctor
+[ ] Chat works (if enabled)
+[ ] Patient can end meeting
+
+Doctor Experience Tests:
+
+[ ] Doctor can start meeting
+[ ] Doctor sees patient in waiting room
+[ ] Doctor can admit patient
+[ ] Doctor and patient can see/hear each other
+[ ] Screen sharing works
+[ ] Recording starts/stops (if enabled)
+[ ] Doctor can end meeting
+
+Technical Tests:
+
+[ ] Video quality HD
+[ ] Audio quality clear
+[ ] Screen share latency <1 second
+[ ] Recording successfully saved
+[ ] Zoom API integration works
+[ ] Waiting room prevents unauthorized access
+
+Recording Tests:
+
+[ ] Recording enabled with patient consent
+[ ] Recording saved successfully
+[ ] Recording accessible to patient
+[ ] Recording not accessible to unauthorized users
+[ ] Recording deleted on schedule
+
+Security Tests:
+
+[ ] Meeting password protected
+[ ] Waiting room prevents direct entry
+[ ] HTTPS enforced
+[ ] Patient data encrypted
+[ ] Recording encrypted
+[ ] Audit log tracks access
+
+Compliance Tests:
+
+[ ] Patient consent obtained before appointment
+[ ] Recording consent tracked
+[ ] HIPAA audit logged
+[ ] Data retention policy enforced
+[ ] Patient can request deletion
+
+Performance Tests:
+
+[ ] Meeting starts <3 seconds
+[ ] Video rendering <500ms latency
+[ ] Screen share <1 second latency
+[ ] 100+ concurrent meetings (depends on infrastructure)
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Telemedicine appointment type created
+[ ] Zoom integration working
+[ ] Meeting links generated
+[ ] Patient can join meeting
+[ ] Doctor can start/end meeting
+[ ] Video/audio working
+[ ] Screen sharing working
+[ ] Recording working (if enabled)
+[ ] Patient consent obtained
+[ ] HIPAA compliance verified
+[ ] Security requirements met
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Telemedicine appointment data model
+2. Zoom API integration
+3. Meeting link generation
+4. Patient join experience
+5. Doctor controls interface
+6. Recording management
+7. Consent tracking
+8. Security implementation
+9. HIPAA compliance documentation
+10. Test suite (50+ tests)
+11. Patient setup guide
+12. Doctor user guide
+13. Troubleshooting guide
+
+DEPENDENCIES
+-----------
+BLOCKING: Appointment Engine (Task 17), Patient Management (Task 12)
+BLOCKS: Telehealth-specific analytics
+
+RELATED TASKS
+-----------
+- Appointment Engine (Task 17)
+- Clinic Lifecycle (Task 16)
+- Consultation Module (Task 21)
+
+NOTES
+-----
+Telemedicine expanding post-COVID.
+Technology complexity (Zoom integration).
+HIPAA compliance critical (patient privacy).
+Patient tech support important (some patients struggle with tech).
+Network reliability important (video calls sensitive to latency).
+
+Timeline: Week 2 of Phase 1 Appointments
+Priority: HIGH (post-COVID standard)
+
+STATUS: Ready for implementation
+================================================================================

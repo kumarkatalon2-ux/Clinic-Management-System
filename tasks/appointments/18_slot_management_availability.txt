@@ -1,0 +1,557 @@
+================================================================================
+TASK: Slot Management & Availability - Calendar Slot Operations
+Module: Appointments - Slots
+Phase: PHASE 1 (Features)
+Priority: HIGH
+Duration: 6-7 days
+Effort: 28 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement slot management system that generates, tracks, and manages all
+available appointment slots based on clinic configuration, doctor schedules,
+and resource availability.
+
+BUSINESS LOGIC
+--------------
+Slot Management Purpose:
+
+Slots are discrete time windows when appointments can be booked:
+
+Doctor: Dr. Smith
+Date: February 15, 2024
+Operating Hours: 8am-5pm
+Appointment Type: General Visit (30 minutes)
+Buffer: 5 minutes before and after
+
+Generated Slots (in 30-min increments with 5-min buffer):
+
+Time Window | Available?
+8:00am-8:35am | Check if free
+8:30am-9:05am | Check if free
+9:00am-9:35am | Check if free
+... (continue through day)
+4:30pm-5:05pm | Check if free (extends past 5pm close)
+
+Why Slots Matter:
+
+1. PERFORMANCE
+   Pre-calculated slots faster than real-time availability checks
+   
+2. CONSISTENCY
+   All doctors/rooms use same slot grid (standardized)
+   
+3. USER EXPERIENCE
+   Users select from discrete slots (cleaner UI)
+   vs. entering arbitrary times
+   
+4. RESOURCE COORDINATION
+   Slots align with resource constraints
+   
+SLOT GENERATION
+---------------
+Slot Generation Algorithm:
+
+FOR each clinic day (e.g., Feb 15, 2024):
+  IF clinic closed on day:
+    SKIP day
+  
+  FOR each doctor working that day:
+    appointment_duration = 30 minutes
+    buffer_before = 5 minutes
+    buffer_after = 5 minutes
+    total_slot_duration = 30 + 5 + 5 = 40 minutes
+    
+    clinic_start = 8:00am
+    clinic_end = 5:00pm
+    doctor_start = 8:00am (or doctor-specific)
+    doctor_end = 5:00pm
+    
+    current_time = doctor_start
+    WHILE current_time + appointment_duration <= doctor_end:
+      slot = {
+        time: current_time,
+        duration: appointment_duration,
+        doctorId: doctor.id,
+        clinicId: clinic.id,
+        date: Feb 15
+      }
+      ADD slot to slots table
+      
+      current_time += increment (usually 15 or 30 min)
+
+Example Slot Generation for Dr. Smith, Feb 15:
+
+Start: 8:00am
+End: 5:00pm
+Appointment Duration: 30 min
+Increment: 30 min (could also be 15 min for finer granularity)
+
+Generated Slots:
+8:00am (end 8:30am)
+8:30am (end 9:00am)
+9:00am (end 9:30am)
+9:30am (end 10:00am)
+... continues every 30 minutes
+4:30pm (end 5:00pm)
+5:00pm (end 5:30pm) ← Extends past clinic hours (allowed if buffer goes past)
+
+If appointment already exists 9-10am:
+8:00am: AVAILABLE (ends 8:30am, before 9am start)
+8:30am: AVAILABLE (ends 9:00am, meets 9am start exactly)
+9:00am: UNAVAILABLE (conflicts with 9am existing)
+9:30am: UNAVAILABLE (still within 9-10am)
+10:00am: AVAILABLE (starts 10am, after existing ends)
+
+SLOT DATA MODEL
+---------------
+Slots Table:
+
+CREATE TABLE appointment_slots (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  doctor_id UUID NOT NULL,
+  appointment_type_id UUID NOT NULL,
+  
+  slot_date DATE,
+  slot_time TIME,
+  slot_duration_minutes INT,
+  
+  status VARCHAR(50),
+  -- AVAILABLE, BOOKED, BLOCKED, UNAVAILABLE, CANCELLED
+  
+  appointment_id UUID,  -- FK to appointments (if booked)
+  
+  reason_if_blocked VARCHAR(255),
+  -- "Doctor vacation", "Room maintenance", etc.
+  
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  
+  UNIQUE(clinic_id, doctor_id, slot_date, slot_time)
+);
+
+Slot Statuses:
+
+AVAILABLE: Open for booking
+  - Doctor available
+  - Room available
+  - No conflicts
+  - Patient can book
+
+BOOKED: Appointment exists
+  - Appointment scheduled
+  - Slot taken
+  - Cannot book another
+
+BLOCKED: Deliberately blocked
+  - Lunch break
+  - Staff meeting
+  - Maintenance
+  - Doctor lunch
+
+UNAVAILABLE: Cannot be booked
+  - Doctor not working
+  - Clinic closed
+  - Insufficient resources
+  - Policy prevents
+
+CANCELLED: Was booked, now cancelled
+  - Patient cancelled
+  - Clinic cancelled
+  - Slot returned to availability
+
+SLOT LIFECYCLE
+--------------
+1. GENERATION
+   System generates slots (daily job, or on-demand):
+
+   POST /slots/generate
+   {
+     "clinicId": "uuid-clinic",
+     "startDate": "2024-02-01",
+     "endDate": "2024-02-29",
+     "appointmentTypeId": "uuid-type-general"
+   }
+
+   System generates all possible slots for February
+   Example: 20 working days × 10 doctors × 16 slots/day = 3,200 slots
+
+2. AVAILABILITY CHECK
+   When patient requests availability:
+
+   GET /slots/available
+   ?clinicId=uuid-clinic
+   &doctorId=uuid-doctor
+   &date=2024-02-15
+   &appointmentTypeId=uuid-type-general
+
+   Response:
+   [
+     { time: "8:00am", status: "AVAILABLE", slotId: "slot-001" },
+     { time: "8:30am", status: "AVAILABLE", slotId: "slot-002" },
+     { time: "9:00am", status: "BOOKED", slotId: "slot-003" },
+     ... etc
+   ]
+
+3. BOOKING
+   When patient selects slot:
+
+   POST /slots/slot-001/book
+   {
+     "patientId": "uuid-patient",
+     "appointmentReason": "Annual checkup"
+   }
+
+   System:
+   - Marks slot as BOOKED
+   - Creates appointment record
+   - Links slot to appointment
+   - Sends confirmation
+
+4. CANCELLATION
+   When patient cancels:
+
+   DELETE /appointments/appt-123
+
+   System:
+   - Marks appointment as CANCELLED
+   - Updates slot status to AVAILABLE (or CANCELLED tracking)
+   - Slot available for rebooking
+
+5. EXPIRATION
+   Old slots deleted (keep current + 1 year future):
+
+   Nightly Job:
+   DELETE FROM appointment_slots
+   WHERE slot_date < TODAY - 1 year
+
+SLOT MANAGEMENT OPERATIONS
+--------------------------
+View Slots for Date:
+
+GET /clinics/uuid-clinic/slots?date=2024-02-15
+
+Response:
+{
+  "date": "2024-02-15",
+  "day": "Thursday",
+  "clinic": "Downtown Family Medicine",
+  "summary": {
+    "totalSlots": 160,
+    "availableSlots": 35,
+    "bookedSlots": 120,
+    "blockedSlots": 5
+  },
+  "doctors": [
+    {
+      "doctorId": "uuid-dr-smith",
+      "name": "Dr. Smith",
+      "slots": [
+        { "time": "8:00am", "status": "AVAILABLE", "slotId": "slot-001" },
+        { "time": "8:30am", "status": "BOOKED", "slotId": "slot-002" },
+        { "time": "9:00am", "status": "AVAILABLE", "slotId": "slot-003" }
+      ]
+    },
+    {
+      "doctorId": "uuid-dr-johnson",
+      "name": "Dr. Johnson",
+      "slots": [...]
+    }
+  ]
+}
+
+Block Slot (Admin Operation):
+
+POST /slots/slot-001/block
+{
+  "reason": "Staff meeting",
+  "startTime": "2024-02-15 11:00",
+  "endTime": "2024-02-15 12:00"
+}
+
+System blocks all slots in that time window:
+- 11:00am: BLOCKED (staff meeting)
+- 11:30am: BLOCKED (staff meeting)
+- 12:00pm: AVAILABLE (after meeting)
+
+Unblock Slot:
+
+POST /slots/slot-001/unblock
+
+Bulk Slot Operations:
+
+Block multiple slots:
+POST /slots/bulk-block
+{
+  "clinicId": "uuid-clinic",
+  "doctorId": "uuid-doctor",
+  "startDate": "2024-02-15",
+  "endDate": "2024-02-25",
+  "reason": "Doctor vacation"
+}
+
+System blocks all slots for Dr. Smith, Feb 15-25
+
+Regenerate Slots:
+
+If clinic hours change, need to regenerate:
+
+POST /slots/regenerate
+{
+  "clinicId": "uuid-clinic",
+  "startDate": "2024-02-01",
+  "endDate": "2024-02-29"
+}
+
+OPTIMIZED SLOT RETRIEVAL
+------------------------
+Challenge: 3,200+ slots per month per clinic
+
+Query: "Show available slots for Feb 15"
+
+Naive Query (SLOW):
+SELECT * FROM appointment_slots
+WHERE clinic_id = ? AND date = ? AND status = 'AVAILABLE'
+→ Could scan thousands of rows
+
+Optimized Query (FAST):
+CREATE INDEX (clinic_id, date, status)
+
+SELECT * FROM appointment_slots
+WHERE clinic_id = ? AND date = ? AND status = 'AVAILABLE'
+→ Uses index, scans only available slots
+
+Further Optimization:
+Cache available slots in memory (Redis):
+
+GET cache:slots:{clinicId}:{date}
+→ If exists, return cached (sub-millisecond)
+→ If not, query DB and cache for 1 hour
+
+Invalidate cache when:
+- Appointment booked
+- Appointment cancelled
+- Slot blocked/unblocked
+- Schedule changed
+
+SLOT MANAGEMENT FOR MULTIPLE APPOINTMENT TYPES
+-----------------------------------------------
+Different appointment types = different slot lengths:
+
+General Visit: 30 minutes
+Follow-up: 20 minutes
+Procedure: 60 minutes
+Consultation: 45 minutes
+
+Each type generates its own slots:
+
+Feb 15, Dr. Smith:
+
+General Visit Slots (30 min):
+8:00am, 8:30am, 9:00am, 9:30am, ..., 4:30pm (16 slots)
+
+Follow-up Slots (20 min):
+8:00am, 8:20am, 8:40am, 9:00am, 9:20am, ..., 4:40pm (24 slots)
+
+Procedure Slots (60 min):
+8:00am, 9:00am, 10:00am, ..., 4:00pm (9 slots)
+
+When slot booked, affects different appointment types:
+
+Book General 9:00am-9:30am:
+- 9:00am-9:30am General: BOOKED
+- 8:40am-9:00am Follow-up: Can still book (ends when General starts)
+- 9:00am-10:00am Procedure: BOOKED (overlaps)
+
+OVERBOOKING SLOT MANAGEMENT
+----------------------------
+Clinic allows 10% overbooking:
+
+Total slots: 100
+Overbooking slots: 10
+Regular slots: 90
+
+Slot Management:
+
+Regular Slots (priority 1):
+Booked first, system tries to avoid overbooked slots
+
+Overbooked Slots (priority 2):
+Only offered if no regular slots available
+
+Flag on Slot:
+
+CREATE TABLE appointment_slots (
+  ... (existing columns)
+  is_overbooked BOOLEAN DEFAULT false,
+  overbooked_position INT  -- 1st overbooked, 2nd, etc.
+);
+
+When booking:
+
+IF available_regular_slots > 0:
+  USE regular slot
+  is_overbooked = false
+ELSE IF available_overbooked_slots > 0:
+  USE overbooked slot
+  is_overbooked = true
+ELSE:
+  OFFER waitlist
+
+SLOT NOTIFICATIONS & REMINDERS
+-------------------------------
+Slot Availability Notifications:
+
+Scenario: Patient on waitlist for "Feb 15 morning appointment"
+
+When slot becomes available:
+1. System detects: Slot now available
+2. Query: Who's waiting for this slot?
+3. Notify: First person on waitlist
+4. Offer: "Slot available - book now or expires in 24 hours"
+5. If declined: Offer to next person
+
+Reminder Before Appointment:
+
+Slot exists: Feb 15 8:00am, Dr. Smith
+
+Reminders sent:
+- 24 hours before: "Appointment tomorrow 8am"
+- 2 hours before: "Appointment in 2 hours"
+- 1 hour before: "Doctor ready for your appointment"
+
+SLOT ANALYTICS
+--------------
+Slot Utilization Metrics:
+
+Per Day:
+- Total slots available: 160
+- Slots booked: 120
+- Utilization: 75%
+- Overbooking: 5 slots
+- No-shows: 3 slots (2%)
+
+Per Doctor:
+- Dr. Smith: 85% utilization
+- Dr. Johnson: 60% utilization
+- Dr. Lee: 40% utilization
+
+Per Time:
+- Morning (8am-12pm): 90% utilization
+- Afternoon (12pm-5pm): 65% utilization
+- Peak times: 9-10am, 2-3pm
+
+Predictive Analytics:
+
+Based on historical data:
+- Morning slots fill faster
+- Fridays more popular than Mondays
+- Dr. Smith consistently overbooked
+- Dr. Johnson underutilized
+
+Recommendations:
+- Increase Dr. Smith availability
+- Promote Dr. Johnson availability
+- Add more afternoon slots
+
+TESTING STRATEGY
+----------------
+Slot Generation Tests:
+
+[ ] Slots generated for all business days
+[ ] Slots skip weekends (if clinic closed)
+[ ] Slots skip holidays
+[ ] Slot duration correct (30 min for general visit)
+[ ] Buffer time included
+[ ] Slots don't extend past clinic hours (or configured to)
+[ ] Multiple appointment types generate separate slots
+[ ] Doctor schedule respected (no slots when doctor not working)
+
+Slot Availability Tests:
+
+[ ] Available slots returned for open time
+[ ] Booked slots filtered out
+[ ] Blocked slots not offered
+[ ] Unavailable slots not returned
+[ ] Correct count of slots
+
+Slot Booking Tests:
+
+[ ] Booking changes slot status to BOOKED
+[ ] Slot linked to appointment
+[ ] Cannot double-book same slot
+[ ] Concurrent bookings handled (race condition prevented)
+
+Slot Cancellation Tests:
+
+[ ] Cancelling appointment frees slot
+[ ] Slot status returns to AVAILABLE
+[ ] Other appointments unaffected
+
+Slot Management Tests:
+
+[ ] Slot can be blocked/unblocked
+[ ] Bulk block operations work
+[ ] Slots regenerated when schedule changes
+[ ] Cache invalidated on changes
+
+Performance Tests:
+
+[ ] Availability query <300ms for 1,000+ slots
+[ ] Booking <500ms
+[ ] Slot management operations <1 second
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Slot data model implemented
+[ ] Slot generation algorithm working
+[ ] Availability queries efficient
+[ ] Booking marks slot correctly
+[ ] Cancellation frees slot
+[ ] Slot blocking/unblocking working
+[ ] Cache implemented and invalidated
+[ ] Overbooking managed
+[ ] Notifications sent
+[ ] Analytics generated
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Slot data model and schema
+2. Slot generation algorithm
+3. Availability query APIs
+4. Slot management APIs (block, unblock, etc.)
+5. Cache implementation
+6. Slot linking to appointments
+7. Notification system
+8. Analytics queries
+9. Test suite (50+ tests)
+10. Slot optimization guide
+11. Performance tuning guide
+
+DEPENDENCIES
+-----------
+BLOCKING: Clinic Lifecycle (Task 16), Appointment Engine (Task 17)
+BLOCKS: Doctor Schedule (Task 19)
+
+RELATED TASKS
+-----------
+- Clinic Lifecycle Management (Task 16)
+- Appointment Engine (Task 17)
+- Doctor Schedule (Task 19)
+
+NOTES
+-----
+Slot management bridges scheduling engine and user interface.
+Performance critical (users need instant availability).
+Caching essential (too many slots to query each time).
+Flexibility needed (different appointment types, durations).
+
+Timeline: Week 1-2 of Phase 1 Appointments
+Priority: HIGH (enables booking UI)
+
+STATUS: Ready for implementation
+================================================================================

@@ -1,0 +1,573 @@
+================================================================================
+TASK 28: ANALYTICS & REPORTING SYSTEM
+================================================================================
+Module: Support Services
+Phase: Phase 1 - Implementation
+Priority: HIGH
+Effort Estimate: 38 hours (1 developer, 1+ week)
+Dependencies: Tasks 1-10 (Phase 0), Tasks 25-27 (Billing, Inventory, Pharmacy)
+Blocking: Task 31 (Dashboards), Task 39 (Scaling Strategy)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Analytics & Reporting System collects data from all clinical, operational, and
+financial systems to provide comprehensive insights into practice performance,
+clinical outcomes, financial health, and operational efficiency. It supports
+real-time dashboards, historical trend analysis, ad-hoc reporting, regulatory
+compliance reporting, and data-driven decision making. The system integrates data
+from EMR, appointments, consultations, prescriptions, diagnoses, billing, pharmacy,
+inventory, and other operational systems into a centralized data warehouse for
+analysis and reporting.
+
+Key Responsibilities:
+- Data collection and ETL from all operational systems
+- Data warehouse and dimensional modeling
+- Real-time dashboards and KPI tracking
+- Historical trend analysis and forecasting
+- Patient outcome tracking and quality measures
+- Financial reporting (revenue, costs, profitability)
+- Operational metrics (appointment utilization, no-show rates, wait times)
+- Pharmacy metrics (prescribing patterns, adherence, cost)
+- Inventory analytics (usage, costs, waste)
+- Compliance reporting (quality, safety, regulatory requirements)
+- Ad-hoc reporting and data export capabilities
+- Predictive analytics (readmission risk, no-show prediction)
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 DATA COLLECTION & ETL
+Data Sources:
+- EMR System: Patient demographics, medical histories, diagnoses
+- Appointment System: Appointment volume, no-shows, utilization
+- Consultation System: Visit types, duration, provider details
+- Prescription System: Drug prescribed, indications, outcomes
+- Diagnosis System: Diagnoses, comorbidities, staging
+- Billing System: Charges, payments, insurance, revenue
+- Inventory System: Stock, usage, costs, waste
+- Pharmacy System: Fill rates, refills, adherence, costs
+- Operations: Staff hours, room utilization, equipment usage
+
+ETL Process (Nightly, 02:00 AM):
+1. Connect to each system's database
+2. Extract incremental changes since last sync (timestamp-based)
+3. Transform data: Normalize formats, resolve references, calculate derived fields
+4. Validate data quality (check nulls, orphaned records, duplicates)
+5. Load into data warehouse (fact and dimension tables)
+6. Recalculate aggregate metrics (daily, monthly, annual)
+7. Log execution (success/failures, data counts)
+8. Alert on data quality issues
+
+Data Validation Rules:
+- Patient IDs must exist in patient master
+- Visit dates must be within practice opening dates
+- Amounts must be positive (negative flagged for review)
+- No duplicate records (checked via unique keys)
+- Referential integrity (all FKs must exist)
+
+2.2 DATA WAREHOUSE ARCHITECTURE
+Dimensional Modeling (Star Schema):
+
+Fact Tables (transactional data):
+- fact_visits: One row per visit (provider, date, patient, visit type, duration, outcome)
+- fact_prescriptions: One row per prescription (patient, medication, indication, outcome)
+- fact_diagnoses: One row per diagnosis (patient, ICD-10, date, stage, severity)
+- fact_billing: One row per charge (patient, visit, amount, payer, status)
+- fact_payments: One row per payment (patient, amount, date, method)
+- fact_inventory: One row per inventory transaction (item, quantity, cost, date)
+
+Dimension Tables (reference data):
+- dim_patient: Patient demographics (age, gender, insurance, enrollment date)
+- dim_provider: Provider details (NPI, specialty, location, tenure)
+- dim_medication: Drug reference data (NDC, name, class, cost)
+- dim_diagnosis: ICD-10 reference (code, description, prevalence, comorbidities)
+- dim_facility: Clinic locations and departments
+- dim_date: Calendar (day, week, month, quarter, year, holiday flag)
+- dim_insurance: Insurance payer details
+
+2.3 KEY PERFORMANCE INDICATORS (KPIs)
+Clinical KPIs:
+- Appointment volume (total, by provider, by visit type)
+- Appointment utilization (% of available slots filled)
+- No-show rate (% of booked appointments not completed)
+- Consultation volume (total, by type: new, follow-up, urgent)
+- Average visit duration (by visit type, trending)
+- Patient satisfaction (satisfaction survey scores)
+- Clinical quality measures (HEDIS measures, quality reporting)
+
+Financial KPIs:
+- Total revenue (monthly, YTD, trending)
+- Revenue per visit (average charge per visit)
+- Revenue per provider (productivity metric)
+- Collections rate (% of charges collected within 30 days)
+- Average days to payment (billing efficiency)
+- Accounts receivable (AR) aging (0-30, 31-60, 61-90, >90 days)
+- Insurance denial rate (% of claims denied)
+- Patient out-of-pocket spend (average, by insurance type)
+
+Operational KPIs:
+- Staff utilization (% of available hours worked)
+- Appointment wait time (time from check-in to provider)
+- Room turnover time (time between appointments)
+- Inventory turnover (cost of goods sold / average inventory)
+- Inventory waste percentage (waste cost / total inventory cost)
+- Equipment uptime (% of time available/working)
+- Staff productivity (visits per FTE, revenue per FTE)
+
+Pharmacy KPIs:
+- Prescription fill rate (% of prescriptions filled within 48 hours)
+- Medication adherence rate (% of patients on chronic meds with good adherence)
+- Drug-drug interaction prevention (% caught before dispensing)
+- Generic substitution rate (% of brand meds that could be generic)
+- In-house dispensing utilization (% of applicable meds dispensed in-house)
+- Medication error rate (errors per 10,000 prescriptions)
+- Cost per prescription (trending, by medication class)
+
+2.4 REPORTING FRAMEWORK
+Standard Reports (Pre-built, automated):
+- Daily Operations Report: Appointments, visits, staff utilization, no-shows
+- Daily Financial Report: Revenue, payments, charges, AR aging
+- Weekly Prescription Report: Volume, fills, adherence, interactions prevented
+- Weekly Inventory Report: Stock levels, reorder status, usage, waste
+- Monthly Clinical Report: Diagnoses, outcomes, quality measures
+- Monthly Financial Close: Revenue recognition, expense analysis, profitability
+- Monthly Compliance Report: Quality measures, regulatory requirements, incidents
+- Quarterly Business Report: Revenue trends, patient growth, market share
+
+Ad-Hoc Reporting:
+- Query builder for business users (no SQL required)
+- Pre-built report templates (patient panel, provider productivity, etc.)
+- Export to Excel/PDF
+- Scheduled report delivery (email to stakeholders)
+- Report versioning and audit trail
+
+2.5 DASHBOARDS & VISUALIZATION
+Executive Dashboard:
+- Key metrics (revenue, patient count, appointment volume, quality)
+- Trend charts (revenue, visits, no-show rate over 12 months)
+- Provider comparison (revenue per provider, visit volume, patient satisfaction)
+- Financial health (cash position, AR aging, insurance denials)
+- Alerts (no-shows >15%, revenue <target, quality measures below threshold)
+
+Clinical Dashboard:
+- Patient volume by visit type, provider, location
+- Wait times and appointment utilization
+- No-show patterns (identify high-risk patients)
+- Quality measures (clinical outcomes, patient satisfaction)
+- Disease prevalence (diagnoses, age distribution)
+- Prescription patterns (by indication, by provider)
+
+Financial Dashboard:
+- Revenue tracking (daily, monthly, YTD vs budget)
+- Collections tracking (payments, AR aging, days to payment)
+- Insurance payer performance (denial rates, reimbursement rates)
+- Cost analysis (supply costs, labor costs, overhead)
+- Profitability by service line, provider, or payer
+
+Operational Dashboard:
+- Staff utilization (by role, location, trending)
+- Inventory status (low stock alerts, expiration warnings)
+- Equipment status (maintenance due, downtime alerts)
+- Room utilization (occupancy rates, turnover times)
+
+2.6 PREDICTIVE ANALYTICS
+No-Show Prediction:
+- Machine learning model trained on historical no-shows
+- Features: Patient characteristics, appointment patterns, provider
+- Predicts no-show risk for each scheduled appointment (high/medium/low)
+- Integration: Flag high-risk appointments, enable intervention (reminder call)
+- Outcome: Reduce no-show rate by 20-30%
+
+Patient Readmission Risk:
+- Identify patients at risk for unplanned readmission/urgent visit
+- Features: Diagnosis, comorbidities, medication adherence, social factors
+- Predicts readmission risk within 30 days
+- Integration: Identify patients for proactive outreach, care coordination
+- Outcome: Reduce readmissions, improve patient outcomes
+
+Patient No-Show Likelihood After Discharge:
+- Predicts follow-up appointment compliance
+- Features: Diagnosis, treatment plan, patient engagement
+- Flags patients likely to miss critical follow-up
+- Integration: Automated outreach (phone, SMS, portal notification)
+- Outcome: Improve follow-up compliance, reduce complications
+
+Medication Refill Timing:
+- Predicts when patient will need refill (based on fill date and dose)
+- Enables proactive refill processing before patient runs out
+- Integration: Auto-refill request or patient notification
+- Outcome: Improve medication adherence, prevent therapy gaps
+
+2.7 QUALITY & COMPLIANCE REPORTING
+HEDIS Quality Measures (Healthcare Effectiveness Data and Information Set):
+- Diabetes management (HbA1c monitoring, eye exams, foot exams)
+- Hypertension control (BP <140/90)
+- Preventive care (cancer screenings, vaccinations, wellness visits)
+- Mental health (antidepressant medication management)
+- Medication adherence (% of patients on chronic meds with good adherence)
+
+Regulatory Reporting:
+- CMS reporting (quality measures, patient outcomes)
+- State licensing requirements (incident reporting, quality measures)
+- Insurance requirements (contractual quality measures, reporting timelines)
+- HIPAA compliance (data access logs, breach notifications)
+
+Safety & Incident Reporting:
+- Medication errors (near-misses, actual errors)
+- Patient falls, infections, adverse events
+- Staff injuries, equipment failures
+- Trending (identify patterns, improvement opportunities)
+
+2.8 DATA SECURITY & GOVERNANCE
+Access Control:
+- Role-based access: Executive (all data), Manager (department data), Provider (own panel)
+- Sensitive data masking: PHI masked for non-clinical staff (example: patient names masked)
+- Audit logging: Track who accessed what data, when
+- Data deletion: Ensure reports don't retain deleted patient data
+
+Data Privacy:
+- De-identification: Aggregate data without identifiable information
+- HIPAA compliance: Encryption, access logging, audit trails
+- Patient consent: Respect opt-out for data sharing/analytics
+
+Data Quality:
+- Data validation: Automated checks, manual review
+- Reconciliation: Daily checks against source systems
+- Correction process: How to handle and correct bad data
+- Data lineage: Track source of each data element
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 DATA WAREHOUSE SCHEMA
+
+FACT_VISITS:
+- visit_id (UUID, PK)
+- patient_id (UUID, FK → dim_patient)
+- provider_id (UUID, FK → dim_provider)
+- visit_date_id (INT, FK → dim_date)
+- facility_id (UUID, FK → dim_facility)
+- visit_type (ENUM: "office_visit", "urgent", "consultation", "follow-up")
+- visit_duration_minutes (INT)
+- status (ENUM: "completed", "no_show", "cancelled", "rescheduled")
+- chief_complaint (VARCHAR)
+- patient_satisfaction_score (INT, 1-5, nullable)
+- outcome_code (VARCHAR, nullable)
+
+FACT_PRESCRIPTIONS:
+- prescription_id (UUID, PK)
+- patient_id (UUID, FK → dim_patient)
+- provider_id (UUID, FK → dim_provider)
+- medication_id (UUID, FK → dim_medication)
+- visit_id (UUID, FK → fact_visits, nullable)
+- prescribed_date_id (INT, FK → dim_date)
+- indication (VARCHAR)
+- dosage_strength (VARCHAR, e.g., "10mg")
+- quantity (INT)
+- refills (INT)
+- filled (BOOLEAN)
+- adherence_rating (ENUM: "excellent", "good", "fair", "poor", nullable)
+
+FACT_BILLING:
+- charge_id (UUID, PK)
+- patient_id (UUID, FK → dim_patient)
+- visit_id (UUID, FK → fact_visits)
+- charge_date_id (INT, FK → dim_date)
+- payer_id (UUID, FK → dim_insurance)
+- charge_amount (DECIMAL 10,2)
+- insurance_portion (DECIMAL 10,2)
+- patient_portion (DECIMAL 10,2)
+- collected_amount (DECIMAL 10,2)
+- days_to_collection (INT)
+- payment_status (ENUM: "pending", "partial", "paid", "denied")
+
+FACT_INVENTORY:
+- transaction_id (UUID, PK)
+- item_id (VARCHAR, FK → dim_inventory)
+- transaction_date_id (INT, FK → dim_date)
+- transaction_type (ENUM: "receive", "dispense", "waste", "adjustment")
+- quantity (INT)
+- unit_cost (DECIMAL 10,4)
+- total_cost (DECIMAL 10,2)
+- location (VARCHAR)
+
+DIM_PATIENT:
+- patient_id (UUID, PK)
+- patient_name (VARCHAR, PII masked in reports)
+- age_group (ENUM: "0-18", "19-35", "36-50", "51-65", "65+")
+- gender (VARCHAR)
+- insurance_type (VARCHAR, e.g., "HMO", "PPO")
+- enrollment_date (DATE)
+- patient_segment (ENUM: "high_risk", "chronic", "preventive", "acute")
+
+DIM_PROVIDER:
+- provider_id (UUID, PK)
+- provider_name (VARCHAR)
+- npi (VARCHAR)
+- specialty (VARCHAR)
+- location_id (VARCHAR)
+- start_date (DATE)
+- is_active (BOOLEAN)
+
+DIM_MEDICATION:
+- medication_id (UUID, PK)
+- medication_name (VARCHAR)
+- generic_name (VARCHAR)
+- therapeutic_class (VARCHAR)
+- ndc_code (VARCHAR)
+- cost_per_unit (DECIMAL 10,4)
+
+DIM_DATE:
+- date_id (INT, PK, format: YYYYMMDD)
+- calendar_date (DATE)
+- year (INT)
+- quarter (INT)
+- month (INT)
+- week (INT)
+- day_of_week (VARCHAR)
+- is_holiday (BOOLEAN)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 DASHBOARD API
+
+GET /api/v1/analytics/dashboard/executive
+Query: date_range (optional)
+Response:
+{
+  "kpis": {
+    "total_revenue": 125000.00,
+    "patient_count": 5200,
+    "appointment_volume": 450,
+    "quality_score": 92.5
+  },
+  "trends": {
+    "revenue_trend": [...],
+    "no_show_rate_trend": [...]
+  },
+  "alerts": ["No-show rate >15%", "AR aging >30%"]
+}
+
+4.2 REPORTING API
+
+GET /api/v1/analytics/reports/standard/{report_type}
+Query: date_range, provider_id (optional), facility_id (optional)
+Response: Report data in JSON
+
+POST /api/v1/analytics/reports/custom
+Body:
+{
+  "name": "Custom Report",
+  "filters": [...],
+  "metrics": ["revenue", "visits", "no_show_rate"],
+  "dimensions": ["provider", "visit_type"]
+}
+
+GET /api/v1/analytics/reports/custom/{report_id}/export
+Query: format (json, csv, pdf)
+
+4.3 KPI TRACKING API
+
+GET /api/v1/analytics/kpis/{kpi_name}
+Query: date_range, granularity (daily, weekly, monthly)
+Response: Historical KPI values with trend
+
+4.4 DATA EXPORT API
+
+GET /api/v1/analytics/export/patients
+Query: filters, date_range
+Response: Patient data export
+
+GET /api/v1/analytics/export/prescriptions
+Query: filters, date_range
+Response: Prescription data export
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 DATA WAREHOUSE TECHNOLOGY
+- Database: PostgreSQL with data warehouse schema
+- Alternative: Snowflake or BigQuery for large scale
+- Data transformation: Apache Airflow or dbt for ETL
+- Star schema dimensional modeling for analytics
+
+5.2 ANALYTICS TOOLS
+- Business intelligence: Tableau, Power BI, or Metabase
+- Reporting: Custom reporting API + self-service BI tool
+- Dashboards: Real-time dashboards via web UI
+- Ad-hoc queries: SQL query builder for analysts
+
+5.3 PREDICTIVE ANALYTICS
+- Machine learning: Python (scikit-learn, TensorFlow)
+- Models: No-show prediction, readmission risk, medication adherence
+- Retraining: Monthly model retraining with new data
+- Model monitoring: Track model accuracy, alert on performance degradation
+
+5.4 DATA INTEGRATIONS
+- Real-time ETL from operational systems (nightly batch)
+- Change data capture (CDC) for incremental updates
+- API-based data collection from external systems
+- Webhook notifications for urgent data sync
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 DAILY PROCESS
+- 02:00 AM: ETL runs, data loads from operational systems
+- 03:00 AM: Data validation and quality checks
+- 04:00 AM: Aggregate metrics calculated (daily KPIs)
+- 05:00 AM: Dashboards and reports updated
+- 08:00 AM: Executive summary email sent to stakeholders
+- 09:00 AM: Alerts generated for KPI thresholds exceeded
+
+6.2 WEEKLY PROCESS
+- Monday morning: Weekly reports generated
+- Wednesday: Data quality audit
+- Friday: Weekly performance review meeting (using reports)
+
+6.3 MONTHLY PROCESS
+- Month-end close: Financial data finalized
+- Month-end reporting: Comprehensive monthly reports
+- Quality measure calculation (HEDIS, regulatory)
+- Compliance reporting prepared
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (15+ test cases):
+- ETL data transformation logic
+- Aggregate KPI calculations
+- Data validation rules
+- Report generation logic
+
+Integration Tests (15+ test cases):
+- End-to-end ETL pipeline
+- Data warehouse load accuracy
+- Dashboard data correctness
+- Report data consistency
+- Predictive model accuracy
+
+Performance Tests (8+ test cases):
+- ETL performance with 1M+ records
+- Dashboard query performance (<3 seconds)
+- Ad-hoc report generation (<10 seconds)
+- Data warehouse query optimization
+
+Edge Cases (8+ test cases):
+- Missing data handling
+- Null value propagation
+- Date boundary conditions
+- Large dataset handling
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. Data warehouse updated nightly with <1 hour latency
+2. Dashboard KPIs accurate to within 0.5%
+3. Standard reports generated automatically and delivered on schedule
+4. Ad-hoc report generation within 10 seconds
+5. Data quality >99% (no orphaned records, referential integrity)
+6. All operational data sources integrated
+7. Predictive models >80% accuracy
+8. HIPAA compliance in data handling and access
+9. Support for 50+ pre-built reports
+10. Self-service ad-hoc reporting capability
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Data warehouse schema and dimensions (star schema)
+2. ETL pipeline (nightly data load)
+3. Data quality validation framework
+4. 50+ pre-built reports (standard reports)
+5. Executive, clinical, financial, operational dashboards
+6. Ad-hoc reporting query builder
+7. KPI tracking and trend analysis
+8. Predictive analytics models (3+ models)
+9. Compliance reporting automation
+10. Data export and sharing capability
+11. API endpoints for analytics (12 total)
+12. Business intelligence tool integration
+
+Dependencies:
+- Task 1-10 (Phase 0): Foundation, database, API layer
+- Task 25 (Billing): Financial data
+- Task 26 (Inventory): Inventory data
+- Task 27 (Pharmacy): Pharmacy data
+- All clinical tasks (11-24): Clinical data
+
+Blockers For:
+- Task 31 (Dashboards: real-time data visualization)
+- Task 39 (Scaling: analytics performance critical)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design & Architecture: 5 hours
+- Data warehouse schema design
+- ETL architecture planning
+- Dashboard and reporting architecture
+
+Development: 22 hours
+- Data warehouse implementation (5h)
+- ETL pipeline development (6h)
+- Standard reports and dashboards (7h)
+- Ad-hoc reporting and query builder (4h)
+
+Testing: 7 hours
+- Unit tests (2h)
+- Integration tests (3h)
+- Performance testing (2h)
+
+Documentation: 2 hours
+- Data dictionary
+- Report documentation
+- User guide for dashboards
+
+Contingency: 2 hours (10%)
+
+Total: 38 hours (1 developer, 1+ week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Data warehouse becomes bottleneck as data grows
+Mitigation: Implement partitioning strategy, materialized views, caching
+
+Risk: ETL failures causing stale data
+Mitigation: Retry logic, alerting, fallback to previous successful load
+
+Risk: Data quality issues propagating to reports
+Mitigation: Automated validation, manual review, quarantine bad data
+
+Risk: Predictive model accuracy degrades over time
+Mitigation: Monthly retraining, model monitoring, performance alerts
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Data warehouse accuracy: >99.5%
+- Dashboard uptime: >99.9%
+- Report generation time: <10 seconds
+- ETL completion time: <1 hour
+- Data freshness: <24 hours old
+- User adoption: >80% of stakeholders using dashboards
+- Decision impact: 30% improvement in KPI-driven decisions
+- Cost reduction: 20% reduction in manual reporting
+
+================================================================================

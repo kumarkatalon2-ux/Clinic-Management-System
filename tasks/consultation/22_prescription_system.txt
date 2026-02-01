@@ -1,0 +1,1149 @@
+================================================================================
+TASK 22: PRESCRIPTION SYSTEM - MEDICATION MANAGEMENT & FULFILLMENT
+================================================================================
+
+Project: Clinical Management SaaS - Phase 1 (Clinical Workflows)
+Category: Clinical Operations - Medication Management
+Priority Level: CRITICAL
+Effort Estimate: 34 hours
+Timeline: 4-5 days (1 developer), 2-3 days (2 developers)
+
+Depends On:
+  - Task 12: Patient Management System (patient data access)
+  - Task 21: Consultation Module (prescription creation from consultation)
+  - Task 12: Medical History (medication list, allergy tracking)
+
+Blocks:
+  - Task 24: Clinical Notes (prescription data in notes)
+  - Task 28: Analytics/Reporting (prescription metrics)
+  - Follow-up workflows (prescription compliance tracking)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+Implement comprehensive prescription system enabling doctors to prescribe 
+medications, manage medication list, check drug interactions and allergies, 
+and enable pharmacy fulfillment. System must support multiple dosage forms 
+(tablets, capsules, liquids, injectables), variable dosing schedules, 
+refill management, and integration with external pharmacy systems. Provide 
+clinical decision support for medication recommendations and interaction 
+checking. Ensure HIPAA compliance and maintain complete audit trail of all 
+prescription modifications.
+
+Expected Outcome:
+- Complete prescription workflow from creation → pharmacy submission → patient fulfillment
+- Medication interaction and allergy checking before prescription
+- Drug database with dosage forms, interactions, contraindications
+- Pharmacy integration for prescription transmission
+- Patient access to active medications and refill status
+- Prescription refill management and renewal tracking
+
+================================================================================
+2. BUSINESS LOGIC EXPLANATION
+================================================================================
+
+PRESCRIPTION LIFECYCLE:
+
+1. Prescription Initiation
+   - Doctor creates prescription during consultation or standalone
+   - Medication name selected from drug database (with autocomplete)
+   - Dose form selected (tablet 500mg, capsule 250mg, liquid 5mg/5mL, injection)
+   - Dose and frequency entered (500mg PO BID, 10mL PO TID, 1 unit IV Q6H)
+   - Duration specified (7 days, 2 weeks, 1 month, chronic/ongoing)
+   - Quantity calculated (e.g., 500mg tablets × 2/day × 7 days = 14 tablets)
+   - Special instructions entered (take with food, do not crush, etc.)
+   - Refills specified (0, 3, 6, 11, PRN - as needed)
+
+2. Drug Interaction Checking
+   - System retrieves patient's active medications
+   - Cross-checks new prescription against all current medications
+   - Drug-drug interaction database consulted for:
+     ├─ Major interactions (contraindicated together)
+     ├─ Moderate interactions (can use with caution/monitoring)
+     ├─ Minor interactions (unlikely to cause problems)
+     └─ Drug-food interactions (grapefruit juice effects)
+   - Alert escalation: Red (stop), Yellow (caution), Green (okay)
+
+3. Allergy Checking
+   - System retrieves patient's documented allergies
+   - New prescription checked against drug allergens
+   - Allergy type checked (true allergy vs intolerance):
+     ├─ True IgE allergies → red alert, prescription blocked
+     ├─ Intolerance/GI upset → yellow alert, can proceed with caution
+     └─ No known allergy → green, proceed
+   - Cross-reactivity checking (penicillin allergy → cephalosporin caution)
+
+4. Dosing Verification
+   - Dose checked against standard dosing references
+   - Age-appropriate dosing for pediatric patients
+   - Renal function-adjusted dosing (if kidney disease)
+   - Hepatic function-adjusted dosing (if liver disease)
+   - Pregnancy category checked (if female of childbearing age)
+   - Geriatric dosing considerations (if age > 65)
+   - Alerts for unusual doses (too high, too low, etc.)
+
+5. Prescription Attestation
+   - Doctor reviews all medication information:
+     ├─ Drug name, dose, route, frequency
+     ├─ Interaction checks completed
+     ├─ Allergy checks completed
+     ├─ Dosing appropriateness verified
+     └─ Special instructions and refills confirmed
+   - Any interaction/allergy alerts must be acknowledged
+   - Override documented with reason if alerts overridden
+   - e-Signature applied (electronic authentication)
+
+6. Prescription Transmission
+   - Prescription sent to patient's preferred pharmacy
+   - Electronic transmission (e-prescribing) when possible
+   - Fax to pharmacy if e-prescribing unavailable
+   - Patient notification (email/SMS) of prescription ready for pickup
+   - Pharmacy notification to dispense medication
+   - Prescription status tracked (transmitted, received, dispensed, completed)
+
+7. Medication Activation
+   - Once dispensed, medication added to patient's active medication list
+   - Drug interactions updated with new medication
+   - Allergy alerts updated for other providers
+   - Care team notified of new medication (alert if relevant)
+   - Integration with clinical decision support for future prescriptions
+
+8. Refill Management
+   - Patient can request refill (online, phone, pharmacy)
+   - Refill availability checked:
+     ├─ Refills remaining > 0
+     ├─ Refill not too soon (min 75% of days supply used)
+     ├─ Medication still appropriate (check for recalls, contraindications)
+     └─ Patient insurance coverage verified
+   - Doctor approval automated or manual (based on setting)
+   - Refill transmitted to pharmacy
+   - Medication list updated with new refill date
+
+9. Prescription Expiration & Discontinuation
+   - Prescription expires after 1 year (standard)
+   - Controlled substances expire sooner (60-90 days)
+   - Expired prescription cannot be refilled or dispensed
+   - Doctor notified if patient requests refill of expired prescription
+   - Patient transitioned to new prescription via renewal workflow
+   - Discontinued medications tracked in history for future reference
+
+PRESCRIPTION TYPES:
+
+Acute Medications (7-14 days):
+  - Antibiotics (infection treatment)
+  - Antivirals (viral infection treatment)
+  - Pain medications (acute injury)
+  - Anti-nausea medications (temporary)
+  - Examples: Amoxicillin 500mg × 7 days, Ibuprofen 400mg × 5 days
+
+Chronic Medications (ongoing):
+  - Hypertension (antihypertensives)
+  - Diabetes (antidiabetic agents)
+  - Asthma (controllers, rescue inhalers)
+  - Thyroid disease (levothyroxine)
+  - Mental health (antidepressants, anxiolytics)
+  - Examples: Lisinopril 10mg daily, Metformin 1000mg BID
+
+As-Needed (PRN) Medications:
+  - Pain relief (acetaminophen, ibuprofen, opioids)
+  - Allergies (antihistamines)
+  - Asthma rescue (albuterol inhaler)
+  - Anxiety (short-acting benzodiazepines)
+  - Examples: Albuterol inhaler 2 puffs Q4-6H PRN, Ibuprofen 400mg Q6H PRN
+
+Controlled Substances (Special Handling):
+  - Opioid pain medications (morphine, oxycodone, hydrocodone)
+  - Stimulants (amphetamine, methylphenidate for ADHD)
+  - Benzodiazepines (alprazolam, lorazepam, diazepam for anxiety/seizures)
+  - Special tracking: DEA license verification, dose limits, shorter prescriptions
+  - Requirement: Regular monitoring, pill counts, urine drug screens
+
+Injectable Medications:
+  - Insulin for diabetes (subcutaneous)
+  - Biologics for rheumatoid arthritis (subcutaneous/IV)
+  - Vaccines (intramuscular)
+  - Epinephrine for anaphylaxis (intramuscular auto-injector)
+  - Require special administration instructions
+
+================================================================================
+3. DATA MODEL DEFINITION
+================================================================================
+
+TABLE: prescriptions
+  prescription_id (UUID, PK)
+  patient_id (UUID, FK → patients)
+  doctor_id (UUID, FK → doctors)
+  clinic_id (UUID, FK → clinics)
+  consultation_id (UUID, FK → consultations, nullable)
+  medication_id (UUID, FK → medications)
+  dose_strength (VARCHAR) - e.g., "500mg", "10mg/mL"
+  dose_form (VARCHAR) - e.g., "tablet", "capsule", "liquid", "injection"
+  quantity (INT) - number of units to dispense
+  route (ENUM: PO, IV, IM, SC, TOP, INH, RECT, OPHTHALMIC, OTIC)
+  frequency (VARCHAR) - e.g., "twice daily", "every 6 hours", "as needed"
+  frequency_code (VARCHAR) - e.g., "BID", "Q6H", "PRN" (machine-readable)
+  duration_value (INT)
+  duration_unit (ENUM: DAYS, WEEKS, MONTHS, YEARS)
+  special_instructions (TEXT) - "take with food", "do not crush"
+  refills_allowed (INT) - 0, 3, 6, 11 (ARB standard), or -1 (unlimited)
+  refills_remaining (INT) - tracks refills used
+  indication (VARCHAR) - reason for prescription (e.g., "bacterial infection")
+  therapeutic_class (VARCHAR) - drug class (e.g., "antibiotic", "NSAID")
+  is_controlled_substance (BOOLEAN)
+  dea_schedule (ENUM: CI, CII, CIII, CIV, CV, null) - DEA scheduling
+  created_at (TIMESTAMP)
+  issued_at (TIMESTAMP)
+  signed_at (TIMESTAMP)
+  transmitted_at (TIMESTAMP, nullable)
+  pharmacy_id (UUID, FK → pharmacies, nullable)
+  pharmacy_npi (VARCHAR, nullable) - pharmacy NPI for transmission
+  dispensed_at (TIMESTAMP, nullable)
+  dispensed_by_pharmacy (VARCHAR, nullable)
+  status (ENUM: DRAFT, ISSUED, TRANSMITTED, RECEIVED, DISPENSED, COMPLETED, EXPIRED, CANCELLED, REFILLED)
+  expires_at (TIMESTAMP) - standard 1 year, controlled substances 60-90 days
+  discontinued_at (TIMESTAMP, nullable)
+  discontinuation_reason (VARCHAR, nullable)
+  is_interaction_override (BOOLEAN)
+  is_allergy_override (BOOLEAN)
+  override_reason (TEXT, nullable)
+  metadata (JSONB) - additional data
+
+TABLE: medications
+  medication_id (UUID, PK)
+  ndc_code (VARCHAR, UNIQUE) - National Drug Code identifier
+  generic_name (VARCHAR) - e.g., "amoxicillin"
+  brand_name (VARCHAR) - e.g., "Amoxil"
+  therapeutic_class (VARCHAR) - e.g., "antibiotic"
+  drug_class_code (VARCHAR) - ATC code for classification
+  strength (VARCHAR) - e.g., "500mg"
+  dose_form (VARCHAR) - e.g., "tablet", "capsule", "liquid"
+  route (ENUM: PO, IV, IM, SC, TOP, INH, RECT, OPHTHALMIC, OTIC)
+  standard_dose (VARCHAR) - e.g., "500mg BID for 7 days"
+  max_daily_dose (VARCHAR)
+  is_controlled_substance (BOOLEAN)
+  dea_schedule (ENUM: CI, CII, CIII, CIV, CV, null)
+  pregnancy_category (ENUM: A, B, C, D, X) - FDA pregnancy categories
+  renal_adjustment_required (BOOLEAN)
+  hepatic_adjustment_required (BOOLEAN)
+  pediatric_dosing_available (BOOLEAN)
+  geriatric_dosing_available (BOOLEAN)
+  contraindications (TEXT)
+  warnings (TEXT)
+  side_effects (TEXT, array of common side effects)
+  manufacturer (VARCHAR)
+  is_otc (BOOLEAN) - over-the-counter vs prescription
+  is_generic_available (BOOLEAN)
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+
+TABLE: drug_interactions
+  interaction_id (UUID, PK)
+  medication_a_id (UUID, FK → medications)
+  medication_b_id (UUID, FK → medications)
+  interaction_severity (ENUM: MAJOR, MODERATE, MINOR)
+  interaction_type (ENUM: DRUG_DRUG, DRUG_FOOD, DRUG_DISEASE)
+  description (TEXT) - clinical description of interaction
+  mechanism (TEXT) - how the interaction occurs
+  effect (TEXT) - result of interaction (increased levels, reduced effect, etc.)
+  management (TEXT) - how to manage interaction (separate timing, monitor, etc.)
+  evidence_level (ENUM: WELL_ESTABLISHED, SUSPECTED, THEORETICAL)
+  bidirectional (BOOLEAN) - if A affects B and B affects A
+  onset_time (VARCHAR) - "immediate", "1-3 days", "1-2 weeks"
+  clinical_monitoring_required (BOOLEAN)
+  monitoring_tests (VARCHAR, array) - labs to monitor (PT/INR, potassium, etc.)
+  created_at (TIMESTAMP)
+
+TABLE: patient_allergies
+  allergy_id (UUID, PK)
+  patient_id (UUID, FK → patients)
+  substance_type (ENUM: MEDICATION, FOOD, ENVIRONMENTAL, LATEX, DYES)
+  allergen_name (VARCHAR) - e.g., "Penicillin"
+  reaction_type (ENUM: RASH, ANAPHYLAXIS, SWELLING, GI_UPSET, HIVES, OTHER)
+  severity (ENUM: MILD, MODERATE, SEVERE)
+  is_true_allergy (BOOLEAN) - IgE-mediated vs intolerance
+  cross_reactivity (TEXT, array) - related allergens (cephalosporins with penicillin)
+  onset_time (VARCHAR) - e.g., "15 minutes", "24 hours"
+  documented_date (DATE)
+  documented_by (UUID, FK → doctors)
+  status (ENUM: ACTIVE, INACTIVE, RESOLVED)
+  notes (TEXT)
+  created_at (TIMESTAMP)
+
+TABLE: prescription_interactions_checked
+  check_id (UUID, PK)
+  prescription_id (UUID, FK → prescriptions)
+  interaction_id (UUID, FK → drug_interactions)
+  severity (ENUM: MAJOR, MODERATE, MINOR)
+  was_overridden (BOOLEAN)
+  override_reason (TEXT, nullable)
+  checked_at (TIMESTAMP)
+  checked_by (UUID, FK → doctors)
+
+TABLE: prescription_allergy_checks
+  check_id (UUID, PK)
+  prescription_id (UUID, FK → prescriptions)
+  allergy_id (UUID, FK → patient_allergies)
+  was_overridden (BOOLEAN)
+  override_reason (TEXT, nullable)
+  checked_at (TIMESTAMP)
+  checked_by (UUID, FK → doctors)
+
+TABLE: prescription_refill_requests
+  refill_request_id (UUID, PK)
+  prescription_id (UUID, FK → prescriptions)
+  patient_id (UUID, FK → patients)
+  requested_at (TIMESTAMP)
+  requested_by (ENUM: PATIENT, PHARMACY, DOCTOR)
+  request_source (VARCHAR) - "patient portal", "phone call", "pharmacy automation"
+  refills_requested (INT)
+  status (ENUM: PENDING, APPROVED, DENIED, CANCELLED)
+  approved_at (TIMESTAMP, nullable)
+  approved_by (UUID, FK → doctors, nullable)
+  approval_reason (VARCHAR, nullable)
+  denial_reason (VARCHAR, nullable)
+  new_prescription_id (UUID, FK → prescriptions, nullable)
+
+TABLE: medication_fill_history
+  fill_id (UUID, PK)
+  prescription_id (UUID, FK → prescriptions)
+  patient_id (UUID, FK → patients)
+  pharmacy_id (UUID, FK → pharmacies)
+  filled_date (DATE)
+  quantity_filled (INT)
+  days_supply (INT) - how many days the medication will last
+  refill_number (INT) - which refill this represents
+  fill_status (ENUM: PENDING, COMPLETED, CANCELED)
+  patient_pickup_date (DATE, nullable)
+  is_patient_retained (BOOLEAN, nullable)
+  created_at (TIMESTAMP)
+
+================================================================================
+4. API LAYER SPECIFICATION
+================================================================================
+
+ENDPOINT: POST /api/v1/prescriptions
+Description: Create new prescription
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "consultation_id": "uuid (optional - if created during consultation)",
+  "medication_id": "uuid",
+  "dose_strength": "500mg",
+  "dose_form": "tablet",
+  "quantity": 14,
+  "route": "PO",
+  "frequency": "twice daily",
+  "frequency_code": "BID",
+  "duration_value": 7,
+  "duration_unit": "DAYS",
+  "special_instructions": "Take with food",
+  "refills_allowed": 0,
+  "indication": "bacterial infection",
+  "notes": "Patient reports GI upset with other antibiotics - monitor"
+}
+Response (201):
+{
+  "prescription_id": "uuid",
+  "patient_id": "uuid",
+  "status": "DRAFT",
+  "medication": {
+    "ndc_code": "0001-0001-01",
+    "generic_name": "amoxicillin",
+    "brand_name": "Amoxil",
+    "strength": "500mg",
+    "form": "tablet"
+  },
+  "dose_strength": "500mg",
+  "dose_form": "tablet",
+  "quantity": 14,
+  "route": "PO",
+  "frequency": "BID",
+  "duration": "7 days",
+  "refills_allowed": 0,
+  "created_at": "2026-01-31T14:30:00Z",
+  "drug_interactions": [],
+  "allergy_status": "CLEAR"
+}
+Error Responses:
+  - 400: Medication not found, invalid dose, invalid route
+  - 403: Doctor not in correct clinic
+  - 409: Patient has documented allergy to this medication
+
+---
+
+ENDPOINT: GET /api/v1/prescriptions/{prescription_id}/interaction-check
+Description: Run drug interaction check before signing prescription
+Authorization: ROLE_DOCTOR
+Response (200):
+{
+  "prescription_id": "uuid",
+  "patient_id": "uuid",
+  "medication": "Amoxicillin 500mg",
+  "current_medications": [
+    {
+      "medication": "Warfarin 5mg daily",
+      "interaction_status": "MINOR",
+      "description": "Antibiotics may potentiate warfarin effect - increased bleeding risk",
+      "management": "Monitor PT/INR, may need dose adjustment"
+    }
+  ],
+  "allergies": [
+    {
+      "substance": "Penicillin",
+      "severity": "SEVERE",
+      "reaction": "ANAPHYLAXIS",
+      "status": "MAJOR_CONFLICT",
+      "action": "BLOCK_PRESCRIPTION"
+    }
+  ],
+  "dosing_check": {
+    "dose_appropriateness": "NORMAL",
+    "renal_adjustment": "NOT_REQUIRED",
+    "hepatic_adjustment": "NOT_REQUIRED",
+    "age_group": "Adult (age 45)",
+    "geriatric_adjustment": "NOT_REQUIRED"
+  },
+  "alerts": [
+    {
+      "alert_type": "ALLERGY_CONFLICT",
+      "severity": "CRITICAL",
+      "message": "PATIENT HAS SEVERE PENICILLIN ALLERGY - DO NOT PRESCRIBE",
+      "override_allowed": false
+    }
+  ]
+}
+
+---
+
+ENDPOINT: POST /api/v1/prescriptions/{prescription_id}/approve-with-override
+Description: Approve prescription with documented override for interaction/allergy
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "override_type": "ALLERGY_OVERRIDE | INTERACTION_OVERRIDE",
+  "override_reason": "Patient reports prior amoxicillin use without reaction - allergy may be documented in error",
+  "clinical_justification": "Risk/benefit analysis: infection risk outweighs unconfirmed allergy risk"
+}
+Response (200):
+{
+  "prescription_id": "uuid",
+  "status": "ISSUE_READY",
+  "override_documented": true,
+  "override_reason": "...",
+  "message": "Prescription approved with documented override. Ready to issue and transmit."
+}
+Error Responses:
+  - 400: Override reason required
+  - 403: Override not allowed for this alert level (critical alerts cannot be overridden)
+
+---
+
+ENDPOINT: POST /api/v1/prescriptions/{prescription_id}/issue
+Description: Issue and sign prescription (e-signature)
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "signature_method": "BIOMETRIC | PIN | PASSWORD",
+  "signature_timestamp": "2026-01-31T14:45:00Z"
+}
+Response (200):
+{
+  "prescription_id": "uuid",
+  "status": "ISSUED",
+  "issued_at": "2026-01-31T14:45:00Z",
+  "signed_by": "uuid (doctor)",
+  "e_prescription_available": true,
+  "next_step": "TRANSMIT_TO_PHARMACY",
+  "message": "Prescription issued successfully. Ready to transmit to pharmacy."
+}
+
+---
+
+ENDPOINT: POST /api/v1/prescriptions/{prescription_id}/transmit
+Description: Transmit prescription to pharmacy (e-prescribing or fax)
+Authorization: ROLE_DOCTOR, ROLE_PHARMACY_ADMIN
+Request Body:
+{
+  "pharmacy_id": "uuid",
+  "transmission_method": "ELECTRONIC | FAX",
+  "pharmacy_fax_number": "555-123-4567 (required if FAX)"
+}
+Response (201):
+{
+  "prescription_id": "uuid",
+  "status": "TRANSMITTED",
+  "pharmacy_id": "uuid",
+  "pharmacy_name": "CVS Pharmacy #1234",
+  "transmission_method": "ELECTRONIC",
+  "transmitted_at": "2026-01-31T14:50:00Z",
+  "ncpdp_confirmation": "SENT_SUCCESSFULLY",
+  "message": "Prescription transmitted to pharmacy via e-prescribing"
+}
+Error Responses:
+  - 400: Pharmacy not found, invalid transmission method
+  - 409: Prescription not in ISSUED status
+
+---
+
+ENDPOINT: GET /api/v1/patients/{patient_id}/active-medications
+Description: Get patient's current active medications with interaction potential
+Authorization: ROLE_DOCTOR, ROLE_NURSE, ROLE_PATIENT (own data)
+Response (200):
+{
+  "patient_id": "uuid",
+  "active_medications": [
+    {
+      "medication_id": "uuid",
+      "prescription_id": "uuid",
+      "generic_name": "amoxicillin",
+      "dose_strength": "500mg",
+      "dose_form": "tablet",
+      "route": "PO",
+      "frequency": "twice daily",
+      "prescribed_date": "2026-01-31",
+      "prescribed_by": "Dr. Smith",
+      "dispensed_date": "2026-01-31",
+      "days_supply": 7,
+      "refills_remaining": 0,
+      "indication": "bacterial infection",
+      "expiration_date": "2026-02-07"
+    }
+  ],
+  "allergies": [
+    {
+      "allergen": "Penicillin",
+      "severity": "SEVERE",
+      "reaction_type": "ANAPHYLAXIS"
+    }
+  ],
+  "interaction_warnings": []
+}
+
+---
+
+ENDPOINT: POST /api/v1/prescriptions/{prescription_id}/refill-request
+Description: Request medication refill (patient or pharmacy initiated)
+Authorization: ROLE_PATIENT, ROLE_PHARMACY
+Request Body:
+{
+  "refills_requested": 1,
+  "requested_by": "PATIENT | PHARMACY",
+  "request_source": "patient portal | pharmacy automation | phone call"
+}
+Response (201):
+{
+  "refill_request_id": "uuid",
+  "prescription_id": "uuid",
+  "status": "PENDING",
+  "requested_at": "2026-01-31T15:00:00Z",
+  "refills_requested": 1,
+  "refills_remaining": 2,
+  "expected_approval_time": "2026-01-31T16:00:00Z",
+  "message": "Refill request submitted. Doctor will approve within 1 hour during business hours."
+}
+
+---
+
+ENDPOINT: POST /api/v1/prescriptions/{prescription_id}/refill-request/{refill_request_id}/approve
+Description: Doctor approves refill request
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "approval_reason": "Patient doing well on current medication - continue"
+}
+Response (200):
+{
+  "refill_request_id": "uuid",
+  "prescription_id": "uuid",
+  "status": "APPROVED",
+  "new_prescription_id": "uuid",
+  "approved_at": "2026-01-31T15:30:00Z",
+  "next_step": "AUTO_TRANSMIT_TO_PHARMACY",
+  "message": "Refill approved and automatically transmitted to pharmacy"
+}
+
+================================================================================
+5. WORKFLOW DESCRIPTION - STEP-BY-STEP PROCESS FLOW
+================================================================================
+
+ACUTE PRESCRIPTION WORKFLOW (7-14 days):
+
+Step 1: Prescription Initiation
+  └─ Doctor creates prescription during consultation
+  └─ Patient and consultation context automatically populated
+  └─ Medication selected from database (with autocomplete by generic/brand name)
+  └─ Dose, form, strength, route selected
+  └─ Frequency entered (BID, TID, Q6H, PRN, etc.)
+  └─ Duration specified (7 days for infection, 2 weeks for pain, etc.)
+  └─ Quantity auto-calculated (dose × frequency × duration)
+  └─ Special instructions entered (take with food, do not crush, etc.)
+  └─ Refills determined (0 for acute, 0-3 for short-term)
+
+Step 2: Drug Interaction & Allergy Screening
+  └─ System automatically retrieves patient's active medications
+  └─ Each medication cross-checked against new prescription:
+     ├─ Major interactions detected → RED alert (prescriber warning)
+     ├─ Moderate interactions detected → YELLOW alert (caution note)
+     ├─ Minor interactions detected → GREEN (informational)
+     └─ No interactions found → GREEN (proceed)
+  └─ Patient allergies checked against medication:
+     ├─ True IgE allergy to medication → RED alert (BLOCK)
+     ├─ True allergy to related drug class → YELLOW alert (caution)
+     └─ No allergy → GREEN (proceed)
+  └─ Dosing checked against standards:
+     ├─ Normal dose → GREEN
+     ├─ Below normal → YELLOW (may be subtherapeutic)
+     ├─ Above normal → YELLOW (verify intended high dose)
+     └─ Pediatric/geriatric adjustment applied if needed
+
+Step 3: Prescriber Review & Override Decision
+  └─ Doctor reviews all alerts and interaction data
+  └─ For RED alerts:
+     ├─ Block prescription (cannot be overridden for critical allergies)
+     ├─ Or document clinical justification and override with reason
+     └─ All overrides logged in audit trail
+  └─ For YELLOW alerts:
+     ├─ Can proceed with acknowledgment
+     ├─ Monitoring recommendations displayed
+     └─ Patient counseling points generated
+  └─ Doctor confirms:
+     ├─ Drug name, dose, route, frequency, duration correct
+     ├─ All alerts reviewed and acknowledged
+     ├─ Special instructions appropriate
+     ├─ Patient education understood
+     └─ Ready to issue prescription
+
+Step 4: Prescription Issuance & E-Signature
+  └─ Doctor applies electronic signature:
+     ├─ Biometric (fingerprint/face recognition)
+     ├─ PIN code (4-6 digit)
+     ├─ Password (complex password authentication)
+     └─ Timestamp recorded with signature
+  └─ Prescription status changed to ISSUED
+  └─ Prescription locked from further editing
+  └─ Audit trail records issuance
+
+Step 5: Pharmacy Transmission
+  └─ Prescription automatically transmitted to patient's preferred pharmacy:
+     ├─ Electronic (NCPDP e-prescribing standard if pharmacy supports)
+     ├─ Fax (if e-prescribing unavailable)
+     └─ Status updated to TRANSMITTED
+  └─ Pharmacy receives prescription in their system
+  └─ Status tracked (received, ready for filling, dispensed)
+
+Step 6: Patient Notification
+  └─ Patient notified via email/SMS:
+     ├─ Prescription sent to pharmacy
+     ├─ Patient can pick up at pharmacy
+     ├─ Estimated wait time (usually 24-48 hours)
+     └─ Link to view prescription details online
+  └─ Patient can request different pharmacy if needed
+  └─ Patient can request delay in filling (hold prescription)
+
+Step 7: Pharmacy Fulfillment
+  └─ Pharmacy fills prescription:
+     ├─ Medication verified against prescription
+     ├─ Quantity counted or dispensed
+     ├─ Label generated with instructions
+     ├─ Drug interaction/allergy check performed by pharmacist
+     └─ Prescription marked as DISPENSED in system
+  └─ Patient picks up medication:
+     ├─ Pharmacy scans prescription
+     ├─ Patient identification verified
+     ├─ Pickup date recorded
+     ├─ Confirmation sent to clinic EMR (prescription COMPLETED)
+     └─ Patient receives receipt and medication
+
+Step 8: Medication Activation
+  └─ Once dispensed, medication activated in patient's record:
+     ├─ Added to active medication list
+     ├─ Drug interaction database updated for future prescriptions
+     ├─ Care team can see active medication
+     └─ Allergy alerts updated for other providers
+  └─ Prescription lifecycle complete
+
+CHRONIC PRESCRIPTION WORKFLOW (ongoing):
+
+Steps 1-7: [Same as acute workflow]
+
+Step 8: Automatic Refill & Renewal
+  └─ Prescription set for automatic refill:
+     ├─ Patient notified prescription is chronic (ongoing)
+     ├─ Refill scheduled every 25-28 days (before supply runs out)
+     ├─ Patient can opt-in or opt-out of automatic refills
+     └─ Pharmacist required to verify patient still wants medication
+  └─ Doctor monitors chronic medication effectiveness:
+     ├─ Periodic follow-up appointments (every 3-6 months)
+     ├─ Labs ordered to monitor (e.g., potassium for ACE inhibitors)
+     ├─ Side effects and efficacy reassessed
+     └─ Prescription renewed or discontinued based on response
+
+PRN (AS-NEEDED) PRESCRIPTION WORKFLOW:
+
+Steps 1-7: [Same as acute workflow, with PRN frequency]
+
+Differences:
+  └─ No automatic refill schedule
+  └─ Patient takes medication "as needed" for symptom relief
+  └─ Can refill multiple times per year
+  └─ Doctor may limit quantity per refill (e.g., "no more than 15 tablets per month")
+  └─ Regular monitoring for abuse (especially opioids, benzodiazepines)
+
+REFILL REQUEST WORKFLOW:
+
+Step 1: Patient/Pharmacy Initiates Refill Request
+  └─ Patient requests via patient portal:
+     ├─ Patient logs in and selects medication to refill
+     ├─ Selects quantity needed (usually default quantity)
+     ├─ Confirms refill before sending
+     └─ Submitted to doctor queue
+  └─ Or pharmacy initiates via automation:
+     ├─ Pharmacy automation detects medication low in stock
+     ├─ Sends refill request to doctor electronically
+     ├─ Includes current refill count and days remaining
+     └─ Awaits doctor approval
+
+Step 2: Doctor Reviews Refill Request
+  └─ Doctor receives refill notification:
+     ├─ Patient name, medication, dose, refills remaining
+     ├─ Date last filled and days supply
+     ├─ Patient compliance (filled on time, early, late)
+     ├─ Prior approval history
+     └─ Any alerts (age of prescription, recent discontinuation)
+  └─ Doctor checks if medication still appropriate:
+     ├─ Patient still needs medication (not already switched)
+     ├─ Dose still appropriate (patient status unchanged)
+     ├─ Refill timing appropriate (not too soon, indicates abuse)
+     ├─ Monitoring labs current if required (INR, potassium)
+     └─ No new allergies or drug interactions documented
+
+Step 3: Doctor Approval/Denial
+  └─ Approval scenario:
+     ├─ Doctor approves refill
+     ├─ New prescription created as renewal
+     ├─ Prescription automatically transmitted to pharmacy
+     ├─ Patient notified ("Your prescription has been renewed and sent to pharmacy")
+     └─ Process continues with pharmacy fulfillment (Step 5+)
+  └─ Denial scenario:
+     ├─ Doctor denies refill with reason:
+     │  ├─ "Patient needs follow-up appointment first"
+     │  ├─ "Labs required before continuation"
+     │  ├─ "Medication discontinued"
+     │  └─ "Requires prior authorization from insurance"
+     ├─ Patient/pharmacy notified with denial reason
+     ├─ Patient can request appeal or schedule follow-up appointment
+     └─ Doctor schedules follow-up consultation if appropriate
+  └─ Conditional approval scenario:
+     ├─ Doctor approves limited quantity (e.g., 1-month supply instead of 3-month)
+     ├─ Doctor approves with monitoring requirement (e.g., "Check BP before next refill")
+     ├─ Doctor approves and schedules follow-up appointment
+     └─ Notes added to patient record
+
+================================================================================
+6. TECHNICAL REQUIREMENTS & CONSTRAINTS
+================================================================================
+
+PERFORMANCE REQUIREMENTS:
+- Drug interaction check: < 1 second for active medication check
+- Allergy check: < 500ms for allergy cross-reference
+- Prescription creation: < 2 seconds from form submission
+- Prescription transmission: < 3 seconds to send to pharmacy (e-prescribing)
+- Medication search autocomplete: < 500ms with 1000+ medications
+- Active medication retrieval: < 1 second with 20+ medications
+- Refill request processing: < 2 seconds
+
+SECURITY & COMPLIANCE:
+- Prescription data encrypted at rest and in transit (TLS 1.2+)
+- DEA compliance for controlled substances:
+  * Electronic signature required for controlled prescriptions
+  * Prescriber DEA license verified
+  * Prescription expires sooner (60-90 days vs 1 year)
+  * Quantity tracking for controlled substances
+  * Regular audits for controlled substance prescribing patterns
+- HIPAA compliance:
+  * Audit log of all prescription access (who, when, what)
+  * Access control by role (doctor only can create, pharmacist can view)
+  * Patient access restricted to own prescriptions
+  * Audit trail of all modifications and overrides
+  * Failed access attempts logged and alerted
+- Drug interaction database updated regularly:
+  * Weekly updates from FDA drug interaction database
+  * Monthly updates from clinical literature
+  * Ability to flag new interactions for manual review
+- Medication database accuracy:
+  * Regular verification against FDA NDC database
+  * Contraindications and warnings current
+  * Dosing recommendations evidence-based
+  * Pregnancy/lactation categories verified
+
+INTEGRATIONS:
+- Integrate with Task 21 (Consultation Module) - prescriptions created in consultations
+- Integrate with pharmacy system - e-prescribing transmission (NCPDP standards)
+- Integrate with patient portal - patient access to active medications, refills
+- Integrate with insurance system - prior authorization, coverage verification
+- Integrate with clinical decision support - medication recommendations
+- Integrate with drug database (external) - NDC codes, interactions, warnings
+
+================================================================================
+7. TESTING STRATEGY - 65+ TEST CASES
+================================================================================
+
+Unit Tests (12 tests):
+1. Test prescription creation with valid medication
+2. Test prescription dose validation (normal, high, low)
+3. Test drug interaction detection (major/moderate/minor)
+4. Test drug allergy blocking (true allergy vs intolerance)
+5. Test refill calculation (refills remaining, expiration)
+6. Test controlled substance DEA schedule assignment
+7. Test prescription status transitions
+8. Test medication dosing adjustment (renal, hepatic, pediatric, geriatric)
+9. Test pregnancy category checking
+10. Test interaction override documentation
+11. Test allergy override documentation
+12. Test prescription expiration calculation
+
+Integration Tests (28 tests):
+13. Test prescription creation from consultation
+14. Test patient active medication retrieval
+15. Test drug-drug interaction checking with all active meds
+16. Test drug-allergy interaction checking
+17. Test dosing appropriateness for age group
+18. Test dosing appropriateness for renal function
+19. Test dosing appropriateness for hepatic function
+20. Test medication interaction with food (grapefruit, dairy, etc.)
+21. Test contraindication checking (e.g., pregnancy + teratogenic drug)
+22. Test e-prescribing transmission to pharmacy (NCPDP)
+23. Test fax transmission fallback
+24. Test pharmacy confirmation receipt
+25. Test prescription dispensed status update
+26. Test medication added to active list after dispensing
+27. Test refill request creation from patient
+28. Test refill request creation from pharmacy
+29. Test refill request approval by doctor
+30. Test refill request denial by doctor
+31. Test automatic refill for chronic medications
+32. Test patient notification on prescription ready
+33. Test patient notification on refill approved
+34. Test medication interaction alert for future prescription
+35. Test allergy update in patient record
+36. Test interaction database update from external source
+37. Test DEA license verification for controlled prescription
+38. Test controlled substance quantity tracking
+39. Test prescription expiration for controlled substances (60-90 days)
+40. Test prescription not dispensable after expiration
+
+End-to-End Tests (18 tests):
+41. Complete acute prescription workflow (create → sign → transmit → dispense → activate)
+42. Complete chronic prescription workflow (create → sign → refill cycle)
+43. Complete PRN prescription workflow (create → sign → dispense → refill PRN)
+44. Complete controlled substance prescription workflow (DEA verification → sign → dispense)
+45. Prescription with major drug-drug interaction (alert → override → document)
+46. Prescription with severe allergy (block → cannot override)
+47. Prescription with moderate interaction (alert → acknowledge → proceed)
+48. Prescription with dosing concern (high dose → alert → confirm)
+49. Prescription for pediatric patient (age-adjusted dosing)
+50. Prescription for geriatric patient (geriatric dosing adjustment)
+51. Prescription for patient with renal disease (dose adjusted)
+52. Prescription for patient with hepatic disease (dose adjusted)
+53. Prescription for pregnant patient (pregnancy category check)
+54. Prescription with refill request approved
+55. Prescription with refill request denied
+56. Prescription with refill too soon (flagged for abuse potential)
+57. Refill request with monitoring requirement (labs check)
+58. Multi-prescription interaction check (3+ medications)
+
+Edge Case Tests (7 tests):
+59. Test prescription with maximum quantity
+60. Test prescription with zero refills
+61. Test prescription with unlimited refills
+62. Test prescription with very long duration (chronic)
+63. Test controlled substance with limited refills (1-2)
+64. Test prescription with duplicate medication (same drug, different form)
+65. Test refill request when prescription expired
+
+Performance & Load Tests:
+66. Load test: Create 500 prescriptions concurrently - verify <2s response
+67. Benchmark: Drug interaction check with 30 active medications - <1s
+68. Benchmark: Medication search autocomplete - <500ms for 5000 medications
+69. Stress test: E-prescribing transmission to 50+ pharmacies simultaneously
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+REQUIREMENT 1: Prescription can be created from consultation
+ ✓ Medication selected from drug database
+ ✓ Dose, form, strength, route entered
+ ✓ Frequency and duration specified
+ ✓ Quantity auto-calculated
+ ✓ Special instructions entered
+ ✓ Refills specified (0 for acute, 0-3 for short-term, unlimited for chronic)
+ ✓ Prescription initially in DRAFT status
+
+REQUIREMENT 2: Drug interactions checked automatically
+ ✓ Against all active medications
+ ✓ Major interactions flagged as RED (warning)
+ ✓ Moderate interactions flagged as YELLOW (caution)
+ ✓ Minor interactions flagged as GREEN (informational)
+ ✓ Interaction description and management displayed
+ ✓ Check completes in < 1 second
+
+REQUIREMENT 3: Patient allergies checked before prescription
+ ✓ True IgE allergies block prescription (red alert)
+ ✓ Related drug class allergies trigger caution alert (yellow)
+ ✓ Cross-reactivity considered (penicillin → cephalosporin caution)
+ ✓ Check completes in < 500ms
+ ✓ Override requires documented clinical justification
+
+REQUIREMENT 4: Dosing appropriateness verified
+ ✓ Dose checked against standard dosing
+ ✓ Age-appropriate dosing for pediatrics (< 18 years)
+ ✓ Geriatric dosing applied for elderly (> 65 years)
+ ✓ Renal adjustment applied if kidney disease present
+ ✓ Hepatic adjustment applied if liver disease present
+ ✓ High/low dose alerts generated
+ ✓ Dosing recommendations provided
+
+REQUIREMENT 5: Prescription can be issued with e-signature
+ ✓ Biometric signature (fingerprint/face) supported
+ ✓ PIN code signature (4-6 digits) supported
+ ✓ Password signature supported
+ ✓ Timestamp recorded with signature
+ ✓ Audit trail records signer and time
+ ✓ Prescription locked from editing after signing
+ ✓ Status changed to ISSUED
+
+REQUIREMENT 6: Prescription transmitted to pharmacy
+ ✓ Electronic transmission via NCPDP e-prescribing standard
+ ✓ Fax transmission fallback if e-prescribing unavailable
+ ✓ Pharmacy confirmation of receipt
+ ✓ Transmission status tracked (sent, received, acknowledged)
+ ✓ Transmission completes in < 3 seconds
+ ✓ Patient notified of transmission to pharmacy
+
+REQUIREMENT 7: Refill requests managed with doctor approval
+ ✓ Patient can request refill via patient portal
+ ✓ Pharmacy can auto-request refill
+ ✓ Doctor can approve/deny refill request
+ ✓ Refills remaining tracked
+ ✓ Refill appropriateness verified (not too soon, medication still appropriate)
+ ✓ New prescription created on approval
+ ✓ New prescription auto-transmitted to pharmacy
+ ✓ Patient notified of approval/denial
+
+REQUIREMENT 8: HIPAA compliance maintained
+ ✓ All prescription data encrypted at rest
+ ✓ All transmission via HTTPS/TLS 1.2+
+ ✓ Audit log tracks access to all prescriptions
+ ✓ Access control by role enforced
+ ✓ Patient access restricted to own prescriptions
+ ✓ Failed access attempts logged
+ ✓ Sensitive data not exposed in logs
+
+REQUIREMENT 9: Controlled substances managed securely
+ ✓ DEA license verified for prescriber
+ ✓ DEA schedule assigned (CI, CII, CIII, CIV, CV)
+ ✓ Prescription expires sooner (60-90 days, not 1 year)
+ ✓ Electronic signature required
+ ✓ Quantity tracking for controlled substances
+ ✓ Audits for controlled substance prescribing patterns
+
+REQUIREMENT 10: Medication database accurate and current
+ ✓ NDC codes verified against FDA database
+ ✓ Interactions current (updated weekly)
+ ✓ Contraindications and warnings accurate
+ ✓ Dosing recommendations evidence-based
+ ✓ Pregnancy categories correct
+ ✓ Side effects comprehensive
+ ✓ Manufacturer and formulations listed
+
+================================================================================
+9. DELIVERABLES & ARTIFACTS
+================================================================================
+
+Code Deliverables:
+ 1. Prescription domain model (prescription.entity.ts)
+ 2. Medication domain model (medication.entity.ts)
+ 3. Drug interaction repository (drug-interactions.repository.ts)
+ 4. Prescription repository (prescription.repository.ts)
+ 5. Prescription service (prescription.service.ts)
+ 6. Drug interaction service (drug-interaction.service.ts)
+ 7. Allergy checking service (allergy-check.service.ts)
+ 8. Dosing verification service (dosing.service.ts)
+ 9. E-prescribing service (e-prescribing.service.ts)
+10. Refill management service (refill.service.ts)
+11. Prescription API controller (prescription.controller.ts)
+12. Prescription form component (PrescriptionForm.tsx)
+13. Drug interaction display component (InteractionAlert.tsx)
+14. Active medications component (ActiveMedications.tsx)
+15. Refill request component (RefillRequest.tsx)
+16. Prescription history component (PrescriptionHistory.tsx)
+17. Database migration scripts (001_prescription_tables.sql, 002_medication_tables.sql)
+18. Drug interaction seed data (interactions-seed.json)
+19. Medication seed data (medications-seed.json)
+20. Unit test suites (prescription.service.spec.ts, etc.)
+
+Documentation Deliverables:
+21. Prescription module design document
+22. API documentation (OpenAPI/Swagger)
+23. Data model ERD diagram
+24. Workflow diagrams (acute, chronic, PRN, refill)
+25. Drug interaction database setup guide
+26. Pharmacy e-prescribing integration guide
+27. DEA compliance guide
+28. HIPAA compliance checklist
+29. User guide (doctor prescription creation, pharmacist view, patient refill)
+30. Testing guide and test matrix
+
+================================================================================
+10. DEPENDENCIES & BLOCKING RELATIONSHIPS
+================================================================================
+
+DEPENDS ON:
+  ✓ Task 12: Patient Management System (patient allergies, active medications)
+  ✓ Task 13: Medical History (medication history)
+  ✓ Task 21: Consultation Module (prescription creation context)
+  ✓ Phase 0: Database schema
+  ✓ Phase 0: Authentication/Authorization (doctor roles)
+
+BLOCKS:
+  ─ Task 24: Clinical Notes (prescription data in notes)
+  ─ Task 28: Analytics/Reporting (prescription metrics)
+
+PARALLEL DEPENDENCIES:
+  • Can proceed in parallel with Task 23 (Diagnosis Recording)
+  • Can proceed in parallel with Task 24 (Clinical Notes - can be done after)
+  • Requires pharmacy integration vendor identified
+
+================================================================================
+11. EFFORT ESTIMATION & TIMELINE
+================================================================================
+
+Backend Development (20 hours):
+  └─ Database schema design (2 hours)
+  └─ Medication and prescription models (3 hours)
+  └─ Drug interaction checking service (4 hours)
+  └─ Allergy checking service (2 hours)
+  └─ Dosing verification service (3 hours)
+  └─ E-prescribing integration (3 hours)
+  └─ Refill management service (2 hours)
+  └─ DEA compliance features (1 hour)
+
+API Development (8 hours):
+  └─ Prescription CRUD endpoints (2 hours)
+  └─ Interaction checking endpoints (1.5 hours)
+  └─ E-prescribing transmission (1.5 hours)
+  └─ Refill request endpoints (1.5 hours)
+  └─ Active medications retrieval (0.5 hour)
+  └─ Drug database endpoints (1 hour)
+
+Frontend Development (4 hours):
+  └─ Prescription form component (1.5 hours)
+  └─ Interaction alert display (0.75 hour)
+  └─ Refill request component (0.75 hour)
+  └─ Active medications view (0.75 hour)
+  └─ Prescription history view (0.25 hour)
+
+Testing (2 hours):
+  └─ Unit tests (0.75 hour)
+  └─ Integration tests (0.75 hour)
+  └─ E2E tests (0.5 hour)
+
+TOTAL EFFORT: 34 hours (4-5 days for 1 developer, 2-3 days for 2 developers)
+
+CRITICAL PATH:
+  1. Database schema and migration
+  2. Drug interaction database seeding
+  3. Prescription service (interaction + allergy + dosing checks)
+  4. E-prescribing service
+  5. API endpoints
+  6. Frontend components
+  7. Integration testing
+
+================================================================================
+12. RISKS & MITIGATION
+================================================================================
+
+RISK 1: Drug Interaction Database Accuracy
+  │ Impact: Missed interactions could result in patient harm
+  │ Probability: LOW
+  │ Mitigation:
+  │  ├─ Use trusted source (FDA, clinical databases)
+  │  ├─ Weekly updates and verification
+  │  ├─ Peer review of new interactions
+  │  └─ Flag new interactions for manual review
+
+RISK 2: Pharmacy E-Prescribing Integration Complexity
+  │ Impact: If integration fails, fallback to fax (delays)
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Work with pharmacy IT early in project
+  │  ├─ Use standard NCPDP formats
+  │  ├─ Test with pilot pharmacies first
+  │  ├─ Implement fax fallback
+  │  └─ Clear error messaging and retry logic
+
+RISK 3: Controlled Substance DEA Compliance
+  │ Impact: Non-compliance could result in legal/regulatory issues
+  │ Probability: LOW
+  │ Mitigation:
+  │  ├─ Consult with legal/compliance early
+  │  ├─ Implement strict DEA requirements
+  │  ├─ Regular audits of controlled prescriptions
+  │  ├─ Training for prescribers on DEA rules
+  │  └─ Periodic external compliance audit
+
+RISK 4: Allergy Override Safety
+  │ Impact: Patient safety risk if allergy override not carefully managed
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Block override for true IgE allergies (anaphylaxis risk)
+  │  ├─ Require clinical justification for overrides
+  │  ├─ Alert pharmacy when allergy override used
+  │  ├─ Enhanced pharmacist review for overrides
+  │  └─ Patient notification of allergy override
+  │  └─ Audit trail of all overrides
+
+RISK 5: Refill Abuse Detection
+  │ Impact: Missed opioid/benzodiazepine abuse patterns
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Implement refill timing checks (not too soon)
+  │  ├─ Alert for refill seeking at multiple pharmacies
+  │  ├─ Integration with state prescription drug monitoring program (PDMP)
+  │  ├─ Regular pattern analysis for abuse
+  │  └─ Doctor alerts for suspicious refill patterns
+
+================================================================================
+13. SUCCESS METRICS
+================================================================================
+
+CLINICAL QUALITY:
+  • Prescription accuracy: > 99% (correct drug, dose, route, frequency)
+  • Interaction detection rate: > 95% sensitivity (catch major interactions)
+  • Allergy blocking effectiveness: 100% (no allergic reactions from missed allergies)
+  • Medication compliance: > 85% (patients filling prescriptions as prescribed)
+
+OPERATIONAL EFFICIENCY:
+  • Prescription creation time: < 5 minutes per prescription
+  • E-prescribing transmission success: > 98%
+  • Refill turnaround time: < 1 hour during business hours
+  • Manual refill processing: < 10% of prescriptions (auto-approval target > 90%)
+
+SAFETY & COMPLIANCE:
+  • Zero medication errors from missed interactions
+  • Zero allergic reactions from missed allergies
+  • 100% controlled substance compliance audit pass rate
+  • 100% HIPAA compliance audit pass rate
+  • Controlled substance refill abuse detection rate: > 90%
+
+PATIENT SATISFACTION:
+  • Patient access to active medications: > 95%
+  • Refill request satisfaction: > 90%
+  • Prescription clarity: > 85% patients understand instructions
+  • Pharmacy notification speed: > 95% within 1 hour
+
+================================================================================
+END OF TASK 22: PRESCRIPTION SYSTEM
+================================================================================

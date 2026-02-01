@@ -1,0 +1,577 @@
+================================================================================
+TASK: Patient Management System - CRUD Operations & Lifecycle
+Module: EMR - Patient Core
+Phase: PHASE 1 (Features)
+Priority: HIGH
+Duration: 7-8 days
+Effort: 30 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement complete patient management system including registration, profile
+updates, relationship management, and patient lifecycle management.
+
+BUSINESS LOGIC
+--------------
+Patient Lifecycle:
+
+1. REGISTRATION (New Patient)
+   - Basic info collected
+   - Insurance verified
+   - Emergency contact added
+   - Consent forms signed
+   - Status: ACTIVE
+
+2. ONGOING CARE
+   - Regular appointments
+   - Medical records accumulated
+   - Problem list updated
+   - Patient history grows
+
+3. INACTIVE STATUS
+   - No visits in 12+ months
+   - Can be reactivated
+   - Medical records retained
+   - Still searchable
+
+4. ARCHIVED
+   - Patient deceased or moved away
+   - Medical records retained (6+ years HIPAA)
+   - Cannot create new appointments
+   - Historical access available
+
+PATIENT INFORMATION CATEGORIES
+------------------------------
+1. DEMOGRAPHICS
+   ├─ Legal name (first, middle, last)
+   ├─ Date of birth (age auto-calculated)
+   ├─ Gender (M, F, Other, Prefer not to say)
+   ├─ Contact information
+   │  ├─ Primary phone (mobile/landline)
+   │  ├─ Secondary phone
+   │  ├─ Primary email
+   │  └─ Secondary email
+   ├─ Address (street, city, state, zip)
+   ├─ Preferred language
+   ├─ Martial status
+   └─ Employment status
+
+2. INSURANCE
+   ├─ Primary insurance
+   │  ├─ Insurance company name
+   │  ├─ Policy number
+   │  ├─ Group number
+   │  ├─ Member ID
+   │  ├─ Coverage start date
+   │  ├─ Coverage end date
+   │  └─ Coverage type (HMO, PPO, Medicare, Medicaid)
+   │
+   ├─ Secondary insurance (optional)
+   │  └─ Same fields as primary
+   │
+   └─ Coverage verification
+      ├─ Last verified date
+      ├─ Verified by (system/manual)
+      └─ Coverage status (active/inactive/terminated)
+
+3. EMERGENCY CONTACTS
+   ├─ Primary emergency contact
+   │  ├─ Name
+   │  ├─ Relationship (family member, friend, etc.)
+   │  ├─ Phone numbers (primary, secondary)
+   │  └─ Email
+   │
+   └─ Secondary emergency contact
+      └─ Same fields
+
+4. MEDICAL INFORMATION
+   ├─ Blood type (A+, A-, B+, B-, AB+, AB-, O+, O-, Unknown)
+   ├─ Preferred pharmacy
+   │  ├─ Pharmacy name
+   │  ├─ Phone
+   │  └─ Address
+   │
+   └─ Organ donor status
+      ├─ Donor (yes/no)
+      └─ Donation type (whole body, organs, etc.)
+
+5. SPECIAL CONSIDERATIONS
+   ├─ Mobility needs (wheelchair, crutches, etc.)
+   ├─ Hearing impairment (yes/no, accommodations)
+   ├─ Vision impairment (yes/no, accommodations)
+   ├─ Language barriers (interpreter needed?)
+   ├─ Cognitive impairment (decision-making capacity)
+   └─ Other special needs (dietary, etc.)
+
+6. PATIENT RELATIONSHIPS (Family/Household)
+   ├─ Parents (if patient is minor)
+   ├─ Spouse (if adult)
+   ├─ Children (if adult)
+   ├─ Household members
+   └─ Legal guardians (if applicable)
+
+7. METADATA
+   ├─ Date patient registered
+   ├─ Referred by (doctor/organization/patient)
+   ├─ Patient status (active/inactive/archived)
+   ├─ Last visit date
+   ├─ Next appointment (if scheduled)
+   └─ Patient notes (general comments)
+
+PATIENT OPERATIONS (CRUD)
+-------------------------
+CREATE NEW PATIENT:
+
+Input:
+  - Legal name (first, middle, last) - REQUIRED
+  - Date of birth - REQUIRED
+  - Gender - REQUIRED
+  - Contact info (email, phone) - REQUIRED
+  - Address - REQUIRED
+  - Insurance (primary) - REQUIRED
+  - Emergency contact - OPTIONAL
+  - Special needs - OPTIONAL
+
+Validation:
+  - Name: Non-empty, valid characters (letters, apostrophes, hyphens)
+  - DOB: Valid date, age >= 0, age <= 150
+  - Gender: One of predefined values
+  - Email: Valid email format, unique in system
+  - Phone: Valid format (10 digits after cleaning), unique or allow duplicates
+  - Address: Valid format
+  - Insurance: Company exists, policy format valid
+  - Emergency contact: If provided, name and phone required
+
+Business Rules:
+  - Cannot create patient with same email twice (unique)
+  - Can create patient with same name/DOB (must be caught at registration)
+  - On creation, assign internal patient_id (UUID)
+  - On creation, assign clinic-specific medical record number (MRN)
+  - Status defaults to ACTIVE
+  - created_at = current timestamp
+  - created_by = current user
+
+Database:
+  INSERT INTO patients (id, tenant_id, mrn, first_name, middle_name, last_name, 
+      dob, gender, email, phone, address_line1, address_line2, city, state, 
+      zip, blood_type, org_donor, special_needs, status, created_by, created_at, 
+      updated_by, updated_at, is_deleted)
+  VALUES (...)
+
+Response:
+  {
+    "success": true,
+    "data": {
+      "id": "uuid",
+      "mrn": "MRN-12345",
+      "name": "John Doe",
+      "dob": "1980-01-15",
+      "gender": "M",
+      "email": "john@example.com",
+      "phone": "+1-555-0123",
+      "status": "ACTIVE",
+      "createdAt": "2024-01-15T10:30:00Z"
+    },
+    "meta": {...}
+  }
+
+READ PATIENT:
+
+By ID:
+  GET /patients/{patientId}
+  Returns: Full patient profile including demographics, insurance, emergency contacts
+  
+  Response:
+  {
+    "success": true,
+    "data": {
+      "id": "uuid",
+      "mrn": "MRN-12345",
+      "firstName": "John",
+      "middleName": "",
+      "lastName": "Doe",
+      "dob": "1980-01-15",
+      "age": 44,
+      "gender": "M",
+      "email": "john@example.com",
+      "phone": "+1-555-0123",
+      "address": {...},
+      "insurance": {...},
+      "emergencyContact": {...},
+      "bloodType": "O+",
+      "organDonor": true,
+      "specialNeeds": {...},
+      "status": "ACTIVE",
+      "lastVisit": "2024-01-10",
+      "nextAppointment": "2024-02-15",
+      "createdAt": "2024-01-01"
+    }
+  }
+
+By MRN:
+  GET /patients/mrn/{mrn}
+  Returns: Same as above
+
+Search:
+  GET /patients?search=john&type=name
+  GET /patients?search=555-0123&type=phone
+  GET /patients?search=john@example.com&type=email
+  Returns: List of matching patients (max 50)
+
+LIST PATIENTS:
+  GET /patients
+  Pagination: page, limit (default 50, max 100)
+  Sorting: By name, DOB, last visit, status
+  Filtering: 
+    - status (active/inactive/archived)
+    - dateRange (created between dates)
+    - insurance (by company)
+  Response: Array of patient summaries (not full detail)
+
+UPDATE PATIENT:
+
+Full Update (PUT):
+  PUT /patients/{patientId}
+  Replaces entire patient record
+  Requires all required fields
+  Logs who made update and when
+
+Partial Update (PATCH):
+  PATCH /patients/{patientId}
+  Updates only specified fields
+  Example: Update just phone number
+  
+  Request:
+  {
+    "phone": "+1-555-9999"
+  }
+  
+  Response: Updated patient record
+
+Update Rules:
+  - Cannot change patient ID or MRN
+  - Cannot change created_at or created_by
+  - Cannot change to non-existent insurance company
+  - Changing email requires email verification
+  - Changing phone requires phone verification (if required by policy)
+  - All updates logged in audit trail
+  - If no changes, return HTTP 204
+  - If update fails, return 400 with validation errors
+
+DELETE PATIENT (Soft Delete):
+  DELETE /patients/{patientId}
+  
+  Business Logic:
+  - Sets is_deleted = true, deleted_at = current time
+  - Patient hidden from normal search
+  - Medical records preserved (HIPAA 6-year requirement)
+  - Accessible via admin functions only
+  - Reversible (can be restored)
+  - Hard delete possible only after retention period
+
+  Response: HTTP 204 (No Content) on success
+
+PATIENT RELATIONSHIPS
+--------------------
+Parent-Child Relationships (for minors):
+
+Minor Patient Registration:
+  - Patient age < 18
+  - Requires parent/legal guardian name
+  - Requires parent contact info
+  - Parent can access child's medical records (with consent)
+  - At age 18, patient can control access
+
+Family Relationships:
+  - Spouse: Both adults, married
+  - Siblings: Same parents or household
+  - Children: Adult patient has children
+  - Used for family history tracking
+  - Used for emergency contact if needed
+
+Household Members:
+  - Track who lives with patient
+  - Helps with infection tracking (communicable diseases)
+  - Helps with medication interactions if household member on similar meds
+  - Optional but useful for public health
+
+Relationship Operations:
+  POST /patients/{patientId}/relationships
+  {
+    "relationType": "parent",  // parent, spouse, sibling, child, household
+    "relatedPatientId": "uuid"
+  }
+  
+  DELETE /patients/{patientId}/relationships/{relationshipId}
+  
+  GET /patients/{patientId}/relationships
+  Returns: List of relationships
+
+INSURANCE MANAGEMENT
+-------------------
+Primary Insurance:
+  - Required for billing
+  - Verified at registration
+  - Verified annually or on change
+  - Used for claim submission
+
+Secondary Insurance:
+  - Optional
+  - Used if primary doesn't cover
+  - Coordination of benefits rules apply
+  - Must not create circular coverage
+
+Insurance Operations:
+  
+  Add/Update Insurance:
+  POST /patients/{patientId}/insurance
+  {
+    "insuranceCompanyId": "uuid",
+    "policyNumber": "POL123456",
+    "groupNumber": "GRP789",
+    "memberId": "MEM456",
+    "coverageStartDate": "2024-01-01",
+    "coverageEndDate": "2024-12-31",
+    "coverageType": "PPO",
+    "isPrimary": true
+  }
+  
+  Remove Insurance:
+  DELETE /patients/{patientId}/insurance/{insuranceId}
+  
+  Get Insurance:
+  GET /patients/{patientId}/insurance
+  Returns: All insurance policies
+
+Insurance Verification:
+  - Manual verification (clinic staff enters verification date)
+  - Integration with insurance companies (future)
+  - Coverage status checked before appointment
+  - Alert if coverage expired
+  - Billing system uses verified coverage
+
+EMERGENCY CONTACT MANAGEMENT
+---------------------------
+Add Emergency Contact:
+  POST /patients/{patientId}/emergency-contacts
+  {
+    "name": "Jane Doe",
+    "relationship": "Spouse",
+    "phone1": "+1-555-0123",
+    "phone2": "+1-555-0124",
+    "email": "jane@example.com",
+    "canReceiveTestResults": true,
+    "isPrimary": true
+  }
+
+Update/Delete Emergency Contact:
+  PATCH /patients/{patientId}/emergency-contacts/{contactId}
+  DELETE /patients/{patientId}/emergency-contacts/{contactId}
+
+Get Emergency Contacts:
+  GET /patients/{patientId}/emergency-contacts
+
+Notification Scenarios:
+  - Patient hospitalization (contact all emergency contacts)
+  - Patient test results available (if approved)
+  - Surgery scheduled (for pre-op coordination)
+  - Patient deceased (if applicable)
+
+SPECIAL NEEDS & ACCOMMODATIONS
+------------------------------
+Track patient needs for better care:
+
+Mobility:
+  - No mobility issues
+  - Uses crutches
+  - Uses wheelchair
+  - Requires walker
+  - Cannot stand for extended periods
+
+Sensory:
+  - Hearing: Normal, Hearing aid, Deaf, Requires interpreter
+  - Vision: Normal, Wears glasses, Low vision, Blind
+
+Communication:
+  - Primary language
+  - Secondary language
+  - Interpreter needed?
+  - Cognitive impairment requiring simplified explanations
+  - Speech impairment (alternative communication needed)
+
+Medical Equipment:
+  - Pacemaker (affects MRI compatibility)
+  - Implanted metal (affects MRI/CT)
+  - Oxygen dependency (affects travel, facilities)
+  - Feeding tube (affects medication administration)
+
+Preferences:
+  - Preferred visit time (morning, afternoon)
+  - Telehealth preference
+  - In-person preference
+  - Preferred doctor (if available)
+
+Staff Notes:
+  - General notes about patient
+  - Behavioral information (anxious, aggressive, etc.)
+  - Preferences (prefers left arm for BP, etc.)
+  - Allergies to equipment (latex allergy)
+
+PATIENT DUPLICATE DETECTION
+---------------------------
+Risk: Same patient registered twice with different info
+
+Detection Rules:
+  - Same full name + same DOB = Same person (warn staff)
+  - Same email = Same person (warn staff)
+  - Same phone = Likely same person (warn staff)
+  - Same SSN = Same person (block duplicate)
+
+On Duplicate Detection:
+  - Show warning: "This patient may already exist"
+  - Show potential matches
+  - Allow staff to merge or confirm separate person
+  - Do not create duplicate
+
+Merge Function:
+  - Keep master record
+  - Transfer all appointments/records from duplicate
+  - Mark duplicate as merged
+  - Maintain history of merge
+  - Log who performed merge
+
+REPORTING & ANALYTICS
+--------------------
+Patient Demographics Reports:
+  - Total active patients
+  - Patient age distribution
+  - Gender distribution
+  - Insurance distribution
+  - New patient registrations (by month)
+  - Patient churn (inactive/archived)
+
+TESTING STRATEGY
+----------------
+Patient Registration:
+[ ] Valid patient created successfully
+[ ] Duplicate email rejected
+[ ] Invalid email rejected
+[ ] Invalid DOB rejected
+[ ] Underage patient marked correctly
+[ ] Insurance verified
+[ ] MRN auto-generated
+[ ] All audit fields set correctly
+
+Patient Updates:
+[ ] Valid update succeeds
+[ ] Email update verified
+[ ] Cannot change MRN
+[ ] Cannot change created_at
+[ ] All updates logged in audit
+[ ] Concurrent updates handled correctly
+[ ] Partial update works
+
+Patient Deletion:
+[ ] Soft delete sets is_deleted flag
+[ ] Patient hidden from normal search
+[ ] Medical records preserved
+[ ] Can be restored
+[ ] Audit logged
+
+Search & Retrieval:
+[ ] Search by name works
+[ ] Search by email works
+[ ] Search by phone works
+[ ] Search by MRN works
+[ ] Pagination works
+[ ] Filtering works
+[ ] Performance <500ms for 10k records
+
+Relationships:
+[ ] Parent-child relationships created
+[ ] Can retrieve related patients
+[ ] Circular relationships prevented
+[ ] Relationship deletion works
+
+Insurance:
+[ ] Add insurance succeeds
+[ ] Cannot add to non-existent patient
+[ ] Coverage dates validated
+[ ] Multiple insurance policies allowed
+[ ] Insurance deletion works
+
+Emergency Contacts:
+[ ] Add emergency contact succeeds
+[ ] Multiple contacts allowed
+[ ] Contact deletion works
+[ ] Contact retrieval works
+
+Duplicate Detection:
+[ ] Duplicate names detected
+[ ] Duplicate emails blocked
+[ ] Merge function works
+[ ] Merge audit logged
+
+Compliance:
+[ ] HIPAA audit logged
+[ ] Patient access logged
+[ ] Deletion logged
+[ ] Export works (GDPR)
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Patient registration fully implemented
+[ ] Patient profile retrieval working
+[ ] Patient updates working (PUT/PATCH)
+[ ] Patient soft delete working
+[ ] Search by name/email/phone/MRN working
+[ ] Insurance management implemented
+[ ] Emergency contact management implemented
+[ ] Special needs tracking implemented
+[ ] Duplicate detection working
+[ ] Relationship tracking implemented
+[ ] All validations in place
+[ ] Audit logging complete
+[ ] HIPAA compliance verified
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Patient data model (tables, indexes)
+2. Patient registration API endpoints
+3. Patient profile API endpoints
+4. Insurance management endpoints
+5. Emergency contact endpoints
+6. Search & filtering logic
+7. Duplicate detection algorithm
+8. Merge logic (for duplicates)
+9. Test suite (60+ tests)
+10. Duplicate patient prevention guide
+11. Patient import/export utilities
+
+DEPENDENCIES
+-----------
+BLOCKING: EMR Specification (Task 11), Database schema (Phase 0), API layer (Phase 0)
+BLOCKS: Appointments (needs patient search), Prescriptions (needs patient)
+
+RELATED TASKS
+-----------
+- EMR Specification (Task 11)
+- Medical History Management (Task 13)
+- Appointments (depends on this)
+- Billing (depends on this)
+
+NOTES
+-----
+Patient data is core foundation.
+Registration process critical (garbage in = garbage out).
+Duplicate detection essential for data quality.
+Sensitive information requires extra care.
+
+Timeline: Week 1 of Phase 1
+Priority: HIGH (enables all other features)
+
+STATUS: Ready for implementation
+================================================================================

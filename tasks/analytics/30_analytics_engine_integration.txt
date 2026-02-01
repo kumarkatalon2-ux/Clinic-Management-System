@@ -1,0 +1,469 @@
+================================================================================
+TASK 30: ANALYTICS ENGINE & DATA INTEGRATION
+================================================================================
+Module: Automation & Analytics
+Phase: Phase 1 - Implementation
+Priority: MEDIUM
+Effort Estimate: 28 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Task 28 (Analytics System)
+Blocking: Task 31 (Dashboards)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Analytics Engine powers real-time data processing and advanced analytics
+capabilities. It extends Task 28 (Analytics & Reporting System) with real-time
+data integration, streaming analytics, machine learning pipelines, anomaly
+detection, and advanced computational features. The engine processes operational
+data in real-time, generates actionable insights, feeds predictive models, and
+drives automated decision-making systems (alerts, recommendations, automations).
+
+Key Responsibilities:
+- Real-time data ingestion from operational systems
+- Data streaming and event processing
+- Machine learning model training and inference
+- Anomaly detection and alerting
+- Pattern recognition and trend analysis
+- Predictive scoring and recommendations
+- Real-time KPI computation
+- Data quality monitoring and alerts
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 REAL-TIME DATA INTEGRATION
+Data Streaming:
+- Event-based ingestion: Consultations, prescriptions, payments, appointments
+- Message broker: Apache Kafka or AWS Kinesis for event streaming
+- Consumers: Analytics engine processes events in real-time
+- Transformation: Event data normalized and enriched
+- Storage: Events stored in database for analysis
+
+Event Types:
+- Clinical events: Consultation created, diagnosis added, prescription issued
+- Financial events: Charge created, payment received, adjustment made
+- Operational events: Appointment scheduled, appointment completed, patient no-show
+- System events: User login, report generated, data export
+
+Event Processing Pipeline:
+1. Event received from operational system
+2. Validation: Check event schema, required fields
+3. Enrichment: Add context (patient demographics, provider info)
+4. Deduplication: Detect and remove duplicate events
+5. Transformation: Convert to analytics format
+6. Storage: Persist in database
+7. Streaming: Send to downstream consumers (dashboards, models)
+
+2.2 REAL-TIME KPI COMPUTATION
+Streaming Aggregations:
+- Appointment volume: Update count every minute as appointments created
+- Revenue: Cumulative total updated as payments received
+- No-show rate: Updated as appointments marked completed/no-show
+- Average wait time: Updated from appointment check-in and provider start time
+
+Window Functions:
+- Minute: Last 60 minutes of activity (for live dashboard)
+- Hour: Last 24 hours of activity (for hourly trends)
+- Day: Calendar day totals (for daily reports)
+- Month: Month-to-date totals (for financial reporting)
+
+KPI Examples:
+- Real-time patient count: Current number of patients in clinic
+- Active consultations: Number of consultations in progress
+- Queue depth: Number of patients waiting for appointment
+- Revenue today: Cumulative revenue (vs target)
+- No-show alerts: Alert when daily no-show rate exceeds 15%
+
+2.3 MACHINE LEARNING PIPELINES
+Model Training:
+- No-Show Prediction Model:
+  * Features: Patient history, appointment type, provider, day-of-week
+  * Target: No-show (0/1) binary classification
+  * Algorithm: Logistic regression, random forest
+  * Training data: Historical 24 months of appointments
+  * Retraining: Monthly with new data
+  * Evaluation: Precision, recall, AUC-ROC
+
+- Readmission Risk Model:
+  * Features: Diagnosis, comorbidities, medication adherence, age
+  * Target: 30-day readmission (0/1)
+  * Algorithm: Gradient boosting (XGBoost)
+  * Training data: Historical 24 months
+  * Retraining: Monthly
+
+- Patient Segmentation Model:
+  * Features: Visit frequency, revenue, chronic disease burden, compliance
+  * Target: Segment (high-value, chronic, preventive, at-risk)
+  * Algorithm: K-means clustering
+  * Training data: All current and historical patients
+  * Retraining: Quarterly
+
+Model Inference:
+- In real-time: Score each new appointment for no-show risk
+- In real-time: Score discharged patients for readmission risk
+- Batch daily: Segment all patients, identify at-risk cohorts
+- Results: Used for alerts, interventions, follow-up automation
+
+Model Monitoring:
+- Track model predictions vs actual outcomes
+- Monitor model performance (accuracy degradation)
+- Alert if performance drops >5% (trigger retraining)
+- Compare predictions: Model 1 vs Model 2 (A/B testing)
+
+2.4 ANOMALY DETECTION
+Statistical Anomalies:
+- Volume anomalies: Appointment volume +/- 3 standard deviations
+- Revenue anomalies: Daily revenue >30% below/above expected
+- No-show anomalies: No-show rate >20% (threshold)
+- Wait time anomalies: Average wait time >60 minutes
+
+Detection Methods:
+- Z-score: Identify outliers beyond 3 standard deviations
+- Isolation forest: Detect multi-dimensional anomalies
+- Moving averages: Compare current value to 7-day moving average
+- Rule-based: Hard thresholds (>15 no-shows per day)
+
+Alert Actions:
+- Alert severity: Critical (immediate action), warning (investigate), info
+- Notification: Email/SMS/Slack to operations manager
+- Automated action: Scale up staffing if queue depth critical
+- Investigation: Log anomaly, investigate root cause
+
+Examples:
+- High cancellation rate: Alert if >10 cancellations in 1 day
+- Provider no-show: Alert if provider doesn't have appointments scheduled
+- Payment processing errors: Alert if payment failure rate >1%
+
+2.5 PREDICTIVE SCORING & RECOMMENDATIONS
+Patient Risk Scores:
+- Readmission risk: 0-100 scale, triggers care coordination if >70
+- No-show risk: 0-100 scale, triggers reminder interventions if >60
+- Medication adherence risk: 0-100, triggers adherence coaching if >50
+- Chronic disease control risk: 0-100, triggers escalation if poor control
+
+Recommendations:
+- Recommend telemedicine: For patients with mobility barriers
+- Recommend in-house pharmacy: For frequently needed medications
+- Recommend care coordinator: For complex patients or poor compliance
+- Recommend specialist referral: Based on diagnosis and clinical guidelines
+
+Confidence Scoring:
+- Each recommendation includes confidence (70-100%)
+- Display to clinician: "System recommends specialist referral (87% confidence)"
+- Clinician can accept/override recommendation
+- Track override rate to improve recommendations
+
+2.6 PATTERN RECOGNITION & TRENDING
+Trend Analysis:
+- Revenue trends: 7-day, 30-day, YTD trends
+- Appointment trends: Volume trending up/down
+- Diagnosis trends: Prevalence of conditions
+- Provider productivity: Revenue/visit volume trending
+- Patient engagement: Appointment booking trends
+
+Correlation Analysis:
+- Days of week: Volume patterns by day (peak days, slow days)
+- Seasonality: Seasonal variation (flu season, allergy season)
+- Provider effects: Variation by provider (different patient populations)
+- Insurance effects: Variation by insurance type
+
+2.7 REAL-TIME DASHBOARDING
+Live Updates:
+- Dashboard refresh: Every 30-60 seconds
+- Real-time metrics: Patient volume, queue depth, revenue
+- Streaming updates: Push notifications on major events
+- Historical context: Current value vs trend, vs same day last year
+
+Performance Optimization:
+- Incremental updates: Only send changed data, not full refresh
+- Caching: Cache stable data, stream changing data
+- Progressive rendering: Display available data first, add details
+
+2.8 ALERTS & AUTOMATION
+Alert Routing:
+- Severity-based: Critical → immediate SMS, warning → email, info → log
+- Role-based: Operations alerts to manager, clinical alerts to provider
+- Time-based: Quiet hours 10 PM - 6 AM (batch send next morning)
+- Frequency capping: Don't send >1 alert per hour on same issue
+
+Automated Actions:
+- Staff scheduling: Auto-schedule additional staff if volume spike
+- Follow-up triggers: Auto-schedule follow-up for high-risk patients
+- Medication alerts: Auto-notify patient/pharmacist on interactions
+- Billing alerts: Auto-flag high-risk insurance denials
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: events
+- event_id (UUID, PK)
+- event_type (VARCHAR, e.g., "consultation_created", "payment_received")
+- entity_type (VARCHAR, e.g., "consultation", "payment")
+- entity_id (UUID)
+- patient_id (UUID, nullable)
+- provider_id (UUID, nullable)
+- event_data (JSON, event-specific data)
+- timestamp (TIMESTAMP)
+- processed (BOOLEAN, false until processed by analytics engine)
+- created_at (TIMESTAMP)
+- INDEX: (entity_type, entity_id, timestamp)
+- INDEX: (patient_id, timestamp)
+
+TABLE: kpi_snapshots
+- snapshot_id (UUID, PK)
+- kpi_name (VARCHAR, e.g., "daily_revenue", "no_show_rate")
+- kpi_value (DECIMAL 10,2)
+- window (ENUM: "minute", "hour", "day", "month")
+- snapshot_timestamp (TIMESTAMP)
+- created_at (TIMESTAMP)
+- INDEX: (kpi_name, window, snapshot_timestamp)
+
+TABLE: ml_models
+- model_id (UUID, PK)
+- model_name (VARCHAR, e.g., "no_show_prediction")
+- model_version (INT)
+- algorithm (VARCHAR)
+- training_data_count (INT)
+- training_date (DATE)
+- training_accuracy (DECIMAL 5,4)
+- training_precision (DECIMAL 5,4)
+- training_recall (DECIMAL 5,4)
+- is_active (BOOLEAN)
+- model_file_path (VARCHAR)
+- created_at (TIMESTAMP)
+
+TABLE: ml_predictions
+- prediction_id (UUID, PK)
+- model_id (UUID, FK → ml_models)
+- entity_type (VARCHAR, e.g., "appointment")
+- entity_id (UUID)
+- predicted_value (DECIMAL 5,4, probability 0-1)
+- confidence (DECIMAL 5,2, 0-100)
+- predicted_at (TIMESTAMP)
+- actual_value (INT, nullable, populated when actual known)
+- actual_date (DATE, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (entity_type, entity_id)
+
+TABLE: anomalies
+- anomaly_id (UUID, PK)
+- anomaly_type (VARCHAR, e.g., "high_no_show_rate")
+- severity (ENUM: "critical", "warning", "info")
+- description (TEXT)
+- anomaly_value (DECIMAL 10,2)
+- threshold_value (DECIMAL 10,2)
+- detected_at (TIMESTAMP)
+- acknowledged (BOOLEAN)
+- acknowledged_by (UUID, FK → users, nullable)
+- acknowledged_at (TIMESTAMP, nullable)
+- resolution (TEXT, nullable)
+- created_at (TIMESTAMP)
+
+TABLE: patient_segments
+- segment_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- segment_name (ENUM: "high_value", "chronic", "preventive", "at_risk")
+- confidence (DECIMAL 5,2, 0-100)
+- calculated_date (DATE)
+- calculated_by (VARCHAR, model name)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 EVENT INGESTION API
+
+POST /api/v1/analytics/events
+Body:
+{
+  "event_type": "consultation_created",
+  "entity_type": "consultation",
+  "entity_id": "uuid",
+  "patient_id": "uuid",
+  "event_data": {...}
+}
+Response: Event queued
+
+4.2 KPI STREAMING API
+
+WebSocket /api/v1/analytics/kpi-stream
+Subscribe to real-time KPI updates
+Message:
+{
+  "kpi_name": "daily_revenue",
+  "value": 12500.00,
+  "timestamp": "2026-01-31T14:30:00Z"
+}
+
+4.3 PREDICTION API
+
+GET /api/v1/analytics/predict/no-show/{appointment_id}
+Response:
+{
+  "risk_score": 0.72,
+  "confidence": 92,
+  "recommendation": "Send reminder SMS"
+}
+
+POST /api/v1/analytics/predict/batch
+Body:
+{
+  "model_name": "readmission_risk",
+  "patient_ids": ["uuid1", "uuid2", ...]
+}
+
+4.4 ANOMALY API
+
+GET /api/v1/analytics/anomalies
+Query: severity, date_range
+Response: List of detected anomalies
+
+PUT /api/v1/analytics/anomalies/{anomaly_id}/acknowledge
+
+4.5 SEGMENTATION API
+
+GET /api/v1/analytics/segments/{patient_id}
+Response: Patient segments and confidence scores
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 REAL-TIME DATA PROCESSING
+- Message broker: Apache Kafka for event streaming
+- Stream processor: Apache Spark Streaming or Flink
+- Latency: Events processed within <5 seconds
+- Throughput: Support 10,000+ events/minute
+
+5.2 MACHINE LEARNING
+- ML framework: scikit-learn, TensorFlow, or XGBoost
+- Model storage: Serialized models + version control
+- Inference: Real-time inference within <100ms
+- Retraining: Automated monthly retraining pipeline
+
+5.3 MONITORING & ALERTING
+- Monitoring: Prometheus for system metrics
+- Alerting: Alert routing to Slack/PagerDuty/email
+- Dashboards: Real-time dashboards for operations team
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 REAL-TIME WORKFLOW
+- Events streamed continuously
+- Analytics engine processes in sub-second latency
+- KPIs updated in real-time
+- Predictions scored on demand or batch
+- Alerts triggered and routed based on severity
+
+6.2 BATCH WORKFLOW
+- Nightly: Model training/retraining
+- Daily: Bulk predictions for all patients
+- Weekly: Anomaly pattern analysis
+- Monthly: Model performance evaluation
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (16+ test cases):
+- Event transformation logic
+- KPI aggregation calculations
+- Anomaly detection algorithms
+- Prediction scoring
+
+Integration Tests (14+ test cases):
+- End-to-end event processing pipeline
+- Real-time KPI computation
+- ML model training and inference
+- Alert generation and routing
+
+Performance Tests (8+ test cases):
+- Event ingestion throughput (10,000+ events/min)
+- Real-time prediction latency (<100ms)
+- Batch prediction performance
+- Model training time
+
+Edge Cases (6+ test cases):
+- Missing data handling
+- Model inference with insufficient data
+- Anomaly detection edge values
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. Real-time event processing within <5 second latency
+2. KPI updates available within <1 minute
+3. ML model predictions within <100ms latency
+4. Model accuracy >80% for predictive models
+5. Anomaly detection accuracy >90%
+6. Support for 10,000+ events per minute throughput
+7. Alert generation and routing within <1 minute
+8. Dashboard updates with <30 second refresh
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Event streaming and ingestion system
+2. Real-time KPI computation engine
+3. Machine learning pipelines (training + inference)
+4. Anomaly detection system
+5. Predictive scoring models (3+)
+6. Patient segmentation system
+7. Alert routing and automation
+8. Real-time dashboarding APIs
+9. Model monitoring and retraining
+10. Compliance and data quality checks
+
+Dependencies:
+- Task 1-10 (Phase 0)
+- Task 28 (Analytics System)
+
+Blockers For:
+- Task 31 (Dashboards: real-time analytics)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design: 4 hours
+Development: 18 hours
+Testing: 4 hours
+Documentation: 1 hour
+Contingency: 1 hour (5%)
+
+Total: 28 hours (1 developer, 1 week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Performance degradation under high event volume
+Mitigation: Kafka partitioning, parallel processing, load testing
+
+Risk: ML model performance degradation
+Mitigation: Continuous monitoring, automated retraining, A/B testing
+
+Risk: Stale predictions or inaccurate scoring
+Mitigation: Regular model evaluation, feedback loops
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Event processing latency: <5 seconds
+- Prediction accuracy: >80%
+- Anomaly detection sensitivity: >90%
+- System uptime: >99.9%
+- ML model stability: <5% accuracy variance month-to-month
+
+================================================================================

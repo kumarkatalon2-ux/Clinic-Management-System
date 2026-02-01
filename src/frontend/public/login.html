@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Management System - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-gradient {
+            background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+        }
+        
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(15, 118, 110, 0.3);
+        }
+        
+        input:focus {
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex items-center justify-center px-4 py-12">
+        <div class="glass rounded-2xl shadow-2xl p-8 w-full max-w-md">
+            <!-- Logo Section -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-teal-600 to-teal-700 rounded-full mb-4">
+                    <span class="text-2xl font-bold text-white">🏥</span>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Clinical System</h1>
+                <p class="text-gray-600">Healthcare Management Platform</p>
+            </div>
+
+            <!-- Tab Toggle -->
+            <div class="flex gap-4 mb-8 border-b border-gray-200">
+                <button id="loginTab" class="flex-1 py-3 font-semibold text-center border-b-2 border-teal-600 text-teal-600 cursor-pointer">Sign In</button>
+                <button id="registerTab" class="flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 cursor-pointer hover:text-gray-700">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" novalidate class="space-y-6">
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Email Address
+                    </label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email"
+                        placeholder="admin@clinic.com" 
+                        value="admin@clinic.com"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                        required>
+                    <p class="text-xs text-gray-500 mt-1">Demo: admin@clinic.com</p>
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        placeholder="Enter your password" 
+                        value="admin123"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                        required>
+                    <p class="text-xs text-gray-500 mt-1">Demo: admin123</p>
+                </div>
+
+                <!-- Remember Me -->
+                <div class="flex items-center">
+                    <input 
+                        type="checkbox" 
+                        id="remember" 
+                        name="remember"
+                        class="w-4 h-4 text-teal-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-teal-500">
+                    <label for="remember" class="ml-2 text-sm text-gray-600">Remember me</label>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    id="submitBtn"
+                    class="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white font-semibold py-3 rounded-lg transition duration-300 flex items-center justify-center gap-2 hover:shadow-lg">
+                    <span id="btnText">Sign In</span>
+                    <span id="spinner" class="hidden spinner"></span>
+                </button>
+            </form>
+
+            <!-- Register Form (Hidden by default) -->
+            <form id="registerForm" novalidate class="hidden space-y-6">
+                <!-- Full Name Field -->
+                <div>
+                    <label for="fullName" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Full Name
+                    </label>
+                    <input 
+                        type="text" 
+                        id="fullName" 
+                        name="fullName"
+                        placeholder="John Doe" 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                        required>
+                </div>
+
+                <!-- Email Field -->
+                <div>
+                    <label for="registerEmail" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Email Address
+                    </label>
+                    <input 
+                        type="email" 
+                        id="registerEmail" 
+                        name="email"
+                        placeholder="your@email.com" 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                        required>
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="registerPassword" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="registerPassword" 
+                        name="password"
+                        placeholder="Create a strong password" 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                        required>
+                    <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                </div>
+
+                <!-- Confirm Password Field -->
+                <div>
+                    <label for="confirmPassword" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Confirm Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword"
+                        placeholder="Confirm your password" 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                        required>
+                </div>
+
+                <!-- Terms Agreement -->
+                <div class="flex items-center">
+                    <input 
+                        type="checkbox" 
+                        id="terms" 
+                        name="terms"
+                        class="w-4 h-4 text-teal-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-teal-500"
+                        required>
+                    <label for="terms" class="ml-2 text-sm text-gray-600">I agree to the Terms & Conditions</label>
+                </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    id="registerBtn"
+                    class="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white font-semibold py-3 rounded-lg transition duration-300 flex items-center justify-center gap-2 hover:shadow-lg">
+                    <span id="registerBtnText">Create Account</span>
+                    <span id="registerSpinner" class="hidden spinner"></span>
+                </button>
+            </form>
+
+            <!-- Error Message -->
+            <div id="errorAlert" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p id="errorText" class="text-sm text-red-600"></p>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successAlert" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p id="successText" class="text-sm text-green-600">Login successful! Redirecting...</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <p class="text-center text-sm text-gray-600">
+                    Clinical Management System v1.0
+                </p>
+                <p class="text-center text-xs text-gray-500 mt-2">
+                    Phase 1 - Authentication System
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚀 Login page loaded');
+        
+        // Tab Switching
+        const loginTab = document.getElementById('loginTab');
+        const registerTab = document.getElementById('registerTab');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        
+        loginTab.addEventListener('click', function(e) {
+            e.preventDefault();
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            loginTab.classList.add('border-teal-600', 'text-teal-600');
+            loginTab.classList.remove('border-transparent', 'text-gray-500');
+            registerTab.classList.remove('border-teal-600', 'text-teal-600');
+            registerTab.classList.add('border-transparent', 'text-gray-500');
+        });
+        
+        registerTab.addEventListener('click', function(e) {
+            e.preventDefault();
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+            registerTab.classList.add('border-teal-600', 'text-teal-600');
+            registerTab.classList.remove('border-transparent', 'text-gray-500');
+            loginTab.classList.remove('border-teal-600', 'text-teal-600');
+            loginTab.classList.add('border-transparent', 'text-gray-500');
+        });
+        
+        // Wait for DOM to be ready
+        window.addEventListener('load', function() {
+            console.log('📄 DOM fully loaded');
+            
+            const form = document.getElementById('loginForm');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('spinner');
+            const errorAlert = document.getElementById('errorAlert');
+            const errorText = document.getElementById('errorText');
+            const successAlert = document.getElementById('successAlert');
+            
+            console.log('✅ All form elements found');
+            
+            // Handle form submission
+            loginForm.addEventListener('submit', handleLogin, false);
+            console.log('✅ Form listener attached');
+            
+            async function handleLogin(e) {
+                console.log('🔐 Login button clicked');
+                e.preventDefault();
+                
+                const email = emailInput.value;
+                const password = passwordInput.value;
+                
+                console.log('📧 Email:', email);
+                console.log('🔒 Password length:', password.length);
+                
+                // Validate inputs
+                if (!email || !password) {
+                    console.error('❌ Missing email or password');
+                    showError('Please enter both email and password');
+                    return;
+                }
+                
+                // Show loading state
+                submitBtn.disabled = true;
+                btnText.textContent = 'Signing In...';
+                spinner.classList.remove('hidden');
+                errorAlert.classList.add('hidden');
+                successAlert.classList.add('hidden');
+                
+                console.log('⏳ Loading state activated');
+                
+                try {
+                    console.log('📤 Sending login request...');
+                    
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            email: email,
+                            password: password
+                        })
+                    });
+                    
+                    console.log('📨 Response received:', response.status);
+                    
+                    const data = await response.json();
+                    console.log('📦 Response data:', data);
+                    
+                    if (response.ok) {
+                        console.log('✅ Login successful!');
+                        console.log('🎫 Access Token received');
+                        console.log('🔄 Refresh Token received');
+                        
+                        // Store tokens
+                        localStorage.setItem('accessToken', data.data.tokens.accessToken);
+                        localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
+                        localStorage.setItem('user', JSON.stringify(data.data.user));
+                        
+                        console.log('💾 Tokens stored in localStorage');
+                        
+                        // Show success
+                        successAlert.classList.remove('hidden');
+                        console.log('✅ Showing success message');
+                        
+                        // Redirect to dashboard
+                        console.log('🔄 Redirecting to dashboard in 2 seconds...');
+                        setTimeout(() => {
+                            console.log('🔗 Navigating to /dashboard.html');
+                            window.location.href = '/dashboard.html';
+                        }, 2000);
+                    } else {
+                        console.error('❌ Login failed:', data.message);
+                        showError(data.message || 'Login failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('⚠️ Error during login:', error);
+                    showError('Network error. Please check the server and try again.');
+                }
+                
+                // Reset button state
+                submitBtn.disabled = false;
+                btnText.textContent = 'Sign In';
+                spinner.classList.add('hidden');
+            }
+            
+            function showError(message) {
+                console.log('🚨 Showing error:', message);
+                errorText.textContent = message;
+                errorAlert.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

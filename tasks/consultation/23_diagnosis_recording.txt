@@ -1,0 +1,1148 @@
+================================================================================
+TASK 23: DIAGNOSIS RECORDING - PROBLEM LIST & DIAGNOSTIC MANAGEMENT
+================================================================================
+
+Project: Clinical Management SaaS - Phase 1 (Clinical Workflows)
+Category: Clinical Operations - Problem/Diagnosis Management
+Priority Level: CRITICAL
+Effort Estimate: 28 hours
+Timeline: 3-4 days (1 developer), 2 days (2 developers)
+
+Depends On:
+  - Task 12: Patient Management System (patient record)
+  - Task 21: Consultation Module (diagnosis documented during consultation)
+  - Task 13: Medical History (medical history context)
+
+Blocks:
+  - Task 24: Clinical Notes (diagnosis referenced in notes)
+  - Task 28: Analytics/Reporting (diagnosis-based reporting)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+Implement comprehensive diagnosis recording system enabling doctors to document 
+diagnoses, maintain active problem list, track disease progression, and provide 
+clinical decision support for differential diagnosis. System must support ICD-10 
+coding, hierarchical problem management (chronic conditions, acute episodes, 
+complications), disease stage tracking, and longitudinal problem trending. Enable 
+full diagnosis lifecycle from suspected diagnosis → confirmed diagnosis → resolved 
+or chronic disease. Maintain complete audit trail of problem list changes and 
+integrate with clinical decision support for evidence-based diagnosis recommendations.
+
+Expected Outcome:
+- Complete diagnosis lifecycle management (suspected → confirmed → resolved)
+- Active problem list maintained and searchable
+- ICD-10 code assignment and management
+- Disease stage and severity tracking
+- Problem trending and comorbidity analysis
+- Differential diagnosis support via clinical decision support
+- HIPAA-compliant diagnosis history and audit trail
+
+================================================================================
+2. BUSINESS LOGIC EXPLANATION
+================================================================================
+
+DIAGNOSIS LIFECYCLE:
+
+1. Suspected Diagnosis Creation
+   - During consultation, doctor suspects specific diagnosis
+   - Findings and symptoms support suspected diagnosis
+   - System suggests ICD-10 codes matching suspected diagnosis
+   - Doctor selects ICD-10 code (or searches by description)
+   - Certainty level set to POSSIBLE or SUSPECTED
+   - Differential diagnosis noted (alternative possibilities)
+   - Evidence for diagnosis documented (exam findings, test results)
+
+2. Diagnosis Confirmation
+   - Additional testing performed to confirm diagnosis:
+     ├─ Laboratory tests (blood cultures for infection, glucose for diabetes)
+     ├─ Imaging studies (X-ray, CT, ultrasound)
+     ├─ Procedures (biopsy, endoscopy, colonoscopy)
+     ├─ Specialist consultation (cardiologist, neurologist)
+     └─ Clinical observation (symptoms resolve, improve, worsen)
+   - Doctor confirms diagnosis based on test results
+   - ICD-10 code confirmed and locked
+   - Certainty level changed to CONFIRMED or PROBABLE
+   - Supporting evidence documented (lab values, imaging findings)
+
+3. Active Problem List Management
+   - Confirmed diagnoses added to active problem list
+   - Patient's current active problems displayed:
+     ├─ Chronic diseases (diabetes, hypertension, asthma)
+     ├─ Acute conditions (pneumonia, urinary tract infection, migraine)
+     ├─ Recent surgeries (post-operative status)
+     ├─ Complications (secondary diagnoses)
+     └─ Rule-outs (diagnoses ruled out by testing)
+   - Each problem includes:
+     ├─ ICD-10 code and description
+     ├─ Onset date (when problem started)
+     ├─ Status (active, resolved, chronic, episodic)
+     ├─ Severity (mild, moderate, severe, critical)
+     ├─ Stage (for staged diseases like cancer)
+     └─ Last updated date
+
+4. Chronic Disease Tracking
+   - For chronic diagnoses (diabetes, hypertension):
+     ├─ Disease duration tracked
+     ├─ Control status monitored (well-controlled, partially-controlled, uncontrolled)
+     ├─ Complication status tracked (diabetic neuropathy, hypertensive nephropathy)
+     ├─ Treatment regimen documented (medications, lifestyle changes)
+     ├─ Monitoring frequency defined (visit intervals, lab test frequency)
+     └─ Preventive measures documented (flu vaccines, cancer screenings)
+   - Longitudinal trending:
+     ├─ Disease severity trending (improving, stable, worsening)
+     ├─ Lab value trends (glucose trending down = better control)
+     ├─ Vital sign trends (BP trending down = better control)
+     ├─ Medication effectiveness tracking
+     └─ Complication emergence tracking
+
+5. Disease Complication Recording
+   - When complications develop:
+     ├─ New ICD-10 code added for complication
+     ├─ Linked to parent diagnosis (diabetic neuropathy linked to diabetes)
+     ├─ Recorded as active problem
+     ├─ Treatment plan modified
+     └─ Monitoring intensity increased
+   - Complication hierarchy maintained:
+     ├─ Parent diagnosis easily identifiable
+     ├─ Related complications grouped
+     ├─ Triggering diagnosis clear
+     └─ Complication onset tracked
+
+6. Rule-Out Diagnoses
+   - Diagnoses ruled out by testing documented:
+     ├─ Suspected diagnosis (e.g., pneumonia suspected)
+     ├─ Testing performed (chest X-ray: normal, negative culture)
+     ├─ Diagnosis ruled out (not pneumonia)
+     ├─ Status set to RULED_OUT
+     ├─ Reasoning documented
+     └─ Date ruled out recorded
+   - Maintains differential diagnosis history
+   - Prevents future duplicate testing/investigations
+
+7. Diagnosis Resolution
+   - For acute conditions (infection, injury):
+     ├─ Patient recovers from acute problem
+     ├─ Symptoms resolve
+     ├─ Status changed to RESOLVED
+     ├─ Resolution date recorded
+     ├─ Outcome documented (fully recovered, partially recovered)
+     └─ Shifted to historical/resolved problem list
+   - For chronic conditions (diabetes, hypertension):
+     ├─ Status remains CHRONIC/ONGOING
+     ├─ Managed long-term with monitoring
+     ├─ Complications tracked separately
+     └─ Never truly "resolved" (ongoing management)
+
+8. Problem List Updates & Maintenance
+   - Active problem list reviewed at each visit:
+     ├─ Verification that problems still accurate
+     ├─ Status updates (resolved problems archived)
+     ├─ New problems added (from current consultation)
+     ├─ Problem severity reassessed
+     ├─ Treatment effectiveness evaluated
+     └─ Care plan adjusted based on current status
+   - Automated alerts for concerning patterns:
+     ├─ Rapidly worsening condition (escalation)
+     ├─ Uncontrolled chronic disease (intervention alert)
+     ├─ New complication development (alert)
+     ├─ Multiple related problems (care coordination alert)
+     └─ Drug interactions with chronic medications (safety alert)
+
+DIAGNOSIS TYPES:
+
+Primary Diagnosis:
+  - Most significant/most important diagnosis
+  - Typically the chief complaint reason for visit
+  - Single primary diagnosis per encounter
+  - Example: "Acute bacterial bronchitis"
+
+Secondary Diagnosis:
+  - Additional diagnoses found during same encounter
+  - May relate to primary diagnosis or be independent
+  - Multiple secondary diagnoses possible
+  - Example: "Acute sinusitis" (found during bronchitis eval)
+
+Complication/Sequela:
+  - Diagnosis resulting from prior diagnosis
+  - Related to primary diagnosis, not independent
+  - Usually develops after primary diagnosis onset
+  - Example: "Diabetic neuropathy" (complication of diabetes)
+
+Differential Diagnosis:
+  - Alternative possible diagnoses being considered
+  - Not yet confirmed, still being ruled out
+  - Used during diagnostic workup
+  - Example: "Pneumonia vs bronchitis vs asthma exacerbation"
+
+Rule-Out Diagnosis:
+  - Diagnosis definitively excluded by testing
+  - Documentation prevents unnecessary future testing
+  - Example: "Myocardial infarction ruled out (negative troponin)"
+
+================================================================================
+3. DATA MODEL DEFINITION
+================================================================================
+
+TABLE: diagnoses
+  diagnosis_id (UUID, PK)
+  patient_id (UUID, FK → patients)
+  icd10_code (VARCHAR, indexed) - ICD-10 code
+  diagnosis_name (VARCHAR) - full diagnosis name
+  diagnosis_type (ENUM: PRIMARY, SECONDARY, COMPLICATION, DIFFERENTIAL, RULED_OUT)
+  status (ENUM: SUSPECTED, POSSIBLE, PROBABLE, CONFIRMED, CHRONIC, RESOLVED, RULED_OUT)
+  onset_date (DATE) - when problem started
+  resolution_date (DATE, nullable) - when problem resolved
+  severity (ENUM: MILD, MODERATE, SEVERE, CRITICAL)
+  is_active (BOOLEAN, default true) - on active problem list?
+  is_chronic (BOOLEAN) - ongoing chronic disease?
+  is_complication_of (UUID, FK → diagnoses, nullable) - links to parent diagnosis
+  stage (VARCHAR, nullable) - disease stage (e.g., "Stage 2 hypertension")
+  laterality (ENUM: BILATERAL, LEFT, RIGHT, null) - side-specific if applicable
+  documented_in_consultation (UUID, FK → consultations)
+  documented_by_doctor (UUID, FK → doctors)
+  last_updated_date (DATE)
+  updated_by_doctor (UUID, FK → doctors)
+  control_status (ENUM: WELL_CONTROLLED, PARTIALLY_CONTROLLED, UNCONTROLLED, null)
+  monitoring_frequency (VARCHAR, nullable) - e.g., "monthly", "quarterly"
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+  metadata (JSONB) - additional diagnosis-specific data
+
+TABLE: diagnosis_evidence
+  evidence_id (UUID, PK)
+  diagnosis_id (UUID, FK → diagnoses)
+  evidence_type (ENUM: SYMPTOM, EXAM_FINDING, LAB_RESULT, IMAGING_FINDING, PROCEDURE_RESULT, CLINICAL_OBSERVATION)
+  evidence_description (TEXT) - "fever 38.5°C", "cough productive of green sputum", "WBC 12,000"
+  evidence_value (VARCHAR, nullable) - numerical value if applicable
+  unit (VARCHAR, nullable) - unit of measurement (°C, mmHg, mg/dL)
+  supporting_diagnosis (BOOLEAN, default true) - does this support diagnosis?
+  documented_at (TIMESTAMP)
+  test_id (UUID, nullable) - links to lab test or imaging study
+  created_at (TIMESTAMP)
+
+TABLE: diagnosis_comorbidities
+  comorbidity_id (UUID, PK)
+  primary_diagnosis_id (UUID, FK → diagnoses)
+  comorbid_diagnosis_id (UUID, FK → diagnoses)
+  relationship_type (ENUM: DIRECTLY_CAUSED_BY, RISK_FACTOR_FOR, COMPLICATES, UNRELATED)
+  clinical_significance (ENUM: LOW, MEDIUM, HIGH)
+  documented_at (TIMESTAMP)
+
+TABLE: diagnosis_treatment_plans
+  plan_id (UUID, PK)
+  diagnosis_id (UUID, FK → diagnoses)
+  treatment_approach (VARCHAR) - e.g., "antibiotic therapy", "lifestyle modification"
+  medications (JSONB) - list of prescribed medications
+  monitoring_requirements (TEXT) - lab tests, vital signs to track
+  specialist_referrals (JSONB) - specialist consultations needed
+  follow_up_interval (VARCHAR) - when to follow up
+  expected_resolution_timeframe (VARCHAR, nullable) - e.g., "7-10 days"
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+
+TABLE: diagnosis_history
+  history_id (UUID, PK)
+  patient_id (UUID, FK → patients)
+  icd10_code (VARCHAR) - historical diagnosis
+  diagnosis_name (VARCHAR)
+  onset_date (DATE)
+  resolution_date (DATE, nullable)
+  status (ENUM: RESOLVED, RECURRING, RECURRING_EPISODIC)
+  episodes_count (INT) - number of times this diagnosis has occurred
+  last_episode_date (DATE, nullable)
+  total_duration (VARCHAR) - total time affected by this condition
+  archived_date (DATE) - moved to history
+  created_at (TIMESTAMP)
+
+TABLE: differential_diagnoses
+  differential_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  icd10_code (VARCHAR)
+  diagnosis_name (VARCHAR)
+  likelihood_ranking (INT) - 1 = most likely, 2 = second, etc.
+  clinical_reasoning (TEXT) - why doctor suspects this diagnosis
+  supporting_findings (TEXT)
+  tests_needed_to_confirm (TEXT)
+  tests_needed_to_rule_out (TEXT)
+  status (ENUM: CONSIDERED, PROBABLE, CONFIRMED_PRIMARY, RULED_OUT)
+  status_update_date (DATE)
+  status_update_reason (TEXT)
+  created_at (TIMESTAMP)
+
+TABLE: icd10_codes_reference
+  icd10_id (UUID, PK)
+  icd10_code (VARCHAR, UNIQUE)
+  description (VARCHAR)
+  long_description (TEXT)
+  category (VARCHAR) - broad disease category
+  subcategory (VARCHAR) - specific disease type
+  is_billable (BOOLEAN)
+  is_unspecified (BOOLEAN)
+  requires_7th_character (BOOLEAN)
+  valid_age_range (VARCHAR, nullable)
+  related_codes (VARCHAR, array) - similar/related ICD-10 codes
+  male_only (BOOLEAN, default false)
+  female_only (BOOLEAN, default false)
+  excludes (VARCHAR, array) - diagnoses that exclude this code
+  excludes_after (VARCHAR, array) - diagnoses that require this code
+  notes (TEXT)
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+
+================================================================================
+4. API LAYER SPECIFICATION
+================================================================================
+
+ENDPOINT: POST /api/v1/diagnoses
+Description: Record diagnosis from consultation
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "patient_id": "uuid",
+  "consultation_id": "uuid (optional - if from consultation)",
+  "icd10_code": "J20.9",
+  "diagnosis_name": "Acute bronchitis, unspecified",
+  "diagnosis_type": "PRIMARY",
+  "status": "CONFIRMED",
+  "severity": "MODERATE",
+  "onset_date": "2026-01-28",
+  "is_chronic": false,
+  "evidence": [
+    {
+      "evidence_type": "SYMPTOM",
+      "description": "Productive cough with green sputum"
+    },
+    {
+      "evidence_type": "LAB_RESULT",
+      "description": "Chest X-ray: mild infiltrate"
+    }
+  ],
+  "monitoring_frequency": "weekly",
+  "differential_diagnoses": [
+    {
+      "icd10_code": "J15.9",
+      "diagnosis_name": "Pneumonia, unspecified",
+      "likelihood_ranking": 2,
+      "clinical_reasoning": "Also possible given infiltrate on X-ray"
+    }
+  ]
+}
+Response (201):
+{
+  "diagnosis_id": "uuid",
+  "patient_id": "uuid",
+  "icd10_code": "J20.9",
+  "diagnosis_name": "Acute bronchitis, unspecified",
+  "diagnosis_type": "PRIMARY",
+  "status": "CONFIRMED",
+  "severity": "MODERATE",
+  "onset_date": "2026-01-28",
+  "is_active": true,
+  "created_at": "2026-01-31T14:30:00Z",
+  "added_to_problem_list": true,
+  "differential_diagnoses": [
+    {
+      "differential_id": "uuid",
+      "icd10_code": "J15.9",
+      "status": "CONSIDERED"
+    }
+  ]
+}
+Error Responses:
+  - 400: Invalid ICD-10 code, invalid severity level
+  - 409: This diagnosis already active for patient (prevent duplicates)
+
+---
+
+ENDPOINT: GET /api/v1/patients/{patient_id}/active-problems
+Description: Retrieve patient's active problem list
+Authorization: ROLE_DOCTOR, ROLE_NURSE, ROLE_PATIENT
+Response (200):
+{
+  "patient_id": "uuid",
+  "active_problems": [
+    {
+      "diagnosis_id": "uuid",
+      "icd10_code": "E11.9",
+      "diagnosis_name": "Type 2 diabetes mellitus without complications",
+      "onset_date": "2020-06-15",
+      "severity": "MODERATE",
+      "status": "CHRONIC",
+      "is_chronic": true,
+      "control_status": "PARTIALLY_CONTROLLED",
+      "monitoring_frequency": "quarterly",
+      "last_hba1c": {
+        "value": 7.8,
+        "date": "2026-01-20",
+        "goal": 7.0
+      },
+      "related_complications": [
+        {
+          "diagnosis_id": "uuid",
+          "icd10_code": "E11.22",
+          "diagnosis_name": "Type 2 diabetes - with diabetic neuropathy"
+        }
+      ]
+    },
+    {
+      "diagnosis_id": "uuid",
+      "icd10_code": "I10",
+      "diagnosis_name": "Essential (primary) hypertension",
+      "onset_date": "2018-03-20",
+      "severity": "MODERATE",
+      "status": "CHRONIC",
+      "control_status": "WELL_CONTROLLED",
+      "monitoring_frequency": "monthly",
+      "last_bp": "135/82"
+    },
+    {
+      "diagnosis_id": "uuid",
+      "icd10_code": "J20.9",
+      "diagnosis_name": "Acute bronchitis, unspecified",
+      "onset_date": "2026-01-28",
+      "severity": "MODERATE",
+      "status": "CONFIRMED",
+      "is_chronic": false,
+      "expected_duration": "7-10 days"
+    }
+  ],
+  "resolved_problems": [
+    {
+      "diagnosis_id": "uuid",
+      "icd10_code": "N39.0",
+      "diagnosis_name": "Urinary tract infection, site not specified",
+      "onset_date": "2025-12-10",
+      "resolution_date": "2025-12-15",
+      "status": "RESOLVED"
+    }
+  ],
+  "total_active_problems": 3,
+  "total_resolved_problems": 12,
+  "comorbidity_alerts": []
+}
+
+---
+
+ENDPOINT: POST /api/v1/diagnoses/{diagnosis_id}/update-status
+Description: Update diagnosis status (e.g., from suspected to confirmed, or to resolved)
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "new_status": "CONFIRMED | RESOLVED | RULED_OUT | CHRONIC",
+  "status_update_reason": "Patient's infection resolved after antibiotic treatment",
+  "resolution_date": "2026-02-05 (if resolving)",
+  "evidence_supporting_update": [
+    {
+      "evidence_type": "CLINICAL_OBSERVATION",
+      "description": "Cough resolved, patient feeling well"
+    }
+  ]
+}
+Response (200):
+{
+  "diagnosis_id": "uuid",
+  "status": "RESOLVED",
+  "resolution_date": "2026-02-05",
+  "is_active": false,
+  "resolved_by": "uuid (doctor)",
+  "updated_at": "2026-02-05T10:00:00Z"
+}
+
+---
+
+ENDPOINT: GET /api/v1/diagnoses/{diagnosis_id}/comorbidities
+Description: Get related comorbidities and associated risks
+Authorization: ROLE_DOCTOR
+Response (200):
+{
+  "diagnosis_id": "uuid",
+  "primary_diagnosis": {
+    "icd10_code": "E11.9",
+    "diagnosis_name": "Type 2 diabetes"
+  },
+  "comorbidities": [
+    {
+      "comorbidity_id": "uuid",
+      "icd10_code": "I10",
+      "diagnosis_name": "Essential hypertension",
+      "relationship_type": "RISK_FACTOR_FOR",
+      "clinical_significance": "HIGH",
+      "explanation": "Hypertension increases cardiovascular risk in diabetics"
+    },
+    {
+      "comorbidity_id": "uuid",
+      "icd10_code": "E78.5",
+      "diagnosis_name": "Hyperlipidemia, unspecified",
+      "relationship_type": "DIRECTLY_CAUSED_BY",
+      "clinical_significance": "HIGH",
+      "explanation": "Diabetes causes lipid abnormalities"
+    }
+  ],
+  "care_coordination_recommendations": [
+    "Intensive cardiovascular monitoring recommended with diabetes + hypertension + hyperlipidemia"
+  ],
+  "associated_complications": [
+    {
+      "icd10_code": "E11.22",
+      "diagnosis_name": "Diabetic neuropathy"
+    }
+  ]
+}
+
+---
+
+ENDPOINT: POST /api/v1/diagnoses/differential-diagnosis-analysis
+Description: Run clinical decision support for differential diagnosis recommendations
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "patient_id": "uuid",
+  "chief_complaint": "Cough for 5 days",
+  "findings": [
+    "Bilateral wheezing on lung auscultation",
+    "Fever 38.5°C",
+    "Productive cough with green sputum",
+    "No dyspnea at rest"
+  ],
+  "vital_signs": {
+    "temp": 38.5,
+    "bp": "130/85",
+    "hr": 95,
+    "o2_sat": 95
+  },
+  "recent_tests": [
+    {
+      "test_type": "chest_xray",
+      "result": "Mild infiltrate"
+    }
+  ]
+}
+Response (200):
+{
+  "differential_diagnoses": [
+    {
+      "icd10_code": "J20.9",
+      "diagnosis_name": "Acute bronchitis, unspecified",
+      "likelihood_ranking": 1,
+      "probability_percentage": 70,
+      "supporting_findings": ["Productive cough", "Wheezing", "Fever"],
+      "clinical_reasoning": "Patient presentation consistent with viral or bacterial bronchitis"
+    },
+    {
+      "icd10_code": "J15.9",
+      "diagnosis_name": "Pneumonia, unspecified",
+      "likelihood_ranking": 2,
+      "probability_percentage": 25,
+      "supporting_findings": ["Infiltrate on X-ray", "Fever", "Productive cough"],
+      "clinical_reasoning": "X-ray infiltrate concerning for pneumonia; however, vital signs relatively stable",
+      "tests_to_confirm": ["Sputum culture", "Blood culture"]
+    },
+    {
+      "icd10_code": "J45.901",
+      "diagnosis_name": "Unspecified asthma with (acute) exacerbation",
+      "likelihood_ranking": 3,
+      "probability_percentage": 5,
+      "supporting_findings": ["Bilateral wheezing"],
+      "clinical_reasoning": "Wheezing present but no prior asthma history documented",
+      "tests_to_rule_out": ["Spirometry with bronchodilator response"]
+    }
+  ],
+  "recommended_next_steps": [
+    "Consider antibiotic therapy for bacterial bronchitis",
+    "Repeat chest X-ray if worsening in 48-72 hours",
+    "Blood and sputum cultures to rule out pneumonia if clinically indicated"
+  ],
+  "red_flag_findings": []
+}
+
+---
+
+ENDPOINT: GET /api/v1/patients/{patient_id}/diagnosis-history
+Description: Retrieve full diagnosis history including resolved problems
+Authorization: ROLE_DOCTOR, ROLE_PATIENT
+Response (200):
+{
+  "patient_id": "uuid",
+  "diagnosis_history": [
+    {
+      "icd10_code": "E11.9",
+      "diagnosis_name": "Type 2 diabetes mellitus",
+      "onset_date": "2020-06-15",
+      "status": "CHRONIC",
+      "total_episodes": 1,
+      "current_status": "ONGOING",
+      "current_complications": ["Diabetic neuropathy"]
+    },
+    {
+      "icd10_code": "N39.0",
+      "diagnosis_name": "Urinary tract infection",
+      "onset_date": "2025-12-10",
+      "resolution_date": "2025-12-15",
+      "status": "RESOLVED",
+      "total_episodes": 3,
+      "last_episode_date": "2025-12-10",
+      "episodes_list": [
+        {
+          "episode_number": 1,
+          "onset_date": "2024-11-05",
+          "resolution_date": "2024-11-10"
+        },
+        {
+          "episode_number": 2,
+          "onset_date": "2025-07-20",
+          "resolution_date": "2025-07-25"
+        },
+        {
+          "episode_number": 3,
+          "onset_date": "2025-12-10",
+          "resolution_date": "2025-12-15"
+        }
+      ]
+    }
+  ],
+  "total_lifetime_diagnoses": 28,
+  "chronic_diagnoses": 4,
+  "resolved_diagnoses": 24
+}
+
+---
+
+ENDPOINT: POST /api/v1/diagnoses/{diagnosis_id}/archive
+Description: Move resolved diagnosis to history (archive from active problem list)
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "archive_reason": "Patient recovered from infection"
+}
+Response (200):
+{
+  "diagnosis_id": "uuid",
+  "is_active": false,
+  "archived_date": "2026-02-05",
+  "moved_to_history": true
+}
+
+================================================================================
+5. WORKFLOW DESCRIPTION - STEP-BY-STEP PROCESS FLOW
+================================================================================
+
+NEW DIAGNOSIS SUSPECTED & CONFIRMED:
+
+Step 1: Suspected Diagnosis Identification
+  └─ During consultation, doctor suspects specific diagnosis
+  └─ Patient findings support suspected diagnosis
+  └─ System suggests ICD-10 codes matching findings:
+     ├─ Cough + fever + infiltrate on X-ray → bronchitis/pneumonia ICD-10 codes
+     └─ System displays top 5-10 matching diagnoses
+  └─ Doctor reviews suggested diagnoses and selects most likely
+  └─ ICD-10 code selected or searched manually
+
+Step 2: Evidence Documentation
+  └─ Supporting evidence for diagnosis documented:
+     ├─ Symptoms (productive cough, fever, chills)
+     ├─ Examination findings (bilateral wheezing, fever)
+     ├─ Lab results (elevated WBC count)
+     ├─ Imaging findings (infiltrate on chest X-ray)
+     └─ Clinical context (recent illness exposure)
+  └─ Each finding tagged as "supports diagnosis"
+  └─ Evidence database updated
+
+Step 3: Differential Diagnosis Consideration
+  └─ Doctor considers alternative diagnoses:
+     ├─ Pneumonia (more serious, infiltrate on X-ray)
+     ├─ Asthma exacerbation (wheezing present)
+     └─ Other respiratory infections
+  └─ Ranked by likelihood (primary, secondary, tertiary)
+  └─ Differential diagnoses recorded
+
+Step 4: Testing to Confirm Diagnosis
+  └─ If diagnosis certain:
+     ├─ Status set to CONFIRMED
+     ├─ Diagnosis added to active problem list immediately
+     └─ Treatment plan initiated
+  └─ If diagnosis uncertain:
+     ├─ Additional tests ordered:
+     │  ├─ Sputum culture (culture)
+     │  ├─ Blood culture (if pneumonia suspected)
+     │  ├─ Repeat chest X-ray (if worsening)
+     │  └─ Spirometry (if asthma exacerbation suspected)
+     ├─ Diagnosis set to SUSPECTED status
+     ├─ Follow-up appointment scheduled
+     └─ Provisional treatment may be initiated
+
+Step 5: Diagnosis Confirmation & Problem List Update
+  └─ Test results received and reviewed:
+     ├─ Sputum culture positive for bacterial organism
+     ├─ Blood cultures negative (localizes to respiratory)
+     ├─ Diagnosis confirmed as bacterial pneumonia
+  └─ Diagnosis status updated to CONFIRMED
+  └─ ICD-10 code updated to specific pneumonia type (bacterial)
+  └─ Added to active problem list
+  └─ Severity assessment:
+     ├─ Vital signs stable → MODERATE
+     ├─ Hypoxia developing → SEVERE
+     └─ Sepsis criteria met → CRITICAL
+  └─ Treatment plan escalated based on severity
+
+Step 6: Active Problem List Management
+  └─ Diagnosis now visible in patient's active problem list:
+     ├─ Ranked by severity and impact
+     ├─ Primary diagnosis (pneumonia) appears first
+     ├─ Secondary problems (chronic hypertension, diabetes) below
+     └─ Related complications identified
+  └─ All care team members can see active problems
+  └─ Alerts triggered if needed:
+     ├─ Critical findings (sepsis alert)
+     ├─ Drug interactions (antibiotic with current meds)
+     ├─ Allergy conflicts
+     └─ Care coordination issues
+
+CHRONIC DISEASE MANAGEMENT (ongoing):
+
+Step 1: Diagnosis Documentation
+  └─ Patient diagnosed with chronic disease (diabetes, hypertension)
+  └─ Status set to CHRONIC (ongoing)
+  └─ Never resolved, permanently on active problem list
+
+Step 2: Disease Stage & Control Assessment
+  └─ For diabetes:
+     ├─ Type: Type 1 vs Type 2
+     ├─ Stage: Early (no complications) vs Advanced (multiple complications)
+     ├─ Control status: Well-controlled (HbA1c < 7) vs Uncontrolled (HbA1c > 8)
+     └─ Complications: None, neuropathy, nephropathy, retinopathy
+  └─ For hypertension:
+     ├─ Stage: Stage 1 (130-139) vs Stage 2 (≥ 140)
+     ├─ Control status: Well-controlled (< 130/80) vs Uncontrolled
+     └─ Complications tracked
+
+Step 3: Longitudinal Monitoring
+  └─ Lab values tracked over time:
+     ├─ Diabetes: HbA1c trending (goal < 7%, patient at 7.8%)
+     ├─ Hypertension: BP readings trending (fluctuating, not well-controlled)
+     ├─ Lipids: Lipid panel trending (LDL not at goal)
+     └─ Kidney function: Creatinine, eGFR (monitoring for disease progression)
+  └─ Alerts generated:
+     ├─ Worsening control (HbA1c rising, not declining)
+     ├─ New complication development (protein in urine = new nephropathy)
+     ├─ Treatment resistance (BP not responding to current meds)
+     └─ Missed monitoring (due for annual lab work)
+
+Step 4: Complication Management
+  └─ When complication develops:
+     ├─ New ICD-10 code recorded (diabetic neuropathy)
+     ├─ Linked to parent diagnosis (Type 2 diabetes)
+     ├─ Added to active problem list
+     ├─ Treatment plan created for complication
+     └─ Monitoring intensity increased
+  └─ System alerts for complication risk:
+     ├─ Diabetes + proteinuria → nephropathy risk (monitor renal function)
+     ├─ Diabetes + stocking-glove paresthesias → neuropathy confirmed
+     ├─ Diabetes + vision changes → retinopathy risk (refer to ophthalmology)
+     └─ Hypertension + chest pain → cardiac risk (EKG, troponin)
+
+Step 5: Preventive Care Management
+  └─ For chronic diseases, preventive care tracked:
+     ├─ Diabetes: Annual eye exam (ophthalmology), foot exam (podiatry)
+     ├─ Hypertension: Annual ECG, lipid panel, kidney function
+     ├─ Vaccinations due (flu, pneumococcal for elderly)
+     ├─ Cancer screenings (colonoscopy, mammogram per guidelines)
+     └─ System generates preventive care reminders
+
+Step 6: Ongoing Care Coordination
+  └─ Multiple providers managing patient with chronic diseases:
+     ├─ Primary care (overall coordination)
+     ├─ Cardiology (hypertension, cardiovascular risk)
+     ├─ Endocrinology (diabetes control)
+     ├─ Nephrology (kidney disease if develops)
+     ├─ Ophthalmology (eye disease screening)
+     └─ All providers see unified problem list
+  └─ Care coordination alerts:
+     ├─ Conflicting treatment plans (different BP targets)
+     ├─ Medication duplications or gaps
+     ├─ Specialist recommendations not implemented
+     └─ Monitoring gaps (labs not done on schedule)
+
+DIAGNOSIS RESOLUTION (Acute Conditions):
+
+Step 1: Infection/Acute Problem Resolved
+  └─ Patient recovers from acute condition:
+     ├─ Symptoms resolve (cough gone, fever resolved)
+     ├─ Lab values normalize (WBC back to normal)
+     ├─ Imaging improves (infiltrate clearing on X-ray)
+     └─ Patient feeling well
+
+Step 2: Doctor Documents Resolution
+  └─ At follow-up visit, doctor confirms recovery:
+     ├─ Reviews symptoms (patient reports no cough, feels good)
+     ├─ Performs examination (lungs clear, no wheezing)
+     ├─ Reviews repeat labs/imaging if done (clear)
+     └─ Concludes problem resolved
+  └─ Updates diagnosis status:
+     ├─ Status changed to RESOLVED
+     ├─ Resolution date recorded (2026-02-05)
+     ├─ Outcome documented (fully recovered, no complications)
+     └─ Diagnosis archived to history
+
+Step 3: Problem List Updated
+  └─ Resolved diagnosis removed from active problem list
+  └─ Moved to historical/resolved problems
+  └─ No longer triggers alerts or monitoring
+  └─ Available in history if patient experiences recurrence
+
+================================================================================
+6. TECHNICAL REQUIREMENTS & CONSTRAINTS
+================================================================================
+
+PERFORMANCE REQUIREMENTS:
+- Active problem list retrieval: < 1 second
+- Diagnosis creation: < 2 seconds
+- ICD-10 code search/autocomplete: < 500ms for 70,000+ codes
+- Differential diagnosis CDS analysis: < 3 seconds
+- Comorbidity analysis: < 2 seconds
+- Diagnosis history retrieval: < 1.5 seconds
+
+SECURITY & COMPLIANCE:
+- All diagnosis data encrypted at rest and in transit
+- HIPAA compliance:
+  * Audit log of all diagnosis modifications
+  * Access control by role (doctor, patient own data)
+  * Patient access restricted to own diagnoses
+  * Failed access attempts logged
+  * Diagnosis sensitive data not exposed in logs
+- ICD-10 code accuracy:
+  * Codes verified against official CMS ICD-10-CM database
+  * Monthly updates for new codes and changes
+  * Ability to flag invalid or deprecated codes
+- Clinical decision support accuracy:
+  * Differential diagnosis recommendations evidence-based
+  * Recommendations reviewed by clinical advisors
+  * Patient safety as highest priority
+
+INTEGRATIONS:
+- Integrate with Task 21 (Consultation Module) - diagnosis created during consultation
+- Integrate with Task 22 (Prescription System) - medications prescribed for diagnosis
+- Integrate with Task 24 (Clinical Notes) - diagnosis referenced in notes
+- Integrate with clinical decision support engine
+- Integrate with ICD-10 code database (external, monthly updates)
+- Integrate with comorbidity knowledge base
+
+================================================================================
+7. TESTING STRATEGY - 55+ TEST CASES
+================================================================================
+
+Unit Tests (12 tests):
+1. Test diagnosis creation with valid ICD-10 code
+2. Test diagnosis status transitions (suspected → confirmed → resolved)
+3. Test diagnosis validation (required fields, valid codes)
+4. Test complication linking to parent diagnosis
+5. Test chronic vs acute diagnosis classification
+6. Test diagnosis evidence attachment
+7. Test differential diagnosis ranking
+8. Test comorbidity relationship creation
+9. Test diagnosis archive/resolution
+10. Test active problem list filtering
+11. Test severity assignment (mild/moderate/severe)
+12. Test control status calculation for chronic diseases
+
+Integration Tests (22 tests):
+13. Test diagnosis created from consultation
+14. Test active problem list populated from diagnoses
+15. Test diagnosis with multiple evidence items
+16. Test differential diagnosis against primary diagnosis
+17. Test comorbidity detection (diabetes + hypertension)
+18. Test CDS differential diagnosis recommendation
+19. Test diagnosis with related complications
+20. Test chronic disease control status trending
+21. Test new complication development alert
+22. Test medication interaction with diagnosis
+23. Test allergy alert for diagnosis-specific medications
+24. Test diagnosis resolution workflow
+25. Test problem list reordering by severity
+26. Test diagnosis history retrieval
+27. Test recurring episode tracking (UTI recurrence)
+28. Test age-appropriate diagnosis assignment
+29. Test diagnosis gender-specific checking (female-only condition)
+30. Test diagnosis stage assignment (cancer staging)
+31. Test laterality assignment (left vs right side)
+32. Test preventive care alert generation
+33. Test care coordination alert for multiple comorbidities
+34. Test ICD-10 code database update
+
+End-to-End Tests (15 tests):
+35. Complete workflow: Suspected pneumonia → confirmed → resolved
+36. Complete workflow: New diabetes diagnosis → chronic management → complication tracking
+37. Complete workflow: Multiple problems → comorbidity alerts → care coordination
+38. Differential diagnosis workflow with multiple possible diagnoses
+39. Diagnosis with evidence-based differential recommendations
+40. Chronic disease control assessment with trending
+41. Recurrent infection tracking (3+ UTI episodes)
+42. Complication development from chronic disease
+43. Diagnosis requiring specialist referral
+44. Diagnosis with preventive care requirements
+45. Problem list prioritization by severity
+46. Diagnosis resolution and archival
+47. Diagnosis history review for pattern detection
+48. Diagnosis with drug-disease interaction alert
+49. Diagnosis creation with full clinical context
+
+Edge Case Tests (6 tests):
+50. Test diagnosis with no evidence (emergency/acute)
+51. Test diagnosis with maximum comorbidities
+52. Test diagnosis status change reversal (un-resolving)
+53. Test duplicate diagnosis prevention
+54. Test diagnosis update/correction
+55. Test diagnosis from different encounter added to same problem list
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+REQUIREMENT 1: Diagnosis can be recorded with ICD-10 code
+ ✓ Diagnosis name and code captured
+ ✓ ICD-10 code validated against official database
+ ✓ Invalid codes rejected
+ ✓ Suggestion system provides matching codes
+ ✓ Code search supports multiple search methods (text, code)
+ ✓ Diagnosis type specified (primary, secondary, complication)
+ ✓ Status specified (suspected, confirmed, resolved)
+
+REQUIREMENT 2: Active problem list maintained and searchable
+ ✓ All active diagnoses visible in problem list
+ ✓ Organized by severity and type
+ ✓ Chronic problems clearly marked as ongoing
+ ✓ Acute problems show expected duration
+ ✓ List updates in real-time
+ ✓ Search/filter by diagnosis name or code
+
+REQUIREMENT 3: Diagnosis status tracked through lifecycle
+ ✓ Suspected → Probable → Confirmed transitions
+ ✓ Resolved diagnoses moved to history
+ ✓ Chronic diagnoses remain on active list
+ ✓ Status changes logged with timestamp
+ ✓ Provider who updated status recorded
+ ✓ Reason for status change documented
+
+REQUIREMENT 4: Chronic disease control status tracked
+ ✓ Well-controlled vs Partially-controlled vs Uncontrolled
+ ✓ Key metrics displayed (HbA1c for diabetes, BP for hypertension)
+ ✓ Trending calculations (improving vs stable vs worsening)
+ ✓ Alerts for uncontrolled diseases
+ ✓ Monitoring frequency specified and tracked
+
+REQUIREMENT 5: Complication relationships documented
+ ✓ Complications linked to parent diagnosis
+ ✓ Complication onset tracked separately
+ ✓ Hierarchical display (parent diagnosis → complications)
+ ✓ Complication severity assessed
+ ✓ Treatment plan specific to complication
+
+REQUIREMENT 6: Differential diagnoses documented
+ ✓ Alternative diagnoses captured
+ ✓ Ranked by likelihood
+ ✓ Clinical reasoning documented
+ ✓ Tests needed to confirm/rule-out identified
+ ✓ Status updates when differential ruled in/out
+
+REQUIREMENT 7: Clinical decision support integrated
+ ✓ Differential diagnosis recommendations provided
+ ✓ Evidence-based suggestions
+ ✓ Supporting findings highlighted
+ ✓ Recommended next steps provided
+ ✓ Recommendations < 3 seconds to generate
+
+REQUIREMENT 8: HIPAA compliance maintained
+ ✓ Diagnosis data encrypted at rest
+ ✓ Transmission via HTTPS/TLS 1.2+
+ ✓ Audit log tracks access
+ ✓ Access control enforced by role
+ ✓ Patient access restricted to own diagnoses
+ ✓ Failed access logged
+
+REQUIREMENT 9: ICD-10 code accuracy maintained
+ ✓ Codes match official CMS database
+ ✓ Invalid codes flagged
+ ✓ Deprecated codes identified
+ ✓ Monthly code updates from external source
+ ✓ Transition rules for code changes
+
+REQUIREMENT 10: Problem list supports clinical workflow
+ ✓ Used for appointment scheduling/context
+ ✓ Referenced in prescriptions
+ ✓ Referenced in clinical notes
+ ✓ Accessible to all care team members
+ ✓ Real-time updates visible across system
+
+================================================================================
+9. DELIVERABLES & ARTIFACTS
+================================================================================
+
+Code Deliverables:
+ 1. Diagnosis domain model (diagnosis.entity.ts)
+ 2. Diagnosis repository with queries (diagnosis.repository.ts)
+ 3. Diagnosis service with business logic (diagnosis.service.ts)
+ 4. Problem list service (problem-list.service.ts)
+ 5. ICD-10 code service (icd10-code.service.ts)
+ 6. CDS integration for differential diagnosis (cds-diagnosis.service.ts)
+ 7. Comorbidity analysis service (comorbidity.service.ts)
+ 8. Diagnosis API controller (diagnosis.controller.ts)
+ 9. Problem list component (ProblemList.tsx)
+10. Diagnosis form component (DiagnosisForm.tsx)
+11. Differential diagnosis component (DifferentialDiagnoses.tsx)
+12. Comorbidity display component (ComorbidityAnalysis.tsx)
+13. Chronic disease tracking component (ChronicDiseaseTracking.tsx)
+14. Database migration scripts (001_diagnosis_tables.sql, 002_icd10_data.sql)
+15. ICD-10 code seed data
+16. Unit test suites (diagnosis.service.spec.ts, etc.)
+17. Integration test suites
+18. E2E test specifications
+
+Documentation Deliverables:
+19. Diagnosis module design document
+20. API documentation (OpenAPI/Swagger)
+21. Data model ERD diagram
+22. ICD-10 code mapping guide
+23. Differential diagnosis workflow guide
+24. Comorbidity management guide
+25. HIPAA compliance checklist
+26. Developer setup guide
+27. Testing guide and test matrix
+
+================================================================================
+10. DEPENDENCIES & BLOCKING RELATIONSHIPS
+================================================================================
+
+DEPENDS ON:
+  ✓ Task 12: Patient Management System (patient record)
+  ✓ Task 13: Medical History (medical history context)
+  ✓ Task 21: Consultation Module (diagnosis documented in consultation)
+  ✓ Phase 0: Database schema
+  ✓ Phase 0: Authentication/Authorization
+
+BLOCKS:
+  ─ Task 24: Clinical Notes (diagnosis referenced in notes)
+  ─ Task 28: Analytics/Reporting (diagnosis-based reporting)
+
+PARALLEL DEPENDENCIES:
+  • Can proceed in parallel with Task 22 (Prescription System)
+  • Can proceed in parallel with Task 24 (Clinical Notes - indirect dependency)
+
+================================================================================
+11. EFFORT ESTIMATION & TIMELINE
+================================================================================
+
+Backend Development (16 hours):
+  └─ Database schema and migration (2 hours)
+  └─ Diagnosis model and repository (2.5 hours)
+  └─ Problem list service (3 hours)
+  └─ Differential diagnosis CDS integration (3 hours)
+  └─ Comorbidity analysis (2.5 hours)
+  └─ ICD-10 code service (1.5 hours)
+  └─ Chronic disease tracking (1.5 hour)
+
+API Development (6 hours):
+  └─ Diagnosis CRUD endpoints (1.5 hours)
+  └─ Problem list endpoints (1 hour)
+  └─ CDS differential diagnosis (1 hour)
+  └─ Comorbidity analysis endpoint (0.75 hour)
+  └─ Diagnosis status updates (0.75 hour)
+  └─ History/archive endpoints (1 hour)
+
+Frontend Development (4 hours):
+  └─ Problem list component (1 hour)
+  └─ Diagnosis form component (1 hour)
+  └─ Differential diagnosis display (0.75 hour)
+  └─ Comorbidity display (0.75 hour)
+  └─ Status tracking view (0.5 hour)
+
+Testing & Data Setup (2 hours):
+  └─ Unit tests (0.75 hour)
+  └─ Integration tests (0.75 hour)
+  └─ ICD-10 code data setup (0.5 hour)
+
+TOTAL EFFORT: 28 hours (3-4 days for 1 developer, 2 days for 2 developers)
+
+CRITICAL PATH:
+  1. Database schema and ICD-10 data
+  2. Diagnosis service and problem list
+  3. CDS differential diagnosis integration
+  4. API endpoints
+  5. Frontend components
+  6. Integration testing
+
+================================================================================
+12. RISKS & MITIGATION
+================================================================================
+
+RISK 1: ICD-10 Code Database Accuracy
+  │ Impact: Incorrect diagnoses recorded, coding errors
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Verify against official CMS database
+  │  ├─ Monthly updates from authoritative source
+  │  ├─ Code validation on entry
+  │  ├─ Deprecation alerts for old codes
+  │  └─ Periodic audits
+
+RISK 2: Differential Diagnosis CDS Accuracy
+  │ Impact: Missed diagnosis if CDS recommendations incorrect
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Evidence-based recommendations only
+  │  ├─ Clinical advisors review
+  │  ├─ Recommendations are advisory (not binding)
+  │  ├─ Doctor retains full clinical authority
+  │  └─ Regular accuracy monitoring
+
+RISK 3: Chronic Disease Control Calculation Complexity
+  │ Impact: Incorrect disease control assessment
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Define clear control criteria per disease
+  │  ├─ Integrate evidence-based guidelines
+  │  ├─ Automated calculation with manual override
+  │  ├─ Regular validation against clinical standards
+  │  └─ Feedback loop for accuracy
+
+RISK 4: Comorbidity Over-Alerting
+  │ Impact: Alert fatigue reduces clinical effectiveness
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Only high-significance alerts triggered
+  │  ├─ Configurable alert thresholds
+  │  ├─ Learning system (reduces false alerts)
+  │  ├─ Feedback loop to improve
+  │  └─ Clinician customization options
+
+================================================================================
+13. SUCCESS METRICS
+================================================================================
+
+CLINICAL QUALITY:
+  • Diagnosis accuracy: > 95% ICD-10 codes correct
+  • Comorbidity detection: > 90% comorbidities identified
+  • Chronic disease control assessment: > 85% accurate
+  • Problem list completeness: > 95% active problems documented
+
+OPERATIONAL EFFICIENCY:
+  • Diagnosis entry time: < 2 minutes per diagnosis
+  • CDS response time: < 3 seconds
+  • Problem list retrieval: < 1 second
+  • Differential diagnosis recommendations generated: > 70% of cases
+
+SAFETY & COMPLIANCE:
+  • Zero missed critical diagnoses
+  • 100% HIPAA compliance audit pass rate
+  • ICD-10 code error rate: < 1%
+  • Comorbidity-related medication interactions detected: > 95%
+
+PATIENT OUTCOMES:
+  • Chronic disease control improvement: > 30% of patients move to "better controlled"
+  • Preventive care compliance: > 80% of recommended preventive measures
+  • Complication prevention: > 20% reduction in diabetes complications
+  • Patient satisfaction with diagnosis explanation: > 80%
+
+================================================================================
+END OF TASK 23: DIAGNOSIS RECORDING
+================================================================================

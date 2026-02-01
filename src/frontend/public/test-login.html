@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Test - Clinical Management System</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-bottom: 20px; }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    input:focus { outline: none; border-color: #667eea; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .console {
+      background: #222;
+      color: #0f0;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-entry {
+      margin-bottom: 5px;
+      line-height: 1.4;
+    }
+    .success { color: #0f0; }
+    .error { color: #f00; }
+    .info { color: #0ff; }
+    .demo-note {
+      background: #eff;
+      padding: 10px;
+      border-left: 4px solid #0ff;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏥 Clinical Management System - Login Test</h1>
+    
+    <div class="demo-note">
+      <strong>Demo Credentials:</strong><br>
+      Email: <code>admin@clinic.local</code><br>
+      Password: <code>password123</code>
+    </div>
+
+    <form id="testForm" onsubmit="testLogin(event)">
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" id="email" value="admin@clinic.local" required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" value="password123" required>
+      </div>
+
+      <button type="submit">Test Login</button>
+    </form>
+
+    <div class="console" id="console">
+      <div class="log-entry info">// Console Output</div>
+      <div class="log-entry info">// ================</div>
+    </div>
+  </div>
+
+  <script>
+    const consoleDiv = document.getElementById('console');
+
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      
+      const time = new Date().toLocaleTimeString();
+      entry.textContent = `[${time}] ${message}`;
+      
+      consoleDiv.appendChild(entry);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      
+      console.log(`[${type.toUpperCase()}]`, message);
+    }
+
+    async function testLogin(event) {
+      event.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const button = event.target.querySelector('button');
+
+      log('🔐 LOGIN TEST STARTED', 'info');
+      log(`📧 Email: ${email}`, 'info');
+      log(`🔑 Password: ***`, 'info');
+
+      button.disabled = true;
+      button.textContent = 'Testing...';
+
+      try {
+        log('📤 Sending request to http://localhost:3000/api/auth/login', 'info');
+
+        const response = await fetch('http://localhost:3000/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        log(`📥 Response Status: ${response.status} ${response.statusText}`, 'info');
+
+        const data = await response.json();
+        log(`📋 Response Data:`, 'info');
+        log(`   ${JSON.stringify(data, null, 2)}`, 'info');
+
+        if (response.ok) {
+          log('✅ LOGIN SUCCESSFUL!', 'success');
+          log(`👤 User: ${data.data.user.firstName} ${data.data.user.lastName}`, 'success');
+          log(`👑 Role: ${data.data.user.role}`, 'success');
+          log(`🔑 Access Token (first 30 chars): ${data.data.tokens.accessToken.substring(0, 30)}...`, 'success');
+          log(`🔄 Refresh Token (first 30 chars): ${data.data.tokens.refreshToken.substring(0, 30)}...`, 'success');
+
+          // Store tokens
+          localStorage.setItem('accessToken', data.data.tokens.accessToken);
+          localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
+          localStorage.setItem('user', JSON.stringify(data.data.user));
+          log('💾 Tokens stored in localStorage', 'success');
+
+          log('', 'info');
+          log('✨ Redirecting to dashboard in 3 seconds...', 'success');
+          setTimeout(() => {
+            log('🚀 Redirecting NOW!', 'success');
+            window.location.href = '/dashboard.html';
+          }, 3000);
+
+        } else {
+          log(`❌ LOGIN FAILED: ${data.error.message}`, 'error');
+          button.disabled = false;
+          button.textContent = 'Test Login';
+        }
+
+      } catch (error) {
+        log(`❌ ERROR: ${error.message}`, 'error');
+        log(`📍 Stack: ${error.stack}`, 'error');
+        button.disabled = false;
+        button.textContent = 'Test Login';
+      }
+    }
+
+    log('✅ Page loaded and ready to test!', 'success');
+    log('Click "Test Login" button to begin', 'info');
+  </script>
+</body>
+</html>

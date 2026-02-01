@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Login Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        
+        .log-line {
+            padding: 3px 0;
+        }
+        
+        .log-line.error {
+            color: #ff6b6b;
+        }
+        
+        .log-line.success {
+            color: #51cf66;
+        }
+        
+        .log-line.info {
+            color: #74c0fc;
+        }
+        
+        .log-line.warning {
+            color: #ffd43b;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .test-result {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        
+        .test-result.pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .test-result.fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        @media (max-width: 600px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Login Redirect - Deep Debug</h1>
+        <p class="subtitle">This page tests every step of the login flow in detail</p>
+        
+        <!-- Test 1: Server Connectivity -->
+        <div class="section">
+            <h2>
+                1️⃣ Server Connectivity
+                <span class="status-badge pending" id="status-connectivity">PENDING</span>
+            </h2>
+            <p style="margin-bottom: 10px; font-size: 13px;">Check if server is running on port 3000</p>
+            <button class="btn-primary" onclick="testConnectivity()">Test Server Connection</button>
+            <div class="output" id="log-connectivity"></div>
+            <div id="result-connectivity"></div>
+        </div>
+        
+        <!-- Test 2: API Endpoint -->
+        <div class="section">
+            <h2>
+                2️⃣ Login API Endpoint
+                <span class="status-badge pending" id="status-endpoint">PENDING</span>
+            </h2>
+            <p style="margin-bottom: 10px; font-size: 13px;">Call POST /api/auth/login with credentials</p>
+            <button class="btn-primary" onclick="testLoginAPI()">Test Login API</button>
+            <div class="output" id="log-endpoint"></div>
+            <div id="result-endpoint"></div>
+        </div>
+        
+        <!-- Test 3: Token Storage -->
+        <div class="section">
+            <h2>
+                3️⃣ localStorage Token Storage
+                <span class="status-badge pending" id="status-storage">PENDING</span>
+            </h2>
+            <p style="margin-bottom: 10px; font-size: 13px;">Test localStorage availability and token persistence</p>
+            <button class="btn-primary" onclick="testLocalStorage()">Test localStorage</button>
+            <div class="output" id="log-storage"></div>
+            <div id="result-storage"></div>
+        </div>
+        
+        <!-- Test 4: File Serving -->
+        <div class="section">
+            <h2>
+                4️⃣ File Serving
+                <span class="status-badge pending" id="status-files">PENDING</span>
+            </h2>
+            <p style="margin-bottom: 10px; font-size: 13px;">Check if dashboard.html and login.html are accessible</p>
+            <button class="btn-primary" onclick="testFileServing()">Test File Serving</button>
+            <div class="output" id="log-files"></div>
+            <div id="result-files"></div>
+        </div>
+        
+        <!-- Test 5: Full Login Redirect -->
+        <div class="section">
+            <h2>
+                5️⃣ Full Login → Redirect Flow
+                <span class="status-badge pending" id="status-redirect">PENDING</span>
+            </h2>
+            <p style="margin-bottom: 10px; font-size: 13px;">Simulates complete login and redirect process</p>
+            <button class="btn-primary" onclick="testFullFlow()">Run Full Test</button>
+            <div class="output" id="log-redirect"></div>
+            <div id="result-redirect"></div>
+        </div>
+        
+        <!-- Test 6: Browser Console Errors -->
+        <div class="section">
+            <h2>
+                6️⃣ Browser Console Check
+                <span class="status-badge pending" id="status-console">PENDING</span>
+            </h2>
+            <p style="margin-bottom: 10px; font-size: 13px;">Open DevTools (F12) to see real-time console output</p>
+            <button class="btn-secondary" onclick="window.open('http://localhost:3000/login.html', '_blank')">Open Login Page in New Tab</button>
+            <p style="margin-top: 10px; font-size: 12px; color: #666;">Then open DevTools (F12) → Console tab and try logging in</p>
+        </div>
+        
+        <!-- Final Results -->
+        <div class="section" style="border-left-color: #764ba2; background: #f3e5f5;">
+            <h2 style="color: #764ba2;">📊 Summary</h2>
+            <div id="summary"></div>
+        </div>
+    </div>
+
+    <script>
+        const logs = {};
+        const results = {};
+        
+        function addLog(section, message, type = 'info') {
+            if (!logs[section]) logs[section] = [];
+            logs[section].push({ message, type });
+            
+            const logEl = document.getElementById(`log-${section}`);
+            if (logEl) {
+                const line = document.createElement('div');
+                line.className = `log-line ${type}`;
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logEl.appendChild(line);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+        }
+        
+        function setStatus(section, status) {
+            const badge = document.getElementById(`status-${section}`);
+            if (badge) {
+                badge.className = `status-badge ${status.toLowerCase()}`;
+                badge.textContent = status.toUpperCase();
+            }
+        }
+        
+        function setResult(section, result, details) {
+            const resultEl = document.getElementById(`result-${section}`);
+            if (resultEl) {
+                resultEl.innerHTML = `<div class="test-result ${result ? 'pass' : 'fail'}">
+                    ${result ? '✅ PASS' : '❌ FAIL'}: ${details}
+                </div>`;
+            }
+            results[section] = result;
+        }
+        
+        async function testConnectivity() {
+            setStatus('connectivity', 'pending');
+            addLog('connectivity', 'Testing server connectivity...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:3000/health', {
+                    method: 'GET',
+                    timeout: 5000
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog('connectivity', `✅ Server responded with status 200`, 'success');
+                    addLog('connectivity', `Service: ${data.service}`, 'info');
+                    addLog('connectivity', `Status: ${data.status}`, 'info');
+                    setStatus('connectivity', 'success');
+                    setResult('connectivity', true, 'Server is running and responding');
+                } else {
+                    addLog('connectivity', `❌ Server returned status ${response.status}`, 'error');
+                    setStatus('connectivity', 'error');
+                    setResult('connectivity', false, `Server returned ${response.status}`);
+                }
+            } catch (err) {
+                addLog('connectivity', `❌ Connection failed: ${err.message}`, 'error');
+                setStatus('connectivity', 'error');
+                setResult('connectivity', false, `Connection error: ${err.message}`);
+            }
+        }
+        
+        async function testLoginAPI() {
+            setStatus('endpoint', 'pending');
+            addLog('endpoint', 'Testing login API endpoint...', 'info');
+            
+            const payload = {
+                email: 'admin@clinic.local',
+                password: 'password123'
+            };
+            
+            try {
+                addLog('endpoint', `POST http://localhost:3000/api/auth/login`, 'info');
+                addLog('endpoint', `Payload: ${JSON.stringify(payload)}`, 'info');
+                
+                const response = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    timeout: 5000
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addLog('endpoint', `✅ Status 200 OK`, 'success');
+                    addLog('endpoint', `Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                    
+                    if (data.data && data.data.tokens) {
+                        addLog('endpoint', `✅ Tokens found in response.data.tokens`, 'success');
+                        addLog('endpoint', `Access Token: ${data.data.tokens.accessToken?.substring(0, 30)}...`, 'info');
+                    } else {
+                        addLog('endpoint', `⚠️ Tokens not in expected location`, 'warning');
+                    }
+                    
+                    setStatus('endpoint', 'success');
+                    setResult('endpoint', true, 'Login API working correctly');
+                } else {
+                    addLog('endpoint', `❌ Status ${response.status}`, 'error');
+                    addLog('endpoint', `Error: ${data.message || data.error}`, 'error');
+                    setStatus('endpoint', 'error');
+                    setResult('endpoint', false, `API returned ${response.status}: ${data.message}`);
+                }
+            } catch (err) {
+                addLog('endpoint', `❌ Request failed: ${err.message}`, 'error');
+                setStatus('endpoint', 'error');
+                setResult('endpoint', false, `Request error: ${err.message}`);
+            }
+        }
+        
+        async function testLocalStorage() {
+            setStatus('storage', 'pending');
+            addLog('storage', 'Testing localStorage...', 'info');
+            
+            try {
+                // Test write
+                localStorage.setItem('test-key', 'test-value');
+                addLog('storage', `✅ localStorage write successful`, 'success');
+                
+                // Test read
+                const value = localStorage.getItem('test-key');
+                if (value === 'test-value') {
+                    addLog('storage', `✅ localStorage read successful`, 'success');
+                } else {
+                    throw new Error('Read mismatch');
+                }
+                
+                // Clean up
+                localStorage.removeItem('test-key');
+                addLog('storage', `✅ localStorage cleanup successful`, 'success');
+                
+                // Check existing tokens
+                const token = localStorage.getItem('accessToken');
+                const user = localStorage.getItem('user');
+                
+                if (token) {
+                    addLog('storage', `📌 Found existing accessToken: ${token.substring(0, 30)}...`, 'info');
+                } else {
+                    addLog('storage', `ℹ️ No accessToken in storage (expected if not logged in)`, 'info');
+                }
+                
+                if (user) {
+                    addLog('storage', `📌 Found user data: ${user}`, 'info');
+                } else {
+                    addLog('storage', `ℹ️ No user in storage (expected if not logged in)`, 'info');
+                }
+                
+                setStatus('storage', 'success');
+                setResult('storage', true, 'localStorage is working');
+            } catch (err) {
+                addLog('storage', `❌ localStorage test failed: ${err.message}`, 'error');
+                setStatus('storage', 'error');
+                setResult('storage', false, `localStorage error: ${err.message}`);
+            }
+        }
+        
+        async function testFileServing() {
+            setStatus('files', 'pending');
+            addLog('files', 'Testing file serving...', 'info');
+            
+            const files = [
+                { url: 'http://localhost:3000/login.html', name: 'login.html' },
+                { url: 'http://localhost:3000/dashboard.html', name: 'dashboard.html' }
+            ];
+            
+            let allOk = true;
+            
+            for (const file of files) {
+                try {
+                    addLog('files', `Checking ${file.name}...`, 'info');
+                    const response = await fetch(file.url);
+                    
+                    if (response.ok) {
+                        addLog('files', `✅ ${file.name} returned 200 OK`, 'success');
+                    } else {
+                        addLog('files', `❌ ${file.name} returned ${response.status}`, 'error');
+                        allOk = false;
+                    }
+                } catch (err) {
+                    addLog('files', `❌ ${file.name} failed: ${err.message}`, 'error');
+                    allOk = false;
+                }
+            }
+            
+            setStatus('files', allOk ? 'success' : 'error');
+            setResult('files', allOk, allOk ? 'All files accessible' : 'Some files not accessible');
+        }
+        
+        async function testFullFlow() {
+            setStatus('redirect', 'pending');
+            addLog('redirect', '🚀 Starting full login → redirect flow', 'info');
+            
+            try {
+                // Step 1: Login
+                addLog('redirect', 'Step 1: Sending login request...', 'info');
+                const loginResp = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@clinic.local',
+                        password: 'password123'
+                    })
+                });
+                
+                const loginData = await loginResp.json();
+                
+                if (!loginResp.ok) {
+                    throw new Error(`Login failed: ${loginData.message}`);
+                }
+                
+                addLog('redirect', `✅ Login successful`, 'success');
+                
+                // Step 2: Store tokens
+                addLog('redirect', 'Step 2: Storing tokens in localStorage...', 'info');
+                const tokens = loginData.data?.tokens || {};
+                localStorage.setItem('accessToken', tokens.accessToken || '');
+                localStorage.setItem('user', JSON.stringify(loginData.data?.user || {}));
+                addLog('redirect', `✅ Tokens stored`, 'success');
+                
+                // Step 3: Check dashboard access
+                addLog('redirect', 'Step 3: Checking dashboard.html accessibility...', 'info');
+                const dashResp = await fetch('http://localhost:3000/dashboard.html');
+                
+                if (dashResp.ok) {
+                    addLog('redirect', `✅ dashboard.html is accessible (200 OK)`, 'success');
+                    addLog('redirect', 'Step 4: Redirect would work! ✨', 'success');
+                    setStatus('redirect', 'success');
+                    setResult('redirect', true, 'Full flow would succeed - redirect to dashboard is valid');
+                } else {
+                    throw new Error(`Dashboard not accessible: ${dashResp.status}`);
+                }
+            } catch (err) {
+                addLog('redirect', `❌ Error: ${err.message}`, 'error');
+                setStatus('redirect', 'error');
+                setResult('redirect', false, `Flow error: ${err.message}`);
+            }
+        }
+        
+        // Run initial tests on load
+        window.addEventListener('load', () => {
+            addLog('connectivity', 'Page loaded, initializing tests...', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+================================================================================
+TASK 32: RBAC & ROLE-BASED PERMISSIONS IMPLEMENTATION
+================================================================================
+Module: Security Implementation
+Phase: Phase 1 - Implementation
+Priority: CRITICAL
+Effort Estimate: 34 hours (1 developer, 1+ week)
+Dependencies: Tasks 1-10 (Phase 0), especially Task 03 (Authentication)
+Blocking: All subsequent security tasks (33-35), All data access systems
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+Role-Based Access Control (RBAC) implements fine-grained permission management
+for all system resources. It defines roles (Provider, Clinic Manager, Billing
+Staff, Pharmacy Manager, IT Admin), assigns permissions to roles, and enforces
+access control at API layer and database layer. The system supports dynamic
+role assignment, permission inheritance, delegation, and comprehensive audit
+logging of all access decisions.
+
+Key Responsibilities:
+- Role definition and management (create, update, delete roles)
+- Permission definition (read, write, delete, approve permissions)
+- Role assignment to users (user can have multiple roles)
+- Permission enforcement at API layer (middleware)
+- Row-level security (patient data, organization data)
+- Permission inheritance and composition
+- Delegation workflows (temporary permission elevation)
+- Audit logging of all access decisions
+- Real-time permission sync to database layer
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 ROLE DEFINITIONS
+System Roles:
+1. SuperAdmin: Full system access, user management, system configuration
+2. ClinicDirector: Clinic management, staff management, financial reporting
+3. Provider (Physician/PA/NP): Access own patients, consultations, prescriptions
+4. Clinic Manager: Operational management, staff scheduling, reporting
+5. Billing Manager: Financial operations, claims, adjustments, AR
+6. Pharmacy Manager: Pharmacy operations, inventory, dispensing
+7. Pharmacy Technician: Inventory, dispensing, restocking
+8. Medical Records: EMR access, document management, record requests
+9. Front Desk: Appointment scheduling, check-in, basic patient info
+10. Lab Technician: Lab orders, results entry, equipment management
+11. IT Support: System troubleshooting, user support (limited data access)
+12. Compliance Officer: Audit access, incident investigation
+
+Custom Roles:
+- Clinic can create custom roles combining permissions
+- Example: "Urgent Care Manager" = Clinic Manager + Provider permissions
+
+2.2 PERMISSION SYSTEM
+Resource Permissions:
+- Patients: read_own_patients, read_all_patients, create_patient, write_patient, delete_patient
+- Consultations: read_own_consultations, read_all_consultations, write_consultation, finalize_consultation
+- Prescriptions: read_prescriptions, write_prescriptions, approve_prescriptions, transmit_prescriptions
+- Appointments: read_appointments, create_appointment, modify_appointment, cancel_appointment
+- Billing: read_charges, write_charges, read_payments, write_payments, approve_adjustments
+- Reports: read_own_reports, read_all_reports, create_report, export_report
+- Users: read_users, create_users, modify_users, delete_users, assign_roles
+- System: view_audit_logs, modify_system_settings, manage_backups
+
+Data-Level Permissions:
+- Own data: Provider can access own consultations
+- Assigned patients: Clinic staff can access assigned clinic's patients
+- Organization data: Multi-tenant isolation (data from other organizations hidden)
+- Anonymous: Some APIs allow anonymous access (patient portal login page)
+
+2.3 ROLE ASSIGNMENT WORKFLOW
+User Creation:
+1. Admin creates user account (name, email, phone)
+2. Assign role(s): User can have multiple roles (Provider + Clinic Manager)
+3. Assign clinic/location: User assigned to clinic or multi-clinic
+4. Enable/disable: Account activated, deactivated status
+5. Permissions derived: System auto-applies role permissions to user
+
+Role Change:
+1. Admin requests role change for user
+2. Approval (if required by policy)
+3. Effective date: Change effective immediately or scheduled date
+4. Audit logged: Who changed, when, reason
+5. Permission sync: User's permissions immediately updated
+
+Temporary Elevation:
+1. User requests temporary access (e.g., need to access patient chart)
+2. Manager approves: Yes/No, duration (1 day, 1 week)
+3. Temporary role granted with expiration
+4. Auto-expires: Role removed at expiration time
+5. Audit logged: All temporary elevations logged
+
+2.4 PERMISSION ENFORCEMENT - API LAYER
+Middleware Check:
+- Every API request intercepted by auth middleware
+- Extract user from JWT token
+- Load user's roles and permissions
+- Check if user has permission for requested action
+- If denied: Return 403 Forbidden, log access denial
+
+Example Flow (Create Consultation):
+1. User submits: POST /api/v1/consultations (patient_id, data)
+2. Middleware: Extract user, load roles, check "write_consultation" permission
+3. Row-level: Check if user can access this patient (own patient, or clinic staff?)
+4. If allowed: Continue to API handler
+5. If denied: Return 403, log denied access
+
+2.5 PERMISSION ENFORCEMENT - DATABASE LAYER
+Row-Level Security (RLS):
+- PostgreSQL policy: Only user's own data visible
+- Policy enforced at database query level
+- Even if API bypassed, database prevents unauthorized access
+- Multi-tenant: Patient data filtered by organization_id
+
+Example Policy (Patients Table):
+- SuperAdmin: Can see all patients
+- Provider: Can see own patients + clinic patients
+- Clinic Staff: Can see all clinic patients
+- Other providers: Cannot see other provider's patients
+
+2.6 AUDIT LOGGING
+Access Decision Logging:
+- Every permission check logged to audit_logs table
+- Includes: User, action, resource, result (allowed/denied), timestamp
+- Sensitive resources: Logged even on access allowed
+
+Log Details:
+- user_id: Who requested access
+- action: What action (read, write, delete, approve)
+- resource_type: What resource (patient, consultation, payment)
+- resource_id: Specific resource (patient_id, consultation_id)
+- result: granted or denied
+- reason_if_denied: Why denied (not in role, not assigned clinic, etc.)
+- timestamp: When accessed
+- ip_address: From where (for security analysis)
+- user_agent: Device/browser info
+
+Queries:
+- "Who accessed patient X?" → All users who read/accessed patient
+- "What did user Y access on date Z?" → All accesses by user on date
+- "Were unauthorized accesses attempted?" → All denied access attempts
+- "Audit trail for sensitive operations" → All approvals, write operations
+
+2.7 SPECIAL PERMISSIONS
+Approval Workflows:
+- write_adjustment: Any staff can request adjustment
+- approve_adjustment (amount >$500): Manager approval required
+- approve_adjustment (amount >$5000): Director approval required
+- override_permission: Temporary override of access restriction (logged, requires approval)
+
+Sensitive Operations:
+- delete_user: Requires IT admin + clinic director approval
+- export_data: Requires compliance officer approval
+- modify_audit_logs: Strictly prohibited (audit logs immutable)
+- system_settings: Only superadmin
+
+Delegation:
+- Manager can delegate approval authority to delegate during absence
+- Delegation temporary (max 30 days)
+- All delegated approvals logged with delegation note
+
+2.8 PERMISSION SYNC & CACHING
+Permission Caching:
+- User permissions cached in Redis (1 hour TTL)
+- On role change: Cache invalidated immediately
+- On API request: Check cache first, then database
+- Reduces database load, maintains freshness
+
+Permission Sync to Database:
+- Nightly: Sync user permissions to database row-level security policies
+- On demand: Immediately sync when role changes
+- Ensure API and database permissions always in sync
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: roles
+- role_id (UUID, PK)
+- role_name (VARCHAR, unique, e.g., "Provider", "Clinic Manager")
+- description (VARCHAR)
+- organization_id (UUID, nullable, null = system role, not null = custom org role)
+- is_system_role (BOOLEAN, cannot be deleted)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+- INDEX: (organization_id, is_system_role)
+
+TABLE: permissions
+- permission_id (UUID, PK)
+- permission_name (VARCHAR, unique, e.g., "read_patients", "write_consultations")
+- resource (VARCHAR, e.g., "patients", "consultations")
+- action (VARCHAR, e.g., "read", "write", "delete")
+- description (VARCHAR)
+- created_at (TIMESTAMP)
+- INDEX: (resource, action)
+
+TABLE: role_permissions
+- role_permission_id (UUID, PK)
+- role_id (UUID, FK → roles)
+- permission_id (UUID, FK → permissions)
+- created_at (TIMESTAMP)
+- UNIQUE(role_id, permission_id)
+
+TABLE: user_roles
+- user_role_id (UUID, PK)
+- user_id (UUID, FK → users)
+- role_id (UUID, FK → roles)
+- assigned_date (DATE)
+- effective_from (TIMESTAMP, can schedule future role assignment)
+- effective_until (TIMESTAMP, nullable, for temporary roles)
+- assigned_by (UUID, FK → users)
+- reason (VARCHAR, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (user_id, role_id, effective_until)
+
+TABLE: user_permissions (denormalized for performance)
+- user_permission_id (UUID, PK)
+- user_id (UUID, FK → users)
+- permission_id (UUID, FK → permissions)
+- last_synced (TIMESTAMP)
+- INDEX: (user_id, permission_id)
+
+TABLE: audit_logs
+- audit_id (UUID, PK)
+- user_id (UUID, FK → users)
+- action (VARCHAR)
+- resource_type (VARCHAR)
+- resource_id (UUID, nullable)
+- result (ENUM: "granted", "denied")
+- reason (VARCHAR, nullable)
+- ip_address (VARCHAR)
+- user_agent (VARCHAR)
+- timestamp (TIMESTAMP)
+- INDEX: (user_id, timestamp DESC)
+- INDEX: (resource_type, resource_id, timestamp DESC)
+
+TABLE: permission_delegations
+- delegation_id (UUID, PK)
+- delegator_id (UUID, FK → users)
+- delegate_id (UUID, FK → users)
+- permission_id (UUID, FK → permissions)
+- effective_from (TIMESTAMP)
+- effective_until (TIMESTAMP)
+- reason (VARCHAR)
+- created_at (TIMESTAMP)
+- INDEX: (delegate_id, effective_until)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 ROLE MANAGEMENT API
+
+POST /api/v1/admin/roles
+Body: { role_name, description, permissions: [permission_ids] }
+Response: Created role
+
+GET /api/v1/admin/roles
+Response: List of all roles
+
+PUT /api/v1/admin/roles/{role_id}
+Body: Updated role definition
+
+DELETE /api/v1/admin/roles/{role_id}
+
+4.2 USER ROLE ASSIGNMENT API
+
+POST /api/v1/admin/users/{user_id}/roles
+Body: { role_id, assigned_by, reason }
+Response: Role assigned
+
+GET /api/v1/admin/users/{user_id}/roles
+Response: User's current roles
+
+DELETE /api/v1/admin/users/{user_id}/roles/{role_id}
+
+4.3 PERMISSION CHECK API
+
+GET /api/v1/auth/check-permission
+Query: action, resource, resource_id
+Response: { permitted: true/false, reason: "..." }
+
+4.4 DELEGATION API
+
+POST /api/v1/admin/delegate-permission
+Body: { delegate_id, permission_id, duration_days }
+
+DELETE /api/v1/admin/delegation/{delegation_id}
+
+4.5 AUDIT LOGGING API
+
+GET /api/v1/admin/audit-logs
+Query: user_id, resource_type, date_range, action
+Response: Audit log entries
+
+GET /api/v1/admin/audit-logs/user/{user_id}
+Response: Access history for specific user
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 MIDDLEWARE IMPLEMENTATION
+- Express middleware (Node.js) or similar
+- Check JWT token, extract user
+- Load user permissions (from cache if available)
+- Check permission before handler executes
+- Log all permission decisions
+
+5.2 DATABASE ROW-LEVEL SECURITY
+- PostgreSQL RLS policies per role
+- Policies enforce at query level
+- Multi-tenant: All queries filtered by organization_id
+- Immutable: Policies maintained centrally
+
+5.3 CACHING STRATEGY
+- Redis cache for user permissions (1 hour TTL)
+- Invalidate on role change (immediate)
+- Cache key: user_id → { roles: [...], permissions: [...] }
+- Fallback: If cache miss, query database
+
+5.4 AUDIT LOGGING
+- Structured logging (JSON format)
+- Centralized logging (ELK stack or CloudWatch)
+- Immutable audit trail (cannot modify after creation)
+- Retention: 7+ years for regulatory compliance
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 USER ONBOARDING
+1. Admin creates user account
+2. Assign role(s) and clinic
+3. User receives email with password reset link
+4. User sets password
+5. Role-based permissions applied
+6. Welcome email with system access info
+
+6.2 PERMISSION CHECKING
+1. User makes API request
+2. Middleware extracts JWT token
+3. Load user's roles and permissions
+4. Evaluate permission policy
+5. If allowed: Continue to handler
+6. If denied: Return 403, log denial
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (20+ test cases):
+- Permission checking logic
+- Role inheritance
+- Permission composition
+- Audit logging
+
+Integration Tests (18+ test cases):
+- End-to-end role assignment
+- API permission enforcement
+- Database RLS policy enforcement
+- Permission delegation
+- Temporary role elevation
+
+Permission Coverage Tests (20+ test cases):
+- Test each role's permissions
+- Test cross-role scenarios
+- Test permission inheritance
+- Test special permissions
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. All 12+ system roles defined and tested
+2. API permission enforcement working (403 Forbidden on denied access)
+3. Database RLS policies enforced at query layer
+4. All permission decisions logged to audit trail
+5. Permission caching working (performance improvement >50%)
+6. User role changes effective immediately
+7. Temporary role elevation with auto-expiration
+8. Support for delegation (max 30 days)
+9. Audit logs immutable and 7+ year retention
+10. >99% permission check accuracy
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. System roles definition (12+ roles)
+2. Permissions catalog (50+ permissions)
+3. Role-permission mapping
+4. API middleware for permission checking
+5. Database RLS policies
+6. Permission caching system
+7. User role assignment workflow
+8. Audit logging system (immutable)
+9. Delegation workflows
+10. Admin API for role/permission management
+11. User access history reports
+12. Permission compliance reports
+
+Dependencies:
+- Task 1-10 (Phase 0), especially Task 03 (Authentication)
+
+Blockers For:
+- Tasks 33-35 (Security implementation)
+- All data access systems depend on RBAC
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design: 4 hours (role definitions, permission matrix)
+Development: 20 hours (middleware, RLS, caching, APIs)
+Testing: 8 hours (permission coverage tests, integration tests)
+Documentation: 1 hour (Role/permission guide)
+Contingency: 1 hour (5%)
+
+Total: 34 hours (1 developer, 1+ week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Permission check performance impacts response time
+Mitigation: Aggressive caching (1 hour TTL), async audit logging
+
+Risk: RLS policies too complex or buggy
+Mitigation: Comprehensive testing, separate QA environment
+
+Risk: Privilege escalation vulnerability
+Mitigation: Immutable role definitions, strict approval workflows
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Permission check latency: <10ms (with cache)
+- Unauthorized access attempts: <0.1% of total API calls
+- Audit log accuracy: 100% (every decision logged)
+- Role assignment delay: <5 minutes to take effect
+- Permission policy test coverage: >95%
+
+================================================================================

@@ -1,0 +1,664 @@
+================================================================================
+TASK: Testing Strategy & Quality Assurance Framework
+Module: CORE - TESTING & QA
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Quality foundation)
+Duration: 5-7 days
+Effort: 18 hours
+================================================================================
+
+OBJECTIVE
+---------
+Establish comprehensive testing strategy covering unit, integration, end-to-end,
+performance, security, and compliance testing to ensure system reliability,
+functionality, and regulatory compliance.
+
+BUSINESS LOGIC
+--------------
+Testing Investment ROI:
+- Unit tests: Catch bugs early (75% of bugs)
+- Integration tests: Catch component interaction bugs
+- E2E tests: Catch user workflow bugs
+- Security tests: Catch vulnerabilities
+- Performance tests: Catch scaling issues
+
+Cost of bugs by stage:
+- Unit test phase: $100 to fix
+- Development phase: $1,000 to fix
+- Testing phase: $5,000 to fix
+- Production: $100,000+ to fix + reputation damage
+
+Healthcare testing is critical:
+- Wrong calculation = patient harm
+- Data loss = regulatory violation
+- Downtime = lost revenue + patient trust
+- Security breach = HIPAA violation ($50K-$1.5M)
+
+TARGET COVERAGE METRICS
+-----------------------
+Code Coverage Goals:
+- Overall: ≥ 80% code coverage
+- Critical paths: ≥ 95% coverage
+- Healthcare logic: 100% coverage
+
+Test Distribution (Pyramid):
+- Unit tests: 70% (fast, isolated)
+- Integration tests: 20% (components together)
+- E2E tests: 10% (user workflows)
+
+UNIT TESTING
+------------
+Test individually: Functions, methods, classes
+
+Framework: Jest (JavaScript) or equivalent
+
+Structure: Given-When-Then (AAA pattern)
+
+Example:
+```javascript
+describe('PatientService', () => {
+  describe('createPatient', () => {
+    it('should create a patient with valid data', () => {
+      // GIVEN
+      const patientData = {
+        firstName: 'John',
+        lastName: 'Doe',
+        dateOfBirth: '1990-01-15'
+      };
+      
+      // WHEN
+      const result = patientService.createPatient(patientData);
+      
+      // THEN
+      expect(result.id).toBeDefined();
+      expect(result.firstName).toBe('John');
+    });
+    
+    it('should throw error with missing firstName', () => {
+      // GIVEN
+      const patientData = { lastName: 'Doe' };
+      
+      // WHEN/THEN
+      expect(() => patientService.createPatient(patientData))
+        .toThrow('First name required');
+    });
+  });
+});
+```
+
+Unit Test Cases (Examples):
+
+Patient Creation:
+[ ] Create with valid data succeeds
+[ ] Create with missing firstName fails
+[ ] Create with invalid email fails
+[ ] Create with duplicate email fails
+[ ] Create generates UUID
+[ ] Create sets timestamps
+
+Prescription Processing:
+[ ] Valid prescription created
+[ ] Negative quantity rejected
+[ ] Expired prescription rejected
+[ ] Prescription quantity overflow prevented
+[ ] Prescription filled correctly
+[ ] Refill counter incremented
+
+Billing:
+[ ] Invoice total calculated correctly
+[ ] Tax calculation correct
+[ ] Discount applied correctly
+[ ] Rounding errors prevented
+[ ] Negative amounts rejected
+
+INTEGRATION TESTING
+-------------------
+Test components together: API → Service → Database
+
+Framework: Supertest (HTTP) + Jest
+
+Example:
+```javascript
+describe('GET /api/v1/patients/:id', () => {
+  it('should return patient with valid ID', async () => {
+    // GIVEN
+    const patientId = 'patient-123';
+    const token = generateValidToken();
+    
+    // WHEN
+    const response = await request(app)
+      .get(`/api/v1/patients/${patientId}`)
+      .set('Authorization', `Bearer ${token}`);
+    
+    // THEN
+    expect(response.status).toBe(200);
+    expect(response.body.data.id).toBe(patientId);
+    expect(response.body.data.firstName).toBeDefined();
+  });
+  
+  it('should return 404 for non-existent patient', async () => {
+    const response = await request(app)
+      .get('/api/v1/patients/invalid-id')
+      .set('Authorization', `Bearer ${token}`);
+    
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+  });
+});
+```
+
+Integration Test Cases:
+
+Authentication:
+[ ] Login with valid credentials returns token
+[ ] Login with invalid password fails
+[ ] Token used in subsequent requests
+[ ] Expired token rejected
+[ ] Invalid token rejected
+[ ] Logout invalidates token
+
+Multi-Tenancy:
+[ ] User only sees own clinic data
+[ ] User cannot access other clinic data
+[ ] Query without tenant_id fails
+[ ] Tenant ID enforced at DB level
+[ ] Cross-tenant queries blocked
+
+Data Persistence:
+[ ] Data saved to database
+[ ] Data retrieved correctly
+[ ] Updates persist
+[ ] Deletes persist (soft delete)
+[ ] Timestamps set correctly
+
+END-TO-END (E2E) TESTING
+-----------------------
+Test complete user workflows: UI → API → DB → UI
+
+Framework: Cypress or Playwright
+
+Scenario: Doctor views patient and prescribes medication
+
+```javascript
+describe('Doctor Prescription Workflow', () => {
+  it('should prescribe medication to patient', () => {
+    // Login as doctor
+    cy.visit('https://clinic-saas.com/login');
+    cy.get('[data-testid=email]').type('doctor@clinic.com');
+    cy.get('[data-testid=password]').type('secure-password');
+    cy.get('[data-testid=login-btn]').click();
+    
+    // Navigate to patients
+    cy.get('[data-testid=nav-patients]').click();
+    cy.get('[data-testid=patient-search]').type('John Doe');
+    cy.contains('John Doe').click();
+    
+    // View medical record
+    cy.get('[data-testid=tab-medical-record]').click();
+    cy.contains('Prescription').should('be.visible');
+    
+    // Create prescription
+    cy.get('[data-testid=btn-new-prescription]').click();
+    cy.get('[data-testid=drug-name]').type('Amoxicillin');
+    cy.get('[data-testid=quantity]').type('21');
+    cy.get('[data-testid=frequency]').select('3 times daily');
+    cy.get('[data-testid=btn-save]').click();
+    
+    // Verify prescription saved
+    cy.contains('Prescription saved').should('be.visible');
+    cy.contains('Amoxicillin').should('be.visible');
+  });
+});
+```
+
+E2E Test Scenarios:
+
+Patient Management:
+[ ] Create new patient successfully
+[ ] Search for existing patient
+[ ] Update patient demographics
+[ ] View patient medical history
+[ ] Delete patient (soft delete)
+
+Appointment Management:
+[ ] Schedule appointment
+[ ] Reschedule appointment
+[ ] Cancel appointment
+[ ] Check-in patient
+[ ] Complete consultation
+
+Prescription Management:
+[ ] Create prescription
+[ ] Approve prescription (admin)
+[ ] Fill prescription
+[ ] Add refill
+[ ] Expire old prescription
+
+Billing:
+[ ] Create invoice
+[ ] Send invoice to patient
+[ ] Record payment
+[ ] Generate report
+
+PERFORMANCE TESTING
+-------------------
+Load Testing: How system behaves under load
+
+Tool: Apache JMeter or Locust
+
+Scenarios:
+
+Baseline: Normal operations
+- 100 concurrent users
+- Typical load
+
+Peak Load: Busy time
+- 500 concurrent users
+- Sustained for 10 minutes
+
+Spike Test: Sudden surge
+- 1000 concurrent users for 1 minute
+- How quickly does system recover?
+
+Stress Test: Breaking point
+- Gradually increase load until failure
+- At what point does system fail?
+- Graceful degradation or crash?
+
+Example test plan:
+```
+Phase 1: Ramp-up
+  - 0 to 100 users over 5 minutes
+  - Duration: 5 minutes
+  
+Phase 2: Sustained load
+  - 100 concurrent users
+  - Duration: 15 minutes
+  
+Phase 3: Spike
+  - 100 to 500 users in 1 minute
+  - Duration: 5 minutes
+  
+Phase 4: Ramp-down
+  - 500 to 0 users over 5 minutes
+  - Duration: 5 minutes
+```
+
+Performance Acceptance Criteria:
+[ ] p50 response time < 500ms
+[ ] p95 response time < 1000ms
+[ ] p99 response time < 2000ms
+[ ] Error rate < 0.1%
+[ ] No memory leaks
+[ ] CPU utilization < 70%
+[ ] Database connections < 80% of pool
+
+SECURITY TESTING
+----------------
+Static Analysis (SAST): Analyze source code
+
+Tools: SonarQube, Checkmarx, CodeQL
+
+Tests:
+[ ] No hardcoded passwords
+[ ] No SQL injection vulnerabilities
+[ ] No cross-site scripting (XSS)
+[ ] No insecure deserialization
+[ ] OWASP Top 10 violations checked
+[ ] Secure coding standards followed
+
+Dynamic Analysis (DAST): Test running application
+
+Tools: Burp Suite, OWASP ZAP
+
+Tests:
+[ ] Authentication bypass attempts blocked
+[ ] SQL injection attempts blocked
+[ ] XSS injection attempts blocked
+[ ] CSRF protection working
+[ ] Rate limiting enforced
+[ ] Sensitive data not exposed in responses
+
+Dependency Scanning: Check third-party libraries
+
+Tools: Snyk, Dependabot, npm audit
+
+Tests:
+[ ] No vulnerable dependencies
+[ ] All dependencies up to date
+[ ] Licenses comply with company policy
+[ ] No abandoned dependencies
+
+Penetration Testing (Manual): Security professional tests
+
+Scenarios:
+[ ] Can unauthenticated user access data?
+[ ] Can user access other tenant's data?
+[ ] Can receptionist write prescriptions?
+[ ] Can patient see other patient's records?
+[ ] Can user bypass MFA?
+[ ] Can user reset another user's password?
+[ ] Can attacker cause injection?
+
+COMPLIANCE TESTING
+------------------
+HIPAA Compliance Tests:
+
+Audit Logging:
+[ ] All data access logged
+[ ] Failed access attempts logged
+[ ] Admin actions logged
+[ ] Login/logout logged
+[ ] Role changes logged
+[ ] Audit logs immutable
+[ ] Audit logs retention 6 years
+
+Access Controls:
+[ ] Each user has unique login
+[ ] No shared credentials
+[ ] Passwords meet complexity requirements
+[ ] Session timeout after 15 min inactivity
+[ ] Multi-factor auth available
+[ ] Least privilege enforced
+
+Data Protection:
+[ ] Data encrypted in transit (TLS 1.3)
+[ ] Data encrypted at rest (AES-256)
+[ ] Backups encrypted
+[ ] Key management secure
+[ ] No PII in logs
+
+Breach Response:
+[ ] Breach detection procedure works
+[ ] Notification procedure defined
+[ ] Breach log maintained
+
+GDPR Compliance Tests:
+
+Data Subject Rights:
+[ ] User can export their data
+[ ] User can delete their data
+[ ] User can rectify their data
+[ ] User can restrict processing
+[ ] User can data portability
+
+Consent:
+[ ] Consent obtained before processing
+[ ] Consent documented
+[ ] Consent can be withdrawn
+[ ] Non-consent respected
+
+Data Processing:
+[ ] DPA in place with processors
+[ ] Sub-processors disclosed
+[ ] Data minimization enforced
+[ ] Purpose limitation enforced
+[ ] Storage limitation enforced
+
+REGRESSION TESTING
+------------------
+Prevent old bugs from returning
+
+Strategy:
+- Every bug gets test case
+- Test case added before fix
+- Test case catches regression
+- Run regression tests on every build
+
+Example:
+Bug: Prescription quantity could be negative
+Fix: Add validation check
+Test:
+```javascript
+it('should not allow negative quantity', () => {
+  expect(() => prescription.validate({ quantity: -5 }))
+    .toThrow('Quantity must be positive');
+});
+```
+
+COMPATIBILITY TESTING
+---------------------
+Multiple browsers, devices, OS
+
+Browser Testing:
+[ ] Chrome (latest 2 versions)
+[ ] Firefox (latest 2 versions)
+[ ] Safari (latest 2 versions)
+[ ] Edge (latest 2 versions)
+
+Mobile Testing:
+[ ] iOS (latest 2 versions)
+[ ] Android (latest 2 versions)
+[ ] Tablet screen sizes
+[ ] Touch interactions
+
+Responsive Design:
+[ ] Mobile (320px width)
+[ ] Tablet (768px width)
+[ ] Desktop (1024px width)
+[ ] Large desktop (1920px width)
+
+API Compatibility:
+[ ] v1 API working
+[ ] v2 API working
+[ ] v1 clients can call v2 API
+[ ] v2 clients reject old version
+
+ACCESSIBILITY TESTING
+---------------------
+Ensure people with disabilities can use system
+
+Requirements:
+- WCAG 2.1 Level AA compliance
+
+Tests:
+[ ] Keyboard navigation works
+[ ] Screen reader compatible
+[ ] Color contrast sufficient
+[ ] Images have alt text
+[ ] Forms labeled correctly
+[ ] Error messages clear
+[ ] Focus indicators visible
+[ ] No flashing content (seizure risk)
+
+Tools: Axe, WAVE, Lighthouse
+
+USABILITY TESTING
+-----------------
+Real users testing the system
+
+Methods:
+1. Moderated Sessions
+   - Observe user using system
+   - Ask think-aloud questions
+   - 5-8 users per round
+   - Duration: 1 hour per user
+
+2. Unmoderated Testing
+   - User records themselves
+   - Doesn't require facilitator
+   - Can reach more users
+   - Automated analysis
+
+Tasks:
+[ ] New doctor can create appointment
+[ ] Receptionist can check-in patient
+[ ] Patient can view prescription
+[ ] Doctor can write prescription
+[ ] Admin can add new staff
+
+TEST AUTOMATION PYRAMID
+----------------------
+```
+            E2E Tests (10%)
+            /            \
+          /                \
+        /  Integration     \
+       /    Tests (20%)      \
+      /                       \
+    /     Unit Tests (70%)     \
+   /_____________________________\
+```
+
+Fast feedback: Unit tests (seconds)
+Medium feedback: Integration (minutes)
+Slow feedback: E2E (10+ minutes)
+
+CONTINUOUS TESTING
+------------------
+Testing on every code change:
+
+Pre-Commit:
+- Linting (code style)
+- Unit tests
+
+On Push:
+- All unit tests
+- Integration tests
+- Code coverage report
+
+On Pull Request:
+- All tests must pass
+- Coverage must meet threshold
+- Security scan must pass
+- Code review required
+
+Before Merge to Main:
+- E2E tests pass
+- Performance tests pass
+- Security tests pass
+
+On Release:
+- Full regression suite
+- Load test
+- Security penetration test
+- Compliance verification
+
+TEST ENVIRONMENT
+----------------
+Production-like testing environment
+
+Configuration:
+- Separate database (production copy, anonymized)
+- Same infrastructure as production
+- Same configuration as production
+- Same data volume as production
+- Separate from development
+
+Data Management:
+- Production data copy (weekly)
+- GDPR anonymization (names, emails randomized)
+- PII removed for sensitive data
+- Test accounts for E2E testing
+
+Test Data:
+- 1000 test patients
+- 100 test doctors
+- 1 year of historical data
+- Edge cases represented
+- Performance test data (10k+ records)
+
+TESTING CHECKLIST
+-----------------
+Pre-Release (before deploying to production):
+
+Code Quality:
+[ ] Linting passes (no style issues)
+[ ] Unit tests pass (100% of new code)
+[ ] Code coverage ≥ 80%
+[ ] No code duplication
+[ ] Code review approved
+
+Functionality:
+[ ] Integration tests pass
+[ ] E2E tests pass
+[ ] Manual testing complete
+[ ] Feature works as designed
+
+Performance:
+[ ] Load test passes
+[ ] Response time targets met
+[ ] No memory leaks
+[ ] Database queries optimized
+
+Security:
+[ ] Security scan passes
+[ ] No hardcoded secrets
+[ ] Encryption implemented
+[ ] Authentication/authorization verified
+[ ] OWASP Top 10 addressed
+
+Compliance:
+[ ] HIPAA requirements verified
+[ ] GDPR requirements verified
+[ ] Audit logging working
+[ ] Data protection verified
+
+Accessibility:
+[ ] WCAG 2.1 AA compliance verified
+[ ] Screen reader compatible
+[ ] Keyboard navigation works
+
+Compatibility:
+[ ] Cross-browser tested
+[ ] Mobile responsive verified
+[ ] API backward compatible
+
+Documentation:
+[ ] Code documented
+[ ] API documented
+[ ] Test plan documented
+[ ] Known issues documented
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Testing strategy documented
+[ ] Unit test framework configured
+[ ] Integration test suite implemented
+[ ] E2E test suite implemented
+[ ] Performance testing baseline established
+[ ] Security testing automated
+[ ] Compliance testing defined
+[ ] CI/CD testing pipeline configured
+[ ] Code coverage reporting configured
+[ ] Test environment ready
+[ ] Testing checklist created
+[ ] Team trained on testing practices
+
+DELIVERABLES
+-----------
+1. Testing Strategy Document
+2. Unit Test Suite (with setup guides)
+3. Integration Test Suite
+4. E2E Test Suite (Cypress/Playwright)
+5. Performance Testing Plan
+6. Security Testing Checklist
+7. Compliance Testing Checklist
+8. CI/CD Pipeline (automated testing)
+9. Test Environment Setup Guide
+10. Testing Metrics & Reporting Dashboard
+
+DEPENDENCIES
+-----------
+BLOCKING: API layer, Database schema
+BLOCKS: Production deployment, Feature releases
+
+RELATED TASKS
+-----------
+- API design
+- Database schema
+- Security & compliance
+- Infrastructure & CI/CD
+
+NOTES
+-----
+Testing is an investment that pays dividends.
+Early testing catches bugs 100x cheaper than production.
+Healthcare apps need thorough testing (patient safety).
+Aim for 80%+ coverage, not 100% (diminishing returns).
+
+Timeline: Week 3-4 of Phase 0
+Priority: CRITICAL
+
+STATUS: Ready for implementation
+================================================================================

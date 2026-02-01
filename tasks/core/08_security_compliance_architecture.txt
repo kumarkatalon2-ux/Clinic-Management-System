@@ -1,0 +1,613 @@
+================================================================================
+TASK: Security & Compliance Architecture
+Module: CORE - SECURITY & COMPLIANCE
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Regulatory requirement, healthcare data)
+Duration: 7-10 days
+Effort: 28 hours
+================================================================================
+
+OBJECTIVE
+---------
+Design comprehensive security architecture meeting HIPAA/GDPR/CCPA requirements,
+implementing encryption, access controls, audit trails, and compliance
+verification mechanisms.
+
+BUSINESS LOGIC
+--------------
+Healthcare Data is Highly Sensitive:
+- Protected Health Information (PHI) under HIPAA
+- Personal Data under GDPR
+- Financial data under PCI DSS (if storing card data)
+- State-specific privacy laws (CCPA in California, etc.)
+
+Regulatory Requirements:
+
+HIPAA (US Healthcare):
+- 6-year audit trail retention
+- Encryption for data at rest and in transit
+- Access controls with role-based permissions
+- No shared login credentials
+- Automatic logout after 15 minutes inactivity
+- Breach notification within 60 days
+- Business Associate Agreements (BAA) required
+
+GDPR (Europe, general):
+- Data subject consent before processing
+- Right to access personal data
+- Right to data portability
+- Right to erasure ("right to be forgotten")
+- Data processing agreements (DPA)
+- Privacy impact assessments
+- Breach notification within 72 hours
+- Data Protection Officer (optional)
+
+CCPA (California):
+- Consumers have right to know
+- Right to delete
+- Right to opt-out of sales
+- Non-discrimination for exercising rights
+
+Penalties:
+- HIPAA violation: $100-$50,000 per violation/day (max $1.5M/year)
+- GDPR violation: Up to €20M or 4% of annual revenue
+- CCPA violation: Up to $7,500 per violation
+
+ENCRYPTION ARCHITECTURE
+-----------------------
+DATA AT REST (Database, Storage):
+
+1. Column-level encryption (PII fields):
+   - Patient names
+   - Email addresses
+   - Phone numbers
+   - National IDs / SSNs
+   - Medical record numbers
+   - Insurance information
+   
+   Method: AES-256 symmetric encryption
+   Key management: AWS KMS or similar
+
+2. Entire database encryption:
+   - Option: PostgreSQL pgcrypto
+   - Option: AWS RDS encryption
+   - Option: Transparent Data Encryption (TDE)
+   - Key rotation: Every 90 days
+
+3. File storage encryption:
+   - S3 server-side encryption (SSE-S3)
+   - Or client-side encryption before upload
+   - Key: KMS managed key
+
+4. Backup encryption:
+   - All backups encrypted at rest
+   - Separate encryption keys from production
+   - Test backup decryption regularly
+
+DATA IN TRANSIT (Network):
+
+1. TLS 1.3 for all API communication
+   - Minimum 256-bit encryption
+   - Certificate from trusted CA
+   - Certificate pinning in mobile apps
+   - HSTS header enforced
+
+2. VPN for clinic-to-server communication (optional)
+   - Site-to-site VPN for clinic networks
+   - IPSec for secure tunnel
+
+3. No HTTP (all HTTPS)
+   - Force redirect HTTP → HTTPS
+   - No sensitive data in URLs
+
+ENCRYPTION KEY MANAGEMENT
+-------------------------
+Key Hierarchy:
+
+Master Key (HSM)
+  ├── Database Keys
+  ├── Backup Keys
+  ├── File Storage Keys
+  └── Archive Keys
+
+Key rotation schedule:
+- Production keys: Every 90 days
+- Backup keys: Every 180 days
+- Test keys: As needed
+
+Key storage:
+- HSM (Hardware Security Module) or
+- AWS KMS with access controls
+- Never store in code or configuration files
+- Separate keys per environment (dev, staging, prod)
+
+Key access:
+- Only authorized services can decrypt
+- Audit log all key access
+- Multiple people required to rotate keys (separation of duty)
+
+Example: Patient name storage
+```
+Patient name: "John Doe"
+Encryption: AES-256
+Key: From KMS
+Stored as: "0x7F3A2B1E..." (encrypted)
+Decryption: Only authorized API reads encrypted, decrypts in memory
+```
+
+ACCESS CONTROL ARCHITECTURE
+---------------------------
+Role-Based Access Control (RBAC):
+
+Implemented in layers:
+
+1. DATABASE LEVEL (Row-Level Security)
+   - PostgreSQL policies ensure no cross-tenant data access
+   - Policies enforced even if app code has bug
+
+2. API LEVEL (Authentication & Authorization)
+   - JWT validates user identity
+   - Permissions verify user can perform action
+   - Tenant isolation enforced
+
+3. FIELD LEVEL (Attribute-Based Access Control)
+   - Sensitive fields: Name, SSN, diagnosis
+   - Only authorized roles can view
+   - Example: Receptionist cannot see medical records
+
+4. AUDIT LEVEL (Who accessed what)
+   - Log all access attempts
+   - Flag suspicious access patterns
+   - Alert on unauthorized attempts
+
+Principle of Least Privilege:
+- Each user gets minimum permissions needed
+- Permissions removed when role changes
+- Regular access reviews (quarterly)
+
+AUDIT & COMPLIANCE LOGGING
+---------------------------
+HIPAA Audit Trail Requirements:
+
+Must log:
+1. Who: User ID, name, role
+2. What: Resource type, action (read, write, delete)
+3. When: Timestamp (UTC)
+4. Where: System, IP address
+5. Why: Purpose/justification
+6. Result: Success/failure
+
+Audit logs must:
+- Be immutable (cannot be edited/deleted)
+- Be retained for 6 years minimum
+- Include failed access attempts
+- Track all administrative actions
+- Be searchable and reportable
+
+Example audit log entry:
+```json
+{
+  "event_id": "evt_abc123",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "user_id": "user-123",
+  "user_name": "Dr. John Smith",
+  "action": "read",
+  "resource": "patient",
+  "resource_id": "patient-456",
+  "resource_name": "Jane Doe",
+  "ip_address": "192.168.1.1",
+  "result": "success",
+  "status_code": 200,
+  "purpose": "routine_consultation"
+}
+```
+
+Suspicious Access Patterns to Alert:
+- User accessing records of non-assigned patients
+- Access outside normal working hours (11 PM - 6 AM)
+- Large data export (>1000 records)
+- Mass deletion of records
+- Failed login attempts (>3 in 5 minutes)
+
+COMPLIANCE MECHANISMS
+--------------------
+Consent Management:
+- Patient must consent before treatment
+- Consent must be documented in audit trail
+- Consent can be revoked
+- Withdrawal of consent stops processing
+
+Data Subject Rights (GDPR):
+
+1. Right to Access
+   - Patient can request their data
+   - System generates export (CSV, PDF, JSON)
+   - Delivered within 30 days
+
+2. Right to Rectification
+   - Patient can correct inaccurate data
+   - Changes logged to audit trail
+   - Patient notified of change
+
+3. Right to Erasure
+   - Patient can request deletion
+   - Data deleted from production (soft delete)
+   - Backups deleted after retention period
+   - Exception: Legal hold, regulatory requirement
+
+4. Right to Data Portability
+   - Patient gets copy of their data
+   - In standard format (JSON, CSV)
+   - Can be transferred to another provider
+
+5. Right to Restrict Processing
+   - Patient can request processing pause
+   - Data not used for analytics
+   - Access still available to treating doctor
+
+BREACH NOTIFICATION
+-------------------
+If data breach occurs:
+
+HIPAA Notification:
+- Notify individuals affected: within 60 days
+- Notify HHS (Department of Health): if >500 people
+- Notify media: if >500 people in same jurisdiction
+- Document breach: cause, scope, response
+
+GDPR Notification:
+- Notify supervisory authority: within 72 hours (if high risk)
+- Notify data subjects: without undue delay
+- Documentation: breach record, impact assessment
+
+Breach Response Procedure:
+1. Contain: Take affected systems offline
+2. Investigate: Determine scope of breach
+3. Notify: Alert regulatory bodies and users
+4. Document: Record all findings
+5. Remediate: Fix vulnerability
+6. Communicate: Transparent updates to users
+7. Prevent: Implement safeguards to prevent recurrence
+
+COMPLIANCE CERTIFICATIONS
+-------------------------
+Pursue these certifications to demonstrate compliance:
+
+1. HIPAA Compliance
+   - BAA (Business Associate Agreement) with cloud providers
+   - Compliance audit annually
+   - Penetration testing annually
+
+2. GDPR Compliance
+   - Data Processing Agreement (DPA) with processors
+   - Privacy Impact Assessments (PIA)
+   - Compliance audit annually
+
+3. SOC 2 Type II Certification
+   - Third-party security audit
+   - Tests: Security, availability, processing integrity, confidentiality
+   - Valid for 1 year
+
+4. ISO 27001
+   - Information security management
+   - Independent audit
+   - Demonstrates security commitment
+
+5. PCI DSS (if storing credit cards)
+   - Payment Card Industry Data Security Standard
+   - If using third-party payment processor, outsource to them
+
+VULNERABILITY MANAGEMENT
+------------------------
+Regular Security Testing:
+
+1. Penetration Testing
+   - Quarterly external penetration test
+   - Annual internal penetration test
+   - By independent security firm
+   - Fix critical findings within 30 days
+
+2. Static Application Security Testing (SAST)
+   - Automated code analysis
+   - Detect security vulnerabilities in source code
+   - Run on every code commit
+
+3. Dynamic Application Security Testing (DAST)
+   - Test running application
+   - Detect runtime vulnerabilities
+   - Run before release
+
+4. Security Scanning
+   - Dependency scanning (vulnerable libraries)
+   - Container scanning (vulnerable images)
+   - Infrastructure scanning (misconfiguration)
+
+5. Threat Modeling
+   - Identify potential threats
+   - Design mitigations
+   - Quarterly review and update
+
+SECURE DEVELOPMENT PRACTICES
+---------------------------
+Code Security:
+
+1. Secure Coding Standards
+   - OWASP Top 10 awareness training
+   - No SQL injection (use parameterized queries)
+   - No cross-site scripting (XSS)
+   - Input validation on all inputs
+   - Output encoding on all outputs
+
+2. Code Review
+   - Every code change reviewed
+   - Security-focused review for sensitive areas
+   - Approval required before merge
+
+3. Dependency Management
+   - Track all dependencies
+   - Regular updates for security patches
+   - Remove unused dependencies
+   - Scan for known vulnerabilities (tools: Snyk, Dependabot)
+
+4. Configuration Management
+   - Secrets never committed to code
+   - Environment-specific configurations
+   - Regular secret rotation
+   - Secure onboarding (new dev gets access through process)
+
+INFRASTRUCTURE SECURITY
+-----------------------
+Network:
+
+1. VPC Isolation
+   - Private subnets for database
+   - Bastion host for admin access
+   - Security groups enforce inbound rules
+
+2. DDoS Protection
+   - Cloudflare or AWS Shield
+   - Rate limiting on API
+   - Geo-blocking (if applicable)
+
+3. Web Application Firewall (WAF)
+   - Detect and block malicious requests
+   - SQL injection detection
+   - XSS detection
+   - Rate limiting
+
+Servers:
+
+1. Patching
+   - OS patches: Monthly (or critical immediately)
+   - Application patches: Within 30 days
+   - Automated patching where possible
+
+2. Hardening
+   - Minimum services running
+   - SSH key authentication (no passwords)
+   - Firewall rules strict (deny by default)
+
+3. Monitoring
+   - Log file integrity monitoring
+   - Process monitoring (unexpected processes)
+   - Network monitoring (unusual traffic)
+
+Data Center / Cloud:
+
+1. Redundancy
+   - Multi-region failover
+   - Multiple availability zones
+   - Database replication
+
+2. Physical Security
+   - If on-premise: Locked facility, access controls
+   - If cloud: Trust cloud provider (AWS, Azure, GCP)
+
+3. Backup Security
+   - Backups encrypted
+   - Offsite backups
+   - Regular restore testing
+   - Separate credentials for backup access
+
+INCIDENT RESPONSE PLAN
+----------------------
+When security incident occurs:
+
+1. Detection
+   - Alerts from monitoring
+   - User reports suspicious activity
+   - Automated threat detection
+
+2. Response Team
+   - Incident commander (senior tech lead)
+   - Security lead
+   - Database admin
+   - Communications lead
+   - Legal/compliance lead
+
+3. Containment
+   - Isolate affected systems
+   - Take backups
+   - Preserve evidence
+   - Stop progression of attack
+
+4. Investigation
+   - Determine root cause
+   - Scope of breach (how many users)
+   - What data was accessed
+   - Timeline of incident
+
+5. Recovery
+   - Restore from clean backups
+   - Apply security patches
+   - Test recovery
+   - Restore to production
+
+6. Notification
+   - Notify affected individuals
+   - Notify regulators
+   - Public statement (if applicable)
+   - Customer communication
+
+7. Prevention
+   - Implement preventive measures
+   - Update security policies
+   - Training on incident
+   - Monitor for recurrence
+
+STAFF SECURITY AWARENESS
+------------------------
+Employee Training:
+
+1. Annual Compliance Training
+   - HIPAA requirements
+   - GDPR requirements
+   - Password security
+   - Phishing awareness
+   - Social engineering
+
+2. New Hire Onboarding
+   - Security policy review
+   - NDA / confidentiality agreement
+   - Access control setup
+   - Background check (if healthcare)
+
+3. Phishing Testing
+   - Monthly simulated phishing emails
+   - Track click rates
+   - Training for failed tests
+
+4. Access Reviews
+   - Quarterly review of user access
+   - Remove access for unused accounts
+   - Verify least privilege principle
+
+TESTING STRATEGY
+---------------
+Security Tests:
+
+[ ] SSL/TLS configuration correct (A+ rating from Qualys)
+[ ] No PII in logs or responses
+[ ] All PII fields encrypted in database
+[ ] Row-level security prevents cross-tenant access
+[ ] Authentication required on all endpoints
+[ ] Invalid token rejected
+[ ] Expired token rejected
+[ ] JWT signature validation works
+[ ] Rate limiting triggered at threshold
+[ ] Rate limiting doesn't block legitimate users
+[ ] CORS headers prevent cross-origin requests
+[ ] CSRF tokens validated
+[ ] SQL injection attempts blocked
+[ ] XSS attempts blocked
+[ ] Audit logs complete and immutable
+[ ] Backup encryption working
+[ ] Encryption key rotation works
+[ ] Data export includes all user data
+[ ] Data export excludes other users
+[ ] Password policy enforced
+[ ] Account lockout after failed attempts
+[ ] Multi-factor auth working
+[ ] Session timeout after inactivity
+[ ] Failed auth attempts logged
+[ ] Unauthorized data access logged
+[ ] Penetration testing passes
+[ ] SAST scan shows no critical issues
+[ ] Dependency scan shows no vulnerabilities
+[ ] GDPR data subject requests work
+[ ] HIPAA audit trail complete
+
+COMPLIANCE CHECKLIST
+-------------------
+HIPAA Compliance:
+[ ] HIPAA Business Associate Agreement (BAA)
+[ ] Encryption at rest (AES-256)
+[ ] Encryption in transit (TLS 1.3)
+[ ] Access controls with RBAC
+[ ] Audit logging (6 years)
+[ ] No shared credentials
+[ ] Automatic logout (15 min)
+[ ] Workforce security procedures
+[ ] Breach notification plan
+[ ] Annual risk assessment
+[ ] Security awareness training
+[ ] Technical safeguards in place
+
+GDPR Compliance:
+[ ] Data Protection Agreement (DPA)
+[ ] Privacy notice provided
+[ ] Consent mechanism implemented
+[ ] Right to access working
+[ ] Right to deletion working
+[ ] Right to portability working
+[ ] Data processing agreements with vendors
+[ ] Privacy impact assessment
+[ ] Records of processing activities
+[ ] Sub-processor management
+[ ] Breach notification procedure
+[ ] Data retention policy
+
+CCPA Compliance (if US):
+[ ] Privacy notice provided
+[ ] Consumer rights implemented
+[ ] Opt-out mechanism available
+[ ] Verification process for requests
+[ ] Non-discrimination policy
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Encryption architecture designed and documented
+[ ] Key management strategy defined
+[ ] RBAC system implemented
+[ ] Audit logging complete
+[ ] Consent management working
+[ ] Breach notification procedure documented
+[ ] Vulnerability management plan in place
+[ ] Secure development standards established
+[ ] Infrastructure security measures in place
+[ ] Incident response plan written
+[ ] Staff training program established
+[ ] HIPAA compliance verified
+[ ] GDPR compliance verified
+[ ] Penetration test scheduled and passed
+[ ] Security audit completed
+[ ] Compliance certifications obtained (SOC 2)
+
+DELIVERABLES
+-----------
+1. Security Architecture Document
+2. Encryption Strategy & Key Management Plan
+3. Access Control Matrix (RBAC definitions)
+4. Audit Logging Specification
+5. Compliance Checklist (HIPAA/GDPR/CCPA)
+6. Incident Response Playbook
+7. Security Awareness Training Materials
+8. Vulnerability Management Procedure
+9. Data Breach Notification Template
+10. Security Policy Documentation
+
+DEPENDENCIES
+-----------
+BLOCKING: Authentication system, Database schema, Logging
+BLOCKS: Production deployment, Clinic operations, Vendor integrations
+
+RELATED TASKS
+-----------
+- Authentication & authorization
+- Database schema
+- Logging & monitoring
+- Infrastructure & DevOps
+- Compliance documentation
+
+NOTES
+-----
+Security is not a feature - it's a requirement.
+Budget 10-15% of development effort for security.
+Regular compliance audits are ongoing (not one-time).
+Healthcare data is valuable target for attacks.
+
+Timeline: Week 2-3 of Phase 0
+Priority: CRITICAL
+
+STATUS: Ready for implementation
+================================================================================

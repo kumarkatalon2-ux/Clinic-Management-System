@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinical Management System - Clinic Software</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #f8fafc;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    
+    .nav {
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .hero {
+      background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+      min-height: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin: 40px 0;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .card-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+    
+    .card-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 10px;
+    }
+    
+    .card-desc {
+      color: #64748b;
+      font-size: 15px;
+      margin-bottom: 15px;
+      line-height: 1.5;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(15, 118, 110, 0.3);
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: #0f766e;
+      border: 2px solid #0f766e;
+    }
+    
+    .btn-secondary:hover {
+      background: #f0fdfc;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      background: #10b981;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    
+    .benefit-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .benefit-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    
+    .benefit-text h4 {
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 5px;
+    }
+    
+    .benefit-text p {
+      color: #64748b;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav p-4 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <div class="text-2xl font-bold text-teal-700">
+        🏥 Clinical Management System
+      </div>
+      <div class="space-x-4">
+        <button class="btn btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Features</button>
+        <button class="btn btn-secondary" onclick="window.location.href='http://localhost:3000/login.html'">Sign In / Register</button>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Hero Section -->
+  <section class="hero">
+    <div>
+      <h1 class="text-6xl font-bold mb-4">Streamline Your Clinic Operations</h1>
+      <p class="text-xl mb-8 opacity-95">Complete clinical management system designed for modern healthcare providers</p>
+      <div class="space-x-4">
+        <button class="btn btn-primary" onclick="window.location.href='http://localhost:3000/login.html'">Get Started</button>
+        <button class="btn" style="background:rgba(255,255,255,0.2);color:white;border:2px solid white;" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Learn More</button>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Features Section -->
+  <section id="features" class="max-w-6xl mx-auto px-4 py-20">
+    <h2 class="text-4xl font-bold text-center mb-4 text-gray-900">Core Features</h2>
+    <p class="text-center text-gray-600 mb-12 text-lg">Everything you need to manage patient care efficiently</p>
+    <div class="dashboard-grid">
+      <div class="card">
+        <div class="card-icon">👥</div>
+        <div class="card-title">Patient Management</div>
+        <div class="card-desc">Centralized patient records with medical history, allergies, medications, and insurance information</div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <div class="card-title">Appointment Scheduling</div>
+        <div class="card-desc">Smart scheduling system with automatic conflict detection and appointment reminders</div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">💬</div>
+        <div class="card-title">Consultations</div>
+        <div class="card-desc">Document consultations with notes, diagnoses, and follow-up plans</div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">💊</div>
+        <div class="card-title">Prescription Management</div>
+        <div class="card-desc">Create and track prescriptions with refill management and medication history</div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">🧪</div>
+        <div class="card-title">Lab Results Tracking</div>
+        <div class="card-desc">Order lab tests and track results with automatic notifications</div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">💰</div>
+        <div class="card-title">Billing & Payments</div>
+        <div class="card-desc">Invoice management, payment processing, and insurance claims integration</div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Benefits Section -->
+  <section class="max-w-6xl mx-auto px-4 py-20 bg-white rounded-lg my-12 shadow-lg">
+    <h2 class="text-4xl font-bold text-center mb-4 text-gray-900">Why Choose Our System?</h2>
+    <p class="text-center text-gray-600 mb-12 text-lg">Built by healthcare professionals for healthcare professionals</p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+      <div>
+        <div class="benefit-item">
+          <div class="benefit-icon">⚡</div>
+          <div class="benefit-text">
+            <h4>Save Time</h4>
+            <p>Reduce administrative overhead and focus on patient care with automated workflows</p>
+          </div>
+        </div>
+        
+        <div class="benefit-item">
+          <div class="benefit-icon">🔒</div>
+          <div class="benefit-text">
+            <h4>HIPAA Compliant</h4>
+            <p>Enterprise-grade security with encryption, audit trails, and access controls</p>
+          </div>
+        </div>
+        
+        <div class="benefit-item">
+          <div class="benefit-icon">📊</div>
+          <div class="benefit-text">
+            <h4>Better Insights</h4>
+            <p>Real-time analytics and reporting to track clinic performance and patient outcomes</p>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="benefit-item">
+          <div class="benefit-icon">💻</div>
+          <div class="benefit-text">
+            <h4>Easy to Use</h4>
+            <p>Intuitive interface designed for busy healthcare professionals, minimal training required</p>
+          </div>
+        </div>
+        
+        <div class="benefit-item">
+          <div class="benefit-icon">🌍</div>
+          <div class="benefit-text">
+            <h4>Access Anywhere</h4>
+            <p>Cloud-based access from any device, anywhere - manage your clinic on the go</p>
+          </div>
+        </div>
+        
+        <div class="benefit-item">
+          <div class="benefit-icon">🤝</div>
+          <div class="benefit-text">
+            <h4>24/7 Support</h4>
+            <p>Dedicated support team ready to help you succeed</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- How It Works -->
+  <section class="max-w-6xl mx-auto px-4 py-20">
+    <h2 class="text-4xl font-bold text-center mb-12 text-gray-900">How It Works</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div class="text-center">
+        <div class="text-5xl font-bold text-teal-700 mb-4">1</div>
+        <h3 class="font-bold text-gray-900 mb-2">Register Patient</h3>
+        <p class="text-gray-600">Add patient information with medical history and insurance details</p>
+      </div>
+      
+      <div class="text-center">
+        <div class="text-5xl font-bold text-teal-700 mb-4">2</div>
+        <h3 class="font-bold text-gray-900 mb-2">Schedule Visits</h3>
+        <p class="text-gray-600">Book appointments with automatic conflict detection and reminders</p>
+      </div>
+      
+      <div class="text-center">
+        <div class="text-5xl font-bold text-teal-700 mb-4">3</div>
+        <h3 class="font-bold text-gray-900 mb-2">Manage Care</h3>
+        <p class="text-gray-600">Create prescriptions, order labs, and document consultations</p>
+      </div>
+      
+      <div class="text-center">
+        <div class="text-5xl font-bold text-teal-700 mb-4">4</div>
+        <h3 class="font-bold text-gray-900 mb-2">Process Payments</h3>
+        <p class="text-gray-600">Generate invoices and manage insurance claims effortlessly</p>
+      </div>
+    </div>
+  </section>
+  
+  <!-- CTA Section -->
+  <section class="bg-teal-700 text-white py-20">
+    <div class="max-w-6xl mx-auto px-4 text-center">
+      <h2 class="text-4xl font-bold mb-4">Ready to Streamline Your Clinic?</h2>
+      <p class="text-xl mb-8 opacity-95">Start managing your clinic more efficiently today</p>
+      <button class="btn btn-primary bg-white text-teal-700 hover:bg-gray-100" onclick="window.location.href='http://localhost:3000/login.html'">Get Started Today</button>
+    </div>
+  </section>
+  
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-white py-8">
+    <div class="max-w-6xl mx-auto px-4 text-center">
+      <p class="mb-4">Clinical Management System</p>
+      <p class="text-gray-400">Complete clinic management solution for modern healthcare providers</p>
+      <p class="text-gray-500 text-sm mt-4">© 2026 Clinical Management System. All rights reserved.</p>
+    </div>
+  </footer>
+  
+  <script>
+    // Check API health
+    async function checkHealth() {
+      try {
+        const response = await fetch('http://localhost:3000/health');
+        const data = await response.json();
+        console.log('Health check:', data);
+      } catch (e) {
+        console.log('Backend not yet responding');
+      }
+    }
+    
+    checkHealth();
+    setInterval(checkHealth, 10000);
+  </script>
+</body>
+</html>

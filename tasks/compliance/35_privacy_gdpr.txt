@@ -1,0 +1,503 @@
+================================================================================
+TASK 35: PRIVACY & GDPR COMPLIANCE
+================================================================================
+Module: Security Implementation
+Phase: Phase 1 - Implementation
+Priority: CRITICAL
+Effort Estimate: 30 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Tasks 32-34 (RBAC, Encryption, Audit)
+Blocking: None (completes security module)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Privacy & GDPR Compliance system implements privacy controls and regulatory
+compliance requirements. It includes Data Subject Access Request (DSAR) fulfillment,
+right-to-erasure (right-to-be-forgotten), data portability, consent management,
+privacy notices, and compliance automation. The system supports GDPR, CCPA, HIPAA,
+and other privacy regulations with technical and organizational measures.
+
+Key Responsibilities:
+- Privacy policy and notice management
+- Consent collection and tracking (opt-in, opt-out)
+- Data Subject Access Request (DSAR) fulfillment
+- Right-to-erasure (right-to-be-forgotten) processing
+- Data portability (export in standard format)
+- Privacy impact assessment and documentation
+- Cross-border data transfer compliance
+- Third-party data processor management
+- Privacy breach notification
+- Regulatory compliance tracking
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 CONSENT MANAGEMENT
+Consent Types:
+- Marketing consent: Can clinic contact patient with marketing?
+- Research consent: Can patient data be used for research?
+- Data sharing consent: Can clinic share data with other providers?
+- Telehealth consent: Consent to use telehealth services?
+- Third-party sharing: Can data be shared with payment processor, analytics?
+
+Consent Collection:
+- At patient registration: Collect initial consents
+- Ongoing: Allow patient to update consents anytime
+- Portal: Patient can view/modify consents
+- Audit trail: Track what consent was given, when, by whom
+- Revocation: Patient can revoke consent anytime
+
+Consent Enforcement:
+- Marketing: Only send marketing if patient consented
+- Research: Only use data for research if consented
+- Email/SMS: Only contact via channels patient consented to
+- Third-party: Only share data with processors if consented
+- Logging: All consent decisions logged (audit trail)
+
+2.2 DATA SUBJECT ACCESS REQUEST (DSAR)
+Patient Request Process:
+1. Patient submits request: Via portal, email, or phone
+2. Identification: Verify patient identity (security question, DOB match)
+3. Request logged: Record request time, date, requestor identity
+4. Deadline: GDPR requires 45-day response deadline
+5. Acknowledgment: Send confirmation email with timeline
+
+Data Collection:
+1. Collect all data: Query all systems for patient data
+2. Include audit trail: Show who accessed patient data
+3. De-identify where possible: Remove names from audit logs except direct providers
+4. Format: Provide in machine-readable format (JSON, CSV, XML)
+5. Organize: Group by category (medical, financial, communications)
+
+Data Export:
+- Medical record: All consultations, diagnoses, prescriptions, lab results
+- Financial: All charges, payments, invoices, insurance claims
+- Communications: All messages, appointment reminders, notifications
+- Access history: Who accessed records and when (audit trail)
+- Preferences: Consent preferences, communication preferences
+
+Delivery:
+1. Generate export file (encrypted, password protected)
+2. Verify completeness: Ensure all patient data included
+3. Deliver: Email or portal download
+4. Confirmation: Log delivery date, time, recipient
+5. Retention: Keep copy of export for legal hold (if needed)
+
+2.3 RIGHT-TO-ERASURE (RIGHT-TO-BE-FORGOTTEN)
+Erasure Request Process:
+1. Patient request: "Delete all data about me"
+2. Verification: Confirm patient identity
+3. Legal review: Check if deletion legally permissible (medical, financial retention laws)
+4. Scope: Determine what can be deleted vs archived
+
+Data Erasure Categories:
+- Must delete: Marketing data, research data, unnecessary contact info
+- Can't delete: Medical records (legal retention 5-7 years)
+- Archive: Financial records (legal retention 7 years)
+- Anonymous: De-identify where possible instead of delete
+
+Erasure Execution:
+1. Query all systems: Find all patient data
+2. Check dependencies: Any records referencing this patient?
+3. Delete/archive: Execute deletion for permitted data
+4. Crypto-shred: Destroy encryption keys for deleted data (unrecoverable)
+5. Verify: Confirm deletion complete, impossible to recover
+6. Report: Send deletion confirmation to patient
+
+Exceptions:
+- Legal obligation: Medical records, financial records (retention required)
+- Legitimate interests: Patient safety (ongoing treatment records)
+- Consent withdrawal: Archive data, don't allow new processing
+
+2.4 DATA PORTABILITY
+Patient Data Export:
+- Format: Machine-readable (CSV, JSON, XML, HL7 for medical data)
+- Content: All patient data in structured format
+- Completeness: Every data field patient generated or provided
+- Accuracy: Verified against source systems
+
+Export Structure:
+- Patient demographics: Name, DOB, contact info
+- Medical data: Diagnoses, medications, allergies, lab results, notes
+- Financial: Charges, payments, insurance info
+- Communication: Messages, appointment history
+- Preferences: Consent, communication preferences
+
+Transfer to Another Provider:
+- Standard format: Use HL7 or FHIR standards
+- Direct transfer: Clinic can transfer directly if other provider accepts format
+- Patient manual: Patient can download and provide to another provider
+- Common format: Ensures interoperability (can switch providers easily)
+
+2.5 PRIVACY BY DESIGN
+Data Minimization:
+- Collect only necessary data: Don't collect unnecessary info
+- Deletion: Delete data when no longer needed
+- Purpose limitation: Only use data for stated purpose
+- Access control: Only users who need access can see data
+
+Privacy Impact Assessment (PIA):
+- New system: Assess privacy risks before implementing
+- Data processing: Evaluate any new data processing activity
+- Identify risks: What could go wrong?
+- Mitigation: How to reduce privacy risks?
+- Documentation: Create PIA report for regulators
+
+Accountability:
+- Data Protection Officer (DPO): Responsible for GDPR compliance
+- Privacy by design: Build privacy into systems from start
+- Privacy policy: Clear communication to patients
+- Training: Staff trained on privacy requirements
+
+2.6 CONSENT & PREFERENCE MANAGEMENT
+Dynamic Consent:
+- Patient portal: Patient can modify preferences anytime
+- Granular: Separate consents per category (marketing, research, etc.)
+- Channel preferences: Patient can choose communication channels (SMS vs email)
+- Frequency: Patient can set communication frequency
+- Opt-out: Easy one-click unsubscribe from communications
+
+Preference Tracking:
+- Consent log: Timestamp of when consent given/revoked
+- Source: How consent was given (portal, form, email)
+- Scope: What specifically was consented to
+- Audit: Who authorized the preference change
+- Evidence: Keep evidence of consent for legal compliance
+
+2.7 BREACH NOTIFICATION
+Breach Detection:
+- Unauthorized access: Security logs show unauthorized data access
+- Data loss: Data goes missing or stolen
+- Ransomware: Systems encrypted, data held for ransom
+- Insider threat: Employee steals or modifies data
+
+Breach Investigation:
+1. Scope: Determine what data was breached
+2. Access: Who had access? When? What did they access?
+3. Impact: How many patients affected?
+4. Cause: How did breach happen? What failed?
+5. Timeline: When discovered? When did breach occur?
+
+Notification Process:
+1. Assess: Is breach likely to harm individuals?
+2. Notify: If high risk, notify affected patients
+3. Regulators: Notify regulatory authority (GDPR requires <72 hours)
+4. Media: Public notice if >500 patients affected (vary by state)
+5. Credit monitoring: Offer credit monitoring if PII breached
+
+Notification Content:
+- What happened: Clear description of breach
+- When: When breach discovered, approximate breach date
+- Data involved: What data was accessed/stolen
+- Steps taken: What company did to contain breach
+- Recommendations: Steps patients should take (monitor credit, etc.)
+- Contact: How to get more information
+
+2.8 COMPLIANCE DOCUMENTATION
+Privacy Policy:
+- Plain language: Understandable to average person
+- Comprehensive: Cover all data processing activities
+- Updates: Keep current (reviewed annually minimum)
+- Transparent: Be honest about data usage
+
+Data Processing Agreements (DPA):
+- With third parties: Require privacy protection in contracts
+- Processors: Payment processors, analytics providers, cloud hosts
+- Sub-processors: Who the processor uses (must approve)
+- Compliance: Ensure third parties meet privacy requirements
+
+Regulatory Compliance:
+- GDPR: All GDPR rights respected (EU residents)
+- CCPA: All CCPA rights respected (California residents)
+- HIPAA: All HIPAA requirements met (healthcare specific)
+- State laws: Vary by state (NY, VA, etc. have specific privacy laws)
+- Industry: Healthcare privacy highly regulated
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: patient_consents
+- consent_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- consent_type (ENUM: "marketing", "research", "data_sharing", "telehealth", "third_party")
+- consent_given (BOOLEAN)
+- consent_date (TIMESTAMP)
+- consent_expires_at (TIMESTAMP, nullable)
+- channel_preference (ENUM: "email", "sms", "phone", "mail", "none")
+- frequency_preference (ENUM: "daily", "weekly", "monthly", "yearly")
+- source (ENUM: "portal", "paper_form", "phone", "other")
+- consented_by (VARCHAR, e.g., patient or legal guardian)
+- notes (TEXT, nullable)
+- INDEX: (patient_id, consent_type)
+
+TABLE: dsar_requests
+- request_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- request_date (TIMESTAMP)
+- requestor_email (VARCHAR)
+- request_status (ENUM: "received", "processing", "ready", "delivered", "closed")
+- response_deadline (DATE, GDPR: 45 days)
+- response_date (TIMESTAMP, nullable)
+- export_file_location (VARCHAR, nullable)
+- delivered_date (TIMESTAMP, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, request_status)
+
+TABLE: erasure_requests
+- erasure_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- request_date (TIMESTAMP)
+- erasure_status (ENUM: "pending_review", "approved", "in_progress", "completed", "denied")
+- legal_review_notes (TEXT)
+- deletion_scope (JSONB, list of what will be deleted)
+- archive_scope (JSONB, list of what will be archived)
+- completion_date (TIMESTAMP, nullable)
+- verified_by (UUID, FK → users, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, erasure_status)
+
+TABLE: privacy_preferences
+- preference_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- communication_channel (ENUM: "email", "sms", "phone", "mail")
+- opt_in (BOOLEAN, true = allow, false = do not contact)
+- updated_at (TIMESTAMP)
+- updated_by (VARCHAR, e.g., "patient" or user_id)
+- INDEX: (patient_id, communication_channel)
+
+TABLE: breach_reports
+- breach_id (UUID, PK)
+- discovery_date (TIMESTAMP)
+- breach_type (ENUM: "unauthorized_access", "data_loss", "ransomware", "insider_threat")
+- description (TEXT)
+- data_categories (JSONB, what data was compromised)
+- affected_patients (INT)
+- investigation_status (ENUM: "investigating", "contained", "resolved")
+- notification_status (ENUM: "pending", "notified_patients", "notified_regulators")
+- created_at (TIMESTAMP)
+- INDEX: (discovery_date, investigation_status)
+
+TABLE: privacy_impact_assessments
+- pia_id (UUID, PK)
+- project_name (VARCHAR)
+- data_processing (TEXT)
+- privacy_risks (TEXT)
+- mitigation_measures (TEXT)
+- assessment_date (DATE)
+- assessor (VARCHAR)
+- status (ENUM: "draft", "reviewed", "approved")
+- approved_by (UUID, FK → users, nullable)
+- created_at (TIMESTAMP)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 PATIENT CONSENT API
+
+POST /api/v1/patient/consent
+Body: { consent_type, consent_given, channel_preference }
+Response: Consent recorded
+
+GET /api/v1/patient/consent
+Response: Patient's current consent preferences
+
+PUT /api/v1/patient/consent/{consent_id}
+Body: Updated consent preference
+
+4.2 DSAR FULFILLMENT API
+
+POST /api/v1/patient/dsar-request
+Body: { proof_of_identity (optional) }
+Response: Request submitted, acknowledgment sent
+
+GET /api/v1/patient/dsar-request/{request_id}
+Response: DSAR status and download link when ready
+
+GET /api/v1/admin/dsar-requests
+Query: status, date_range
+Response: List of pending DSAR requests
+
+4.3 ERASURE API
+
+POST /api/v1/patient/erasure-request
+Body: { reason }
+Response: Request submitted for review
+
+GET /api/v1/admin/erasure-requests
+Query: status
+Response: List of erasure requests pending approval
+
+PUT /api/v1/admin/erasure-requests/{erasure_id}/approve
+
+4.4 PRIVACY PREFERENCES API
+
+POST /api/v1/patient/privacy-preferences
+Body: { channel, opt_in }
+
+GET /api/v1/patient/unsubscribe
+Query: email_address, token
+Response: Unsubscribe processing
+
+4.5 BREACH NOTIFICATION API
+
+POST /api/v1/admin/breach-report
+Body: { breach_type, description, affected_patient_count }
+Response: Breach investigation initiated
+
+PUT /api/v1/admin/breach-report/{breach_id}/notify
+Body: { notify_patients, notify_regulators }
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 PRIVACY TECHNOLOGY
+- Cookie consent: Cookie banner for web tracking
+- Email unsubscribe: One-click unsubscribe from emails
+- Privacy dashboard: Patient portal for consent and privacy management
+- Consent management platform: Manage consents at scale
+- Data mapping: Identify all patient data across systems
+
+5.2 INTEGRATIONS
+- Analytics: Respect Do-Not-Track, consent-based tracking
+- Marketing: Only contact consented patients
+- Email service: Honor unsubscribe requests
+- Cookies: Only set cookies if consented
+- Webhooks: Alert when patient modifies consent
+
+5.3 DOCUMENTATION
+- Privacy policy: Updated annually, linked from website
+- Terms of service: Covers data processing
+- Cookie policy: Specific to cookies used
+- DPA: Data processing agreement with vendors
+- SORN: Statement of Reason (healthcare specific)
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 DSAR FULFILLMENT WORKFLOW
+1. Patient submits request (portal or email)
+2. System verifies identity (security questions)
+3. Request logged with deadline (45 days GDPR)
+4. Data collected from all systems
+5. Export generated (encrypted, password protected)
+6. Quality check (completeness, accuracy)
+7. Delivered to patient
+8. Confirmation logged
+9. Archive copy retained (legal hold)
+
+6.2 ERASURE WORKFLOW
+1. Patient requests erasure
+2. Legal review (what can/can't be deleted)
+3. Scope identified (delete vs archive)
+4. Data deleted/archived
+5. Crypto-shred (encryption keys destroyed)
+6. Verification (data unrecoverable)
+7. Confirmation sent to patient
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (14+ test cases):
+- Consent application logic
+- DSAR data collection
+- Erasure scope calculation
+- Privacy preference enforcement
+
+Integration Tests (12+ test cases):
+- End-to-end DSAR workflow
+- Erasure verification
+- Breach notification
+- Consent preference enforcement in marketing
+
+Compliance Tests (10+ test cases):
+- GDPR compliance: DSAR within 45 days
+- Right-to-erasure: Data unrecoverable after deletion
+- CCPA compliance: Opt-out honored
+- Data portability: Exported in standard format
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. DSAR response within 45 days (GDPR)
+2. Data export in machine-readable format
+3. Right-to-erasure implemented and verified
+4. Consent preferences enforced
+5. Breach notification process automated
+6. Privacy policy accessible and current
+7. DPA in place with all third parties
+8. GDPR compliance verified by audit
+9. CCPA compliance verified by audit
+10. Patient consent tracking 100% accurate
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Consent management system
+2. DSAR fulfillment workflow
+3. Right-to-erasure implementation
+4. Data portability (standard format export)
+5. Privacy policy and notices
+6. DPA management system
+7. Breach notification process
+8. Privacy preference dashboard
+9. Compliance documentation
+10. Privacy Impact Assessment (PIA) templates
+11. Regulatory compliance automation
+12. Admin APIs for privacy management
+
+Dependencies:
+- Tasks 1-10 (Phase 0)
+- Tasks 32-34 (RBAC, Encryption, Audit)
+
+Blockers For:
+- None (final security task)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design: 3 hours (privacy architecture, workflow design)
+Development: 16 hours (consent, DSAR, erasure, preferences)
+Testing: 7 hours (compliance tests, integration tests)
+Documentation: 3 hours (privacy policy, DPA, compliance docs)
+Contingency: 1 hour (5%)
+
+Total: 30 hours (1 developer, 1 week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: DSAR not delivered within deadline
+Mitigation: Automated workflow, deadline tracking, escalation alerts
+
+Risk: Erasure incomplete or data recoverable
+Mitigation: Verification process, crypto-shred verification, audits
+
+Risk: Breach notification delayed
+Mitigation: Automated detection, alert system, escalation procedures
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- DSAR response time: <45 days GDPR compliance
+- Erasure success: 100% data unrecoverable
+- Consent accuracy: 100% accurate tracking
+- Breach notification: <72 hours per GDPR
+- Audit success: 100% pass GDPR/CCPA/HIPAA compliance
+- Patient satisfaction: >4/5 stars on privacy controls
+
+================================================================================

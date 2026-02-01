@@ -1,0 +1,1153 @@
+================================================================================
+TASK 24: CLINICAL NOTES - PROGRESS NOTES, ASSESSMENTS & CLINICAL DOCUMENTATION
+================================================================================
+
+Project: Clinical Management SaaS - Phase 1 (Clinical Workflows)
+Category: Clinical Operations - Clinical Documentation
+Priority Level: CRITICAL
+Effort Estimate: 30 hours
+Timeline: 4-5 days (1 developer), 2-3 days (2 developers)
+
+Depends On:
+  - Task 21: Consultation Module (consultation data foundation)
+  - Task 22: Prescription System (prescriptions documented in notes)
+  - Task 23: Diagnosis Recording (diagnoses referenced in notes)
+  - Task 13: Medical History (medical history context)
+
+Blocks:
+  - Task 28: Analytics/Reporting (note data for reporting)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+Implement comprehensive clinical note system enabling doctors to create, 
+document, and manage progress notes, clinical assessments, and procedural notes. 
+System must support multiple note templates (SOAP format, H&P, procedure notes), 
+auto-populate from consultation data, enable narrative documentation, and 
+provide structured templates for consistency. Support draft creation, auto-save, 
+collaborative editing with care team, digital signatures, and HIPAA-compliant 
+audit trails. Integrate with clinical decision support for evidence-based 
+recommendations and enable full-text search for historical note retrieval.
+
+Expected Outcome:
+- Complete note lifecycle from creation → documentation → finalization → archival
+- Multiple note types supported (SOAP, H&P, procedure, discharge)
+- Auto-population from consultation, diagnosis, prescription data
+- Structured templates for consistency and quality
+- Full-text search and note retrieval
+- HIPAA-compliant signatures and audit trails
+- Integration with clinical decision support
+
+================================================================================
+2. BUSINESS LOGIC EXPLANATION
+================================================================================
+
+CLINICAL NOTE TYPES:
+
+SOAP Note (Subjective, Objective, Assessment, Plan):
+  Subjective (S): Patient's reported history and symptoms
+    ├─ Chief complaint: Why patient came in
+    ├─ History of present illness (HPI): Detailed story of symptoms
+    │  ├─ Location (where is the symptom)
+    │  ├─ Quality (what does it feel like)
+    │  ├─ Severity (1-10 pain scale)
+    │  ├─ Duration (how long)
+    │  ├─ Onset (when did it start)
+    │  ├─ Context (what were you doing when it started)
+    │  ├─ Modifying factors (what makes it better/worse)
+    │  └─ Associated symptoms (other symptoms present)
+    ├─ Past medical history (PMH): Prior illnesses, surgeries
+    ├─ Medications: Current medication list
+    ├─ Allergies: Drug allergies, food allergies
+    ├─ Social history: Smoking, alcohol, occupational exposure
+    ├─ Family history: Family health conditions
+    └─ Review of systems (ROS): Screen for other symptoms
+
+  Objective (O): Doctor's findings and measurements
+    ├─ Vital signs: BP, HR, Temperature, O2 Sat, RR
+    ├─ Physical examination findings
+    │  ├─ General: Appearance, distress level
+    │  ├─ HEENT: Eyes, ears, nose, throat
+    │  ├─ Cardiovascular: Heart sounds, murmurs
+    │  ├─ Respiratory: Lung sounds, wheezing
+    │  ├─ Abdominal: Palpation findings
+    │  └─ Neurological: Mental status, reflexes
+    ├─ Laboratory results: Blood tests, cultures
+    └─ Imaging results: X-rays, CT scans, ultrasounds
+
+  Assessment (A): Doctor's clinical interpretation
+    ├─ Diagnosis/diagnoses (primary and secondary)
+    ├─ Clinical impression: Doctor's interpretation of findings
+    ├─ Differential diagnosis: Alternative possibilities
+    ├─ Severity assessment: Mild, moderate, severe
+    ├─ Clinical status: Improving, stable, worsening
+    └─ Associated comorbidities: Other conditions affecting this patient
+
+  Plan (P): Treatment plan and next steps
+    ├─ Medications: Prescriptions (dose, frequency, duration)
+    ├─ Diagnostic tests: Lab orders, imaging orders
+    ├─ Procedures: Procedures to be performed or referred
+    ├─ Referrals: Specialist consultations needed
+    ├─ Follow-up: When to follow up (1 week, 2 weeks, PRN)
+    ├─ Patient education: Teaching provided
+    ├─ Preventive measures: Vaccination, screening recommendations
+    └─ Disposition: Disposition (discharge home, admission, ER)
+
+History & Physical (H&P) Note:
+  - Comprehensive initial visit documentation
+  - More detailed than SOAP (extended history and physical)
+  - Typical length: 2-5 pages
+  - Components:
+    ├─ Identifying information (name, age, sex, date)
+    ├─ Chief complaint
+    ├─ History of present illness (detailed 1-2 pages)
+    ├─ Past medical history (comprehensive list)
+    ├─ Medications (full list with doses)
+    ├─ Allergies
+    ├─ Social history (detailed)
+    ├─ Family history (comprehensive family tree)
+    ├─ Review of systems (complete)
+    ├─ Physical examination (comprehensive)
+    ├─ Laboratory/imaging results
+    ├─ Assessment
+    ├─ Differential diagnosis
+    ├─ Plan
+    └─ Problem list
+
+Procedure Note:
+  - Documentation of procedures performed
+  - Format: Indication, technique, findings, complications, plan
+  - Types:
+    ├─ Surgical procedure note (operation report)
+    ├─ Procedural note (biopsy, injection, minor procedure)
+    ├─ Interventional radiology note
+    └─ Pathology/lab procedure note
+
+Discharge Summary:
+  - Documentation for patient leaving hospital
+  - Format: Admission diagnosis, hospital course, discharge diagnosis, plan
+  - Components:
+    ├─ Reason for hospitalization
+    ├─ Hospital course (what happened during stay)
+    ├─ Procedures performed
+    ├─ Medications at discharge
+    ├─ Discharge diagnosis (confirmed diagnosis at discharge)
+    ├─ Discharge instructions (activity restrictions, diet, wound care)
+    ├─ Follow-up appointments (needed)
+    ├─ Medications at discharge (new or continued)
+    └─ Patient/family education provided
+
+Consultation Note:
+  - Requested consultation from specialist
+  - Format: Referral reason, findings, recommendations, plan
+  - Components:
+    ├─ Reason for consultation
+    ├─ History relevant to consultation question
+    ├─ Examination findings
+    ├─ Relevant test results
+    ├─ Assessment and recommendations
+    ├─ Consultee's plan
+    └─ When to follow up / report back to PCP
+
+DOCUMENTATION WORKFLOW:
+
+Step 1: Note Initiation
+  └─ Doctor selects note type (SOAP, H&P, Procedure, Discharge, Consultation)
+  └─ Patient and encounter context auto-populated
+  └─ Template selected (standard SOAP, modified SOAP, clinic-specific)
+  └─ Auto-population from consultation data:
+     ├─ Chief complaint from consultation
+     ├─ Vital signs from consultation
+     ├─ Medications from patient record
+     ├─ Allergies from patient record
+     ├─ Diagnosis from consultation
+     ├─ Assessment from consultation
+     └─ Plan from consultation
+
+Step 2: Narrative Documentation
+  └─ Doctor enters subjective information:
+     ├─ Chief complaint (auto-populated)
+     ├─ History of present illness (manual entry or voice-to-text)
+     ├─ Past medical history (auto-populated from record)
+     ├─ Medications (auto-populated from current meds)
+     ├─ Allergies (auto-populated from known allergies)
+     ├─ Social history (manual or templated)
+     └─ Review of systems (templated or manual)
+  └─ Doctor enters objective findings:
+     ├─ Vital signs (auto-populated if entered during consultation)
+     ├─ Physical exam findings (structured templates or narrative)
+     ├─ Lab/imaging results (retrieved from lab/imaging system)
+     └─ Diagnostic test results
+
+Step 3: Assessment Documentation
+  └─ Auto-populated from consultation assessment
+  └─ Diagnosis codes auto-populated
+  └─ Severity assessment auto-populated
+  └─ Doctor reviews and modifies as needed
+
+Step 4: Plan Documentation
+  └─ Auto-populated from consultation plan
+  └─ Prescriptions referenced (links to actual prescriptions)
+  └─ Orders referenced (lab orders, imaging orders)
+  └─ Referrals included
+  └─ Follow-up scheduled
+
+Step 5: Template Application
+  └─ System applies clinic/provider-specific templates
+  └─ Formatting applied (fonts, headers, spacing)
+  └─ Standard sections enforced (complete documentation)
+  └─ Optional sections marked (can be added if needed)
+
+Step 6: Auto-Save & Draft Management
+  └─ Auto-save every 30 seconds (non-blocking)
+  └─ Draft version managed
+  └─ Recovery from browser crash/network interruption
+  └─ User can restore from auto-saved versions
+
+Step 7: Clinical Review & Modification
+  └─ Doctor reviews complete note:
+     ├─ Verify auto-populated data correct
+     ├─ Modify sections as needed
+     ├─ Add/remove sections as appropriate
+     └─ Check for completeness (all required fields filled)
+  └─ Spell-check and grammar check applied
+  └─ Template compliance verified
+
+Step 8: Attestation & Signature
+  └─ Doctor applies electronic signature:
+     ├─ Biometric (fingerprint/face)
+     ├─ PIN (numeric code)
+     ├─ Password (complex password)
+     └─ Time-stamped
+  └─ Note status changed to FINALIZED
+  └─ Note locked from editing
+  └─ Audit trail records signer and time
+
+Step 9: Patient Visibility
+  └─ Note made available to patient (if configured):
+     ├─ Immediate visibility or delayed (24-72 hours)
+     ├─ Option to redact sensitive sections
+     └─ Patient notification sent
+  └─ Patient can request clarification
+
+Step 10: Provider Access & Sharing
+  └─ All providers can access note:
+     ├─ Read-only access to finalized notes
+     ├─ Audit trail tracks who viewed note
+     └─ Note appears in patient timeline
+
+CLINICAL NOTE STANDARDS:
+
+Note Quality Standards:
+  ├─ Complete: All required sections present and filled
+  ├─ Accurate: Findings match actual clinical observations
+  ├─ Timely: Documented same day or within 24 hours
+  ├─ Legible: Clear handwriting or typed (no illegible handwriting)
+  ├─ Signed: Electronically signed by provider
+  ├─ Compliant: Meets medical record standards
+  └─ Professional: Appropriate tone, no inappropriate comments
+
+SOAP Note Completeness Criteria:
+  ├─ S (Subjective): Chief complaint and HPI present
+  ├─ O (Objective): Vital signs and exam findings documented
+  ├─ A (Assessment): Diagnoses documented with reasoning
+  ├─ P (Plan): Treatment plan and follow-up documented
+  └─ All provider attestation and signature present
+
+Note Timeliness Requirements:
+  ├─ Office visits: Signed within 24 hours
+  ├─ Hospital consultations: Signed within 12 hours
+  ├─ Emergency department: Signed within 4 hours
+  ├─ Procedures: Signed within 24 hours
+  └─ Discharge summaries: Sent to receiving provider within 24 hours
+
+================================================================================
+3. DATA MODEL DEFINITION
+================================================================================
+
+TABLE: clinical_notes
+  note_id (UUID, PK)
+  patient_id (UUID, FK → patients)
+  doctor_id (UUID, FK → doctors)
+  clinic_id (UUID, FK → clinics)
+  appointment_id (UUID, FK → appointments, nullable)
+  consultation_id (UUID, FK → consultations, nullable)
+  note_type (ENUM: SOAP, HPA, PROCEDURE, DISCHARGE, CONSULTATION, OTHER)
+  template_id (UUID, FK → note_templates, nullable)
+  status (ENUM: DRAFT, IN_PROGRESS, COMPLETED, FINALIZED, REVIEWED, ARCHIVED)
+  title (VARCHAR)
+  created_at (TIMESTAMP)
+  started_at (TIMESTAMP)
+  completed_at (TIMESTAMP)
+  signed_at (TIMESTAMP, nullable)
+  signed_by (UUID, FK → doctors, nullable)
+  last_updated_at (TIMESTAMP)
+  is_visible_to_patient (BOOLEAN, default false)
+  patient_visibility_timestamp (TIMESTAMP, nullable)
+  visibility_delay_hours (INT, default 24)
+  requires_cosignature (BOOLEAN, default false) - attending sign off
+  cosigned_at (TIMESTAMP, nullable)
+  cosigned_by (UUID, FK → doctors, nullable)
+  metadata (JSONB) - template-specific metadata
+  version (INT, default 1) - version tracking for amendments
+
+TABLE: clinical_note_sections
+  section_id (UUID, PK)
+  note_id (UUID, FK → clinical_notes)
+  section_type (ENUM: SUBJECTIVE, OBJECTIVE, ASSESSMENT, PLAN, ADDITIONAL_INFO)
+  section_title (VARCHAR)
+  section_content (TEXT)
+  sort_order (INT)
+  is_mandatory (BOOLEAN)
+  is_completed (BOOLEAN)
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+
+TABLE: clinical_note_fields
+  field_id (UUID, PK)
+  note_section_id (UUID, FK → clinical_note_sections)
+  field_type (ENUM: TEXT, TEXTAREA, CHECKBOX, SELECT, DATE, NUMERIC, REFERENCE)
+  field_label (VARCHAR)
+  field_value (TEXT)
+  is_auto_populated (BOOLEAN)
+  auto_populate_source (VARCHAR) - "consultation", "patient_record", "lab_system"
+  is_required (BOOLEAN)
+  validation_rules (JSONB)
+  sort_order (INT)
+  created_at (TIMESTAMP)
+
+TABLE: note_templates
+  template_id (UUID, PK)
+  clinic_id (UUID, FK → clinics)
+  template_name (VARCHAR)
+  note_type (ENUM: SOAP, HPA, PROCEDURE, DISCHARGE, CONSULTATION)
+  is_clinic_standard (BOOLEAN)
+  template_structure (JSONB) - sections, fields, formatting
+  auto_population_rules (JSONB) - what fields auto-populate from where
+  required_sections (VARCHAR, array)
+  optional_sections (VARCHAR, array)
+  formatting_rules (JSONB) - fonts, headers, spacing
+  is_active (BOOLEAN)
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+
+TABLE: clinical_note_references
+  reference_id (UUID, PK)
+  note_id (UUID, FK → clinical_notes)
+  reference_type (ENUM: DIAGNOSIS, MEDICATION, LAB_RESULT, IMAGING_RESULT, CONSULTATION, APPOINTMENT)
+  referenced_entity_id (UUID)
+  reference_text (TEXT) - display text for reference
+  created_at (TIMESTAMP)
+
+TABLE: clinical_note_drafts
+  draft_id (UUID, PK)
+  note_id (UUID, FK → clinical_notes)
+  doctor_id (UUID, FK → doctors)
+  draft_content (JSONB) - semi-structured draft sections
+  last_auto_saved_at (TIMESTAMP)
+  is_recovery_draft (BOOLEAN) - recovered from crash/network interruption
+
+TABLE: clinical_note_audit_log
+  audit_id (UUID, PK)
+  note_id (UUID, FK → clinical_notes)
+  action (ENUM: CREATED, MODIFIED, VIEWED, SIGNED, FINALIZED, SHARED, ARCHIVED)
+  performed_by (UUID, FK → doctors)
+  performed_at (TIMESTAMP)
+  details (JSONB) - what changed, new values, old values
+  ip_address (VARCHAR)
+  device_info (VARCHAR)
+
+TABLE: clinical_note_amendments
+  amendment_id (UUID, PK)
+  original_note_id (UUID, FK → clinical_notes)
+  amendment_note_id (UUID, FK → clinical_notes, nullable)
+  amendment_reason (VARCHAR)
+  amendment_type (ENUM: ADDITION, CORRECTION, CLARIFICATION)
+  amendment_description (TEXT)
+  requested_by (UUID, FK → doctors)
+  requested_at (TIMESTAMP)
+  amended_by (UUID, FK → doctors, nullable)
+  amended_at (TIMESTAMP, nullable)
+  status (ENUM: PENDING, APPROVED, REJECTED, COMPLETED)
+
+================================================================================
+4. API LAYER SPECIFICATION
+================================================================================
+
+ENDPOINT: POST /api/v1/clinical-notes
+Description: Create new clinical note
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "appointment_id": "uuid (optional - if from appointment)",
+  "consultation_id": "uuid (optional - if from consultation)",
+  "note_type": "SOAP",
+  "template_id": "uuid (optional - use clinic default if not specified)",
+  "auto_populate_from_consultation": true
+}
+Response (201):
+{
+  "note_id": "uuid",
+  "patient_id": "uuid",
+  "appointment_id": "uuid",
+  "note_type": "SOAP",
+  "status": "DRAFT",
+  "created_at": "2026-01-31T14:30:00Z",
+  "auto_populated_sections": {
+    "chief_complaint": "Persistent cough for 5 days",
+    "vital_signs": "BP 130/85, HR 78, Temp 37.2, O2 98%",
+    "current_medications": [...],
+    "allergies": [...],
+    "assessment": "Suspected acute bronchitis",
+    "plan": "Antibiotic therapy, follow-up in 1 week"
+  },
+  "template_fields": [...]
+}
+
+---
+
+ENDPOINT: GET /api/v1/clinical-notes/{note_id}
+Description: Retrieve clinical note content
+Authorization: ROLE_DOCTOR, ROLE_PATIENT (own data), ROLE_NURSE
+Response (200):
+{
+  "note_id": "uuid",
+  "patient_id": "uuid",
+  "note_type": "SOAP",
+  "status": "FINALIZED",
+  "signed_at": "2026-01-31T15:30:00Z",
+  "signed_by": "uuid (Dr. Smith)",
+  "title": "Office Visit - Acute Bronchitis",
+  "sections": {
+    "subjective": {
+      "chief_complaint": "Persistent cough for 5 days",
+      "hpi": "Patient reports onset of dry cough 5 days ago, now productive of green sputum. Associated with fever, fatigue, and malaise.",
+      "past_medical_history": "Hypertension, Type 2 diabetes",
+      "medications": [...],
+      "allergies": "Penicillin (anaphylaxis)",
+      "social_history": "Former smoker, quit 5 years ago",
+      "family_history": "Mother: diabetes, Father: hypertension"
+    },
+    "objective": {
+      "vital_signs": "BP 130/85, HR 78, Temp 37.2°C, O2 Sat 98%, RR 16, BMI 25.9",
+      "physical_exam": "Lung exam: bilateral wheezing, no crackles. Otherwise unremarkable.",
+      "lab_results": [],
+      "imaging_results": "Chest X-ray: mild infiltrate right lower lobe"
+    },
+    "assessment": {
+      "primary_diagnosis": {
+        "icd10": "J20.9",
+        "description": "Acute bronchitis, unspecified"
+      },
+      "severity": "MODERATE",
+      "clinical_impression": "Patient with clinical presentation consistent with acute bronchitis."
+    },
+    "plan": {
+      "medications": [
+        {
+          "medication": "Amoxicillin-Clavulanate 875-125mg",
+          "dose": "875 mg",
+          "route": "PO",
+          "frequency": "BID",
+          "duration": "7 days",
+          "prescription_id": "uuid"
+        }
+      ],
+      "testing": [],
+      "referrals": [],
+      "follow_up": "1 week, sooner if worsening",
+      "patient_education": [
+        "Rest and avoid strenuous activity",
+        "Stay hydrated",
+        "Avoid smoking"
+      ]
+    }
+  },
+  "is_visible_to_patient": true,
+  "audit_trail": [
+    {"action": "CREATED", "timestamp": "...", "by": "Dr. Smith"},
+    {"action": "SIGNED", "timestamp": "...", "by": "Dr. Smith"}
+  ]
+}
+
+---
+
+ENDPOINT: PUT /api/v1/clinical-notes/{note_id}/section/{section_id}
+Description: Update clinical note section
+Authorization: ROLE_DOCTOR (if note still DRAFT/IN_PROGRESS)
+Request Body:
+{
+  "section_content": "Updated subjective section with additional history"
+}
+Response (200):
+{
+  "section_id": "uuid",
+  "note_id": "uuid",
+  "status": "UPDATED",
+  "last_updated_at": "2026-01-31T14:45:00Z",
+  "auto_saved": true
+}
+Error Responses:
+  - 403: Cannot edit finalized note
+  - 409: Note is locked (another provider editing)
+
+---
+
+ENDPOINT: POST /api/v1/clinical-notes/{note_id}/auto-save-draft
+Description: Auto-save draft every 30 seconds
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "draft_content": {
+    "sections": {...},
+    "draft_timestamp": "2026-01-31T14:45:30Z"
+  }
+}
+Response (201):
+{
+  "draft_id": "uuid",
+  "note_id": "uuid",
+  "last_saved_at": "2026-01-31T14:45:30Z",
+  "recovery_available": true
+}
+
+---
+
+ENDPOINT: POST /api/v1/clinical-notes/{note_id}/sign
+Description: Electronically sign and finalize clinical note
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "signature_method": "BIOMETRIC | PIN | PASSWORD",
+  "signature_timestamp": "2026-01-31T15:30:00Z"
+}
+Response (200):
+{
+  "note_id": "uuid",
+  "status": "FINALIZED",
+  "signed_at": "2026-01-31T15:30:00Z",
+  "signed_by": "uuid",
+  "is_editable": false,
+  "patient_notification_sent": true,
+  "message": "Note finalized and locked. Patient will have access per visibility settings."
+}
+Error Responses:
+  - 400: Incomplete required sections
+  - 403: Doctor not authorized to sign
+  - 409: Note already signed
+
+---
+
+ENDPOINT: POST /api/v1/clinical-notes/{note_id}/request-amendment
+Description: Request amendment to existing note (addition/correction/clarification)
+Authorization: ROLE_DOCTOR, ROLE_PATIENT (for clarification)
+Request Body:
+{
+  "amendment_type": "ADDITION | CORRECTION | CLARIFICATION",
+  "amendment_description": "Need to add information about previous penicillin reaction",
+  "amendment_section": "SUBJECTIVE",
+  "amendment_text": "Patient reports prior penicillin use resulted in hives only, not anaphylaxis."
+}
+Response (201):
+{
+  "amendment_id": "uuid",
+  "original_note_id": "uuid",
+  "amendment_type": "CORRECTION",
+  "status": "PENDING",
+  "requested_at": "2026-02-01T09:00:00Z",
+  "requested_by": "uuid"
+}
+
+---
+
+ENDPOINT: GET /api/v1/patients/{patient_id}/clinical-notes
+Description: Retrieve patient's clinical notes (for timeline)
+Authorization: ROLE_DOCTOR, ROLE_PATIENT (own data)
+Query Params: date_from, date_to, note_type, limit=50
+Response (200):
+{
+  "patient_id": "uuid",
+  "total_notes": 127,
+  "notes": [
+    {
+      "note_id": "uuid",
+      "note_type": "SOAP",
+      "title": "Office Visit - Follow-up",
+      "created_at": "2026-01-31",
+      "created_by": "Dr. Smith",
+      "status": "FINALIZED",
+      "summary": "Patient doing well on current medications. BP controlled. Continue current regimen.",
+      "is_visible_to_patient": true
+    }
+  ],
+  "search_available": true
+}
+
+---
+
+ENDPOINT: GET /api/v1/clinical-notes/search
+Description: Full-text search across all clinical notes
+Authorization: ROLE_DOCTOR
+Query Params: q=search_term, patient_id, date_range, limit=50
+Response (200):
+{
+  "search_term": "chest pain",
+  "total_results": 8,
+  "results": [
+    {
+      "note_id": "uuid",
+      "patient_id": "uuid",
+      "patient_name": "John Doe",
+      "note_date": "2025-12-15",
+      "note_type": "SOAP",
+      "snippet": "...patient reports acute onset chest pain radiating to left arm...",
+      "match_count": 3
+    }
+  ]
+}
+
+================================================================================
+5. WORKFLOW DESCRIPTION - STEP-BY-STEP PROCESS FLOW
+================================================================================
+
+SOAP NOTE DOCUMENTATION WORKFLOW (Most Common):
+
+Step 1: Note Initiation from Appointment
+  └─ Doctor completes consultation with patient
+  └─ Doctor clicks "Create Note" from appointment or consultation screen
+  └─ System shows note template options:
+     ├─ Standard SOAP (default)
+     ├─ Modified SOAP (abbreviated)
+     ├─ Clinic-specific template (clinic preferences)
+     └─ Other (if applicable)
+  └─ Doctor selects template and initializes note
+
+Step 2: Auto-Population from Consultation
+  └─ System retrieves consultation data:
+     ├─ Chief complaint: "Persistent cough for 5 days"
+     ├─ Vital signs: BP 130/85, HR 78, Temp 37.2, O2 98%
+     ├─ Findings: Bilateral wheezing, infiltrate on X-ray
+     ├─ Assessment: "Suspected acute bronchitis or pneumonia"
+     ├─ Diagnosis: J20.9 (Acute bronchitis)
+     ├─ Plan: Start amoxicillin, repeat CXR if worsening, follow-up in 1 week
+     └─ Prescriptions: Amoxicillin 875-125mg PO BID × 7 days
+  └─ Auto-populate into note sections:
+     ├─ S (Subjective): Chief complaint and HPI from consultation
+     ├─ O (Objective): Vital signs and exam findings
+     ├─ A (Assessment): Doctor's assessment
+     └─ P (Plan): Medications, tests, follow-up
+  └─ Note status: DRAFT
+
+Step 3: Additional History Taking
+  └─ Doctor supplements auto-populated subjective:
+     ├─ Expand HPI with additional details
+     ├─ Add past medical history (retrieved from patient record)
+     ├─ Add medications (retrieved from current med list)
+     ├─ Add allergies (retrieved from known allergies)
+     ├─ Add social history (manual or templated)
+     └─ Add family history (manual or templated)
+  └─ Manual entry or voice-to-text:
+     ├─ Dictate additional information
+     ├─ Voice recognized and transcribed
+     ├─ Doctor reviews and corrects transcription
+
+Step 4: Physical Examination Documentation
+  └─ Doctor documents objective findings:
+     ├─ Vital signs: BP 130/85, HR 78, Temp 37.2°C, O2 98%
+     ├─ General: Alert and oriented, no distress
+     ├─ Respiratory: Bilateral wheezing, no crackles
+     ├─ Cardiovascular: Regular rate and rhythm, no murmurs
+     ├─ Abdominal: Soft, non-tender, no masses
+     ├─ Neurological: Grossly intact
+     └─ Other systems: Unremarkable
+
+Step 5: Assessment Documentation
+  └─ Doctor enters clinical assessment:
+     ├─ Primary diagnosis: Acute bronchitis (J20.9)
+     ├─ Secondary diagnoses: Hypertension, Type 2 diabetes
+     ├─ Severity: Moderate (fever, productive cough, but O2 sat normal)
+     ├─ Clinical impression: Patient with clinical presentation consistent with acute bronchitis
+     ├─ Differential diagnoses:
+     │  ├─ Pneumonia (2nd rank - infiltrate on CXR)
+     │  ├─ Asthma exacerbation (3rd rank - no prior history)
+     │  └─ Allergic rhinitis (4th rank - systemic symptoms)
+     └─ Clinical reasoning: Fever + productive cough + infiltrate = likely bacterial bronchitis, possible pneumonia
+
+Step 6: Plan Documentation
+  └─ Doctor enters treatment plan:
+     ├─ Medications:
+     │  └─ Amoxicillin-Clavulanate 875-125mg PO BID × 7 days
+     ├─ Diagnostic tests:
+     │  ├─ Repeat chest X-ray in 3 days if not improving
+     │  ├─ Blood culture if fever persists > 48h
+     │  └─ Sputum culture if no clinical improvement
+     ├─ Referrals: None needed
+     ├─ Follow-up: 1 week, sooner if worsening
+     ├─ Patient education:
+     │  ├─ Rest and avoid strenuous activity
+     │  ├─ Stay hydrated
+     │  ├─ Avoid smoking and secondhand smoke
+     │  ├─ Return if fever worsens, confusion, difficulty breathing
+     │  └─ Take medication as prescribed
+     └─ Disposition: Discharge home, see PCP in 1 week
+
+Step 7: Auto-Save During Documentation
+  └─ System auto-saves every 30 seconds:
+     ├─ Background, non-blocking save
+     ├─ Doctor continues typing without interruption
+     ├─ Auto-save indicator shows "(saved)" briefly
+  └─ If connection drops or browser crashes:
+     ├─ Draft recovered when doctor returns
+     ├─ Doctor can resume from last auto-saved version
+     └─ No data loss
+
+Step 8: Template Compliance Check
+  └─ System verifies note against template:
+     ├─ Required sections completed (S, O, A, P)
+     ├─ Optional sections included if needed
+     ├─ Formatting applied correctly
+     ├─ All mandatory fields filled
+     └─ Flags any missing required information
+
+Step 9: Final Review Before Signing
+  └─ Doctor reviews complete note:
+     ├─ Verify auto-populated data correct
+     ├─ Read through entire note for completeness
+     ├─ Check for typos and grammar (spell-check, grammar-check)
+     ├─ Verify diagnoses and ICD-10 codes
+     ├─ Verify prescriptions and orders
+     └─ Confirm follow-up plan clear
+  └─ Make final corrections if needed
+  └─ Once satisfied, proceed to signing
+
+Step 10: Electronic Signature
+  └─ Doctor applies e-signature:
+     ├─ Biometric (fingerprint or face recognition)
+     ├─ PIN (numeric code 4-6 digits)
+     ├─ Password (complex password challenge)
+     └─ Timestamp recorded with signature
+  └─ Note status changed to FINALIZED
+  └─ Note locked from further editing
+  └─ Audit trail records:
+     ├─ Who signed (doctor ID)
+     ├─ When signed (timestamp)
+     ├─ Signature method used
+     └─ IP address and device
+
+Step 11: Patient Notification & Visibility
+  └─ Based on clinic settings:
+     ├─ Immediate visibility: Patient sees note immediately
+     ├─ Delayed visibility: Patient sees after 24-72 hour delay
+     ├─ No patient visibility: Note staff-only
+     └─ Patient notified:
+     ├─ Email: "Your visit summary is now available in your patient portal"
+     ├─ Patient can request clarification via secure message
+     ├─ Patient can request amendment if information incorrect
+     └─ Sensitive sections can be redacted before patient view
+
+Step 12: Care Team Access
+  └─ All care team members can now access note:
+     ├─ Read-only access (cannot modify)
+     ├─ Appears in patient timeline
+     ├─ Referenced in subsequent visits
+     ├─ Audit trail tracks all access (who viewed, when)
+     └─ Used for clinical decision-making
+
+AMENDMENT WORKFLOW (Correction or Addition):
+
+Step 1: Amendment Request
+  └─ Doctor realizes information needs to be added or corrected:
+     ├─ Correction: Wrong information entered (typo, wrong vital sign)
+     ├─ Addition: New information became available after signing
+     ├─ Clarification: Patient requests clarification of medical terminology
+  └─ Doctor creates amendment request
+  └─ Specifies what needs to be changed and why
+
+Step 2: Amendment Documentation
+  └─ Amendment entered as new addendum to original note:
+     ├─ Original note preserved unchanged
+     ├─ Amendment marked clearly as amendment
+     ├─ Amendment timestamp recorded
+     ├─ Amendment reason documented
+     └─ Provides complete history of changes
+
+Step 3: Amendment Signing & Finalization
+  └─ Doctor signs amendment
+  └─ Amendment linked to original note
+  └─ Audit trail shows original + amendment together
+  └─ Patient sees both original and amendment if visible to patient
+
+================================================================================
+6. TECHNICAL REQUIREMENTS & CONSTRAINTS
+================================================================================
+
+PERFORMANCE REQUIREMENTS:
+- Note creation and auto-population: < 2 seconds
+- Note retrieval and display: < 1 second for single note
+- Note list retrieval: < 1.5 seconds for 100+ notes
+- Auto-save every 30 seconds: < 200ms (non-blocking)
+- Full-text search across notes: < 3 seconds for 1000+ notes
+- Note signing: < 1 second
+- Amendment creation: < 1 second
+
+SECURITY & COMPLIANCE:
+- All note data encrypted at rest and in transit (TLS 1.2+)
+- HIPAA compliance:
+  * Audit log of all note access (who, when, what action)
+  * Access control by role (doctor can edit, patient can view own notes)
+  * Patient access restricted to own notes only
+  * Failed access attempts logged and alerted
+  * Note content not exposed in logs or monitoring
+  * Sensitive data redaction before patient view
+- Electronic signature compliance:
+  * E-signature meets legal standards (UETA, ESIGN Act)
+  * Timestamp with signature
+  * No repudiation (signatory cannot deny signing)
+  * Audit trail of signature creation
+- Amendment compliance:
+  * Original note preserved (cannot be deleted or modified)
+  * Amendment linked to original
+  * Complete audit trail of all changes
+- Timeliness compliance:
+  * Office visits: Signed within 24 hours
+  * Hospital consultations: Signed within 12 hours
+  * ED notes: Signed within 4 hours
+  * Notifications alert if not signed within timeframe
+
+INTEGRATIONS:
+- Integrate with Task 21 (Consultation Module) - auto-populate from consultation
+- Integrate with Task 22 (Prescription System) - reference prescriptions in plan
+- Integrate with Task 23 (Diagnosis Recording) - reference diagnoses in assessment
+- Integrate with lab system - retrieve lab results for objective section
+- Integrate with imaging system - retrieve imaging results
+- Integrate with patient demographics - retrieve patient history
+
+================================================================================
+7. TESTING STRATEGY - 50+ TEST CASES
+================================================================================
+
+Unit Tests (10 tests):
+1. Test note creation with valid template
+2. Test note status transitions (DRAFT → FINALIZED)
+3. Test auto-population from consultation data
+4. Test required section validation
+5. Test electronic signature creation
+6. Test note locking after signature
+7. Test amendment creation and linking
+8. Test auto-save timing (every 30 seconds)
+9. Test draft recovery from auto-save
+10. Test SOAP section structure validation
+
+Integration Tests (20 tests):
+11. Test note creation from appointment
+12. Test note creation from consultation (with auto-population)
+13. Test vital signs auto-populated in objective section
+14. Test medications auto-populated from patient record
+15. Test allergies auto-populated from known allergies
+16. Test diagnosis auto-populated from consultation
+17. Test prescriptions linked in plan section
+18. Test lab results retrieved and displayed
+19. Test imaging results retrieved and displayed
+20. Test patient notification on note visibility
+21. Test patient access to visible notes
+22. Test care team access to notes
+23. Test audit trail tracking for all access
+24. Test amendment request and linking
+25. Test amendment signature
+26. Test amendment visibility to patient
+27. Test note search across all patient notes
+28. Test clinical decision support recommendations in note
+29. Test template application and formatting
+30. Test spell-check and grammar-check
+
+End-to-End Tests (15 tests):
+31. Complete SOAP note workflow (create → auto-populate → document → sign → finalize)
+32. Complete H&P note workflow (new patient comprehensive visit)
+33. Complete procedure note workflow
+34. Complete discharge summary workflow
+35. Complete consultation note workflow
+36. Note with amendment (correction after signing)
+37. Note with patient amendment request (clarification)
+38. Note with multi-section update
+39. Note with all optional sections included
+40. Note with complex clinical scenario (multiple diagnoses, multiple meds)
+41. Note with critical findings alert
+42. Note visibility delay (24-72 hours)
+43. Note with redacted sensitive sections for patient view
+44. Note with full-text search match
+45. Note history across multiple visits
+
+Edge Case Tests (5 tests):
+46. Test note with maximum text length
+47. Test note with no auto-population data (manual entry only)
+48. Test note draft recovery after 24-hour gap
+49. Test concurrent edit prevention (two providers attempt to edit)
+50. Test note signature with multiple signature methods (switch from PIN to biometric)
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+REQUIREMENT 1: Clinical note can be created with templates
+ ✓ Multiple templates available (SOAP, H&P, procedure, discharge)
+ ✓ Template selected at note creation
+ ✓ Template structure applied to note
+ ✓ Required sections enforced
+ ✓ Optional sections available if needed
+ ✓ Formatting applied per template
+
+REQUIREMENT 2: Note auto-populated from consultation data
+ ✓ Chief complaint auto-populated
+ ✓ Vital signs auto-populated
+ ✓ Physical exam findings auto-populated
+ ✓ Assessment auto-populated
+ ✓ Plan auto-populated
+ ✓ Diagnosis auto-populated
+ ✓ Prescriptions auto-populated
+ ✓ Doctor can review and modify auto-populated data
+
+REQUIREMENT 3: Note sections documented completely
+ ✓ Subjective section: HPI, history, medications, allergies, social history
+ ✓ Objective section: Vitals, physical exam, lab/imaging results
+ ✓ Assessment section: Diagnoses, clinical reasoning, differential diagnosis
+ ✓ Plan section: Medications, orders, referrals, follow-up
+ ✓ All required fields completed
+
+REQUIREMENT 4: Auto-save prevents data loss
+ ✓ Auto-save every 30 seconds
+ ✓ Non-blocking (does not interrupt doctor's typing)
+ ✓ Draft recoverable after browser crash
+ ✓ Draft recoverable after network interruption
+ ✓ User can restore from any prior auto-saved version
+ ✓ Auto-save timestamp visible to user
+
+REQUIREMENT 5: Note can be electronically signed
+ ✓ Biometric signature (fingerprint/face) supported
+ ✓ PIN signature (numeric code) supported
+ ✓ Password signature supported
+ ✓ Timestamp recorded with signature
+ ✓ Note locked from editing after signature
+ ✓ Signature meets legal standards (UETA/ESIGN)
+ ✓ Audit trail records signer and time
+
+REQUIREMENT 6: Patient can access note when visible
+ ✓ Visibility settings configurable
+ ✓ Immediate or delayed visibility (24-72 hours)
+ ✓ Patient notified when note available
+ ✓ Patient access restricted to own notes
+ ✓ Sensitive sections can be redacted
+ ✓ Patient can request clarification
+ ✓ Amendment process for corrections
+
+REQUIREMENT 7: Amendment process maintains audit trail
+ ✓ Amendment request created with reason
+ ✓ Original note preserved unchanged
+ ✓ Amendment linked to original
+ ✓ Amendment signed by doctor
+ ✓ Amendment timestamp recorded
+ ✓ Complete history of amendments visible
+ ✓ Patient sees both original and amendments
+
+REQUIREMENT 8: Full-text search available
+ ✓ Search across all patient notes
+ ✓ Search by keyword or phrase
+ ✓ Search results ranked by relevance
+ ✓ Search results show snippet/context
+ ✓ Search completes in < 3 seconds
+ ✓ Search results filterable by date and note type
+
+REQUIREMENT 9: HIPAA compliance maintained
+ ✓ All note data encrypted at rest
+ ✓ All transmission via HTTPS/TLS 1.2+
+ ✓ Audit log tracks access
+ ✓ Access control by role
+ ✓ Patient access restricted to own notes
+ ✓ Failed access logged
+ ✓ Signature verification meets standards
+
+REQUIREMENT 10: Care team can access finalized notes
+ ✓ Read-only access to finalized notes
+ ✓ Audit trail tracks all access
+ ✓ Notes appear in patient timeline
+ ✓ Notes referenced in future visits
+ ✓ Clinical decision-making uses note data
+
+================================================================================
+9. DELIVERABLES & ARTIFACTS
+================================================================================
+
+Code Deliverables:
+ 1. Clinical note domain model (clinical-note.entity.ts)
+ 2. Clinical note repository (clinical-note.repository.ts)
+ 3. Clinical note service (clinical-note.service.ts)
+ 4. Note template service (note-template.service.ts)
+ 5. Note auto-save service (note-autosave.service.ts)
+ 6. Note amendment service (note-amendment.service.ts)
+ 7. Note signature service (note-signature.service.ts)
+ 8. Note search service (note-search.service.ts)
+ 9. Clinical note API controller (clinical-note.controller.ts)
+10. Clinical note form component (ClinicalNoteForm.tsx)
+11. SOAP note template component (SOAPNoteTemplate.tsx)
+12. Auto-save indicator component (AutoSaveIndicator.tsx)
+13. Amendment request component (AmendmentRequest.tsx)
+14. Note signature component (NoteSignature.tsx)
+15. Clinical note timeline component (NoteTimeline.tsx)
+16. Clinical note search component (NoteSearch.tsx)
+17. Database migration scripts (001_clinical_note_tables.sql)
+18. Unit test suites (clinical-note.service.spec.ts, etc.)
+19. Integration test suites
+20. E2E test specifications
+
+Documentation Deliverables:
+21. Clinical note module design document
+22. API documentation (OpenAPI/Swagger)
+23. Data model ERD diagram
+24. Note template reference guide
+25. Workflow diagrams (SOAP creation, amendment)
+26. Template customization guide
+27. E-signature compliance documentation
+28. HIPAA compliance checklist
+29. Developer setup guide
+30. Testing guide and test matrix
+
+================================================================================
+10. DEPENDENCIES & BLOCKING RELATIONSHIPS
+================================================================================
+
+DEPENDS ON:
+  ✓ Task 21: Consultation Module (consultation data for auto-population)
+  ✓ Task 22: Prescription System (prescriptions referenced in plan)
+  ✓ Task 23: Diagnosis Recording (diagnoses referenced in assessment)
+  ✓ Task 13: Medical History (patient history for subjective)
+  ✓ Phase 0: Database schema
+  ✓ Phase 0: Authentication/Authorization
+
+BLOCKS:
+  ─ Task 28: Analytics/Reporting (note data for reporting)
+  ─ Follow-up workflows (notes used for continuity of care)
+
+PARALLEL DEPENDENCIES:
+  • Can proceed in parallel with Task 25-28 (Support Services)
+  • Can proceed in parallel with Task 29-31 (Automation & Analytics)
+
+================================================================================
+11. EFFORT ESTIMATION & TIMELINE
+================================================================================
+
+Backend Development (17 hours):
+  └─ Database schema and migration (2 hours)
+  └─ Clinical note model and repository (2.5 hours)
+  └─ Note service and business logic (4 hours)
+  └─ Auto-save service (2 hours)
+  └─ Amendment service (1.5 hours)
+  └─ Note signature service (2 hours)
+  └─ Note search service (2 hours)
+  └─ Template management service (1 hour)
+
+API Development (7 hours):
+  └─ Note CRUD endpoints (1.5 hours)
+  └─ Auto-save endpoint (1 hour)
+  └─ Signature endpoint (1 hour)
+  └─ Amendment endpoints (0.75 hour)
+  └─ Search endpoint (0.75 hour)
+  └─ Template endpoints (1 hour)
+  └─ Patient visibility endpoints (1 hour)
+
+Frontend Development (4 hours):
+  └─ Note form component (1.5 hours)
+  └─ SOAP template component (1 hour)
+  └─ Auto-save indicator (0.5 hour)
+  └─ Amendment request component (0.5 hour)
+  └─ Search interface (0.5 hour)
+  └─ Note timeline (0.5 hour)
+
+Testing (2 hours):
+  └─ Unit tests (0.75 hour)
+  └─ Integration tests (0.75 hour)
+  └─ E2E tests (0.5 hour)
+
+TOTAL EFFORT: 30 hours (4-5 days for 1 developer, 2-3 days for 2 developers)
+
+CRITICAL PATH:
+  1. Database schema
+  2. Note service and auto-population logic
+  3. API endpoints
+  4. Frontend components
+  5. Auto-save and signature
+  6. Integration testing
+
+================================================================================
+12. RISKS & MITIGATION
+================================================================================
+
+RISK 1: Auto-Population Accuracy
+  │ Impact: Incorrect data auto-populated, doctor not noticing
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Highlight auto-populated sections for review
+  │  ├─ Doctor required to actively confirm auto-population
+  │  ├─ Easy editing of auto-populated fields
+  │  ├─ Validation checks before signing
+  │  └─ Audit trail of auto-populated fields
+
+RISK 2: E-Signature Legal Validity
+  │ Impact: Signature challenged legally
+  │ Probability: LOW
+  │ Mitigation:
+  │  ├─ Ensure compliance with UETA and ESIGN Act
+  │  ├─ Legal review before implementation
+  │  ├─ Timestamp and audit trail with signature
+  │  ├─ User consent to use electronic signatures
+  │  └─ Training for users on e-signature implications
+
+RISK 3: Patient Privacy in Note Visibility
+  │ Impact: Sensitive information visible to patient before ready
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Default to no patient visibility (opt-in, not opt-out)
+  │  ├─ Visibility delay (24-72 hours) allows review
+  │  ├─ Redaction tool for sensitive sections
+  │  ├─ Patient access control
+  │  └─ Audit trail of visibility changes
+
+RISK 4: Auto-Save Performance Impact
+  │ Impact: Auto-save every 30s blocks user typing
+  │ Probability: LOW
+  │ Mitigation:
+  │  ├─ Async auto-save (non-blocking)
+  │  ├─ Debounce to avoid excessive saves
+  │  ├─ Background worker for save operation
+  │  ├─ Test performance under load
+  │  └─ Monitor and alert on slow saves
+
+================================================================================
+13. SUCCESS METRICS
+================================================================================
+
+CLINICAL QUALITY:
+  • Note completeness: > 95% of notes have all required sections
+  • Auto-population accuracy: > 98% correct auto-populated data
+  • Timeliness of note signing: > 90% signed within 24 hours
+  • Note quality: > 85% of notes meet quality standards on audit
+
+OPERATIONAL EFFICIENCY:
+  • Note creation time: < 10 minutes per note
+  • Auto-save recovery success: > 99%
+  • Note search response: < 3 seconds
+  • Amendment processing time: < 1 hour average
+
+SAFETY & COMPLIANCE:
+  • Zero data loss from system failure
+  • 100% HIPAA compliance audit pass rate
+  • E-signature validity: 100% legally valid
+  • Amendment audit trail: 100% complete and accurate
+
+PATIENT SATISFACTION:
+  • Patient access to notes: > 90% access within 24 hours
+  • Patient understanding of notes: > 80% satisfied
+  • Patient amendment requests: < 5% of notes
+
+================================================================================
+END OF TASK 24: CLINICAL NOTES
+================================================================================

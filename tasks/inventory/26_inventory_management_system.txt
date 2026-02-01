@@ -1,0 +1,626 @@
+================================================================================
+TASK 26: INVENTORY MANAGEMENT SYSTEM
+================================================================================
+Module: Support Services
+Phase: Phase 1 - Implementation
+Priority: HIGH
+Effort Estimate: 32 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Task 27 (Pharmacy Integration)
+Blocking: Task 28 (Analytics/Reporting), Task 39 (Scaling Strategy)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Inventory Management System tracks medical supplies, pharmaceuticals, diagnostic
+materials, and clinic equipment inventory. It manages stock levels, ordering,
+receiving, consumption tracking, expiration date management, lot tracking for
+compliance, and automated reorder points. The system provides real-time visibility
+of inventory status, generates reorder alerts, maintains FIFO (first-in-first-out)
+dispensing, and ensures regulatory compliance for medical devices and controlled
+substances.
+
+Key Responsibilities:
+- Real-time inventory tracking by location (main clinic, exam rooms, pharmacy)
+- Automated reorder point triggers with purchase requisition generation
+- Supplier management and purchase order processing
+- Receiving workflow with barcode scanning
+- Stock movement tracking (dispensing, wastage, returns, adjustments)
+- Expiration date management and recall processing
+- Lot/serial tracking for regulatory compliance and traceability
+- Barcode generation and scanning for inventory operations
+- Multi-location transfer and distribution
+- Consumption analytics and cost tracking
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 INVENTORY CATEGORIZATION
+Four Main Categories:
+- Medical Supplies: Bandages, gauze, syringes, catheters, gloves, PPE
+- Pharmaceuticals: Non-controlled medications (antibiotics, antihistamines)
+- Controlled Substances: Scheduled medications (opioids, benzodiazepines, stimulants)
+- Equipment: Diagnostic devices, monitors, examination equipment
+- Lab Materials: Culture media, reagents, reference materials
+
+Each Category Specifics:
+- Medical Supplies: FIFO rotation, expiration tracking, quantity alerts
+- Pharmaceuticals: Expiration critical, lot tracking, interaction checks
+- Controlled Substances: DEA tracking, limited storage, usage logging, audit trails
+- Equipment: Maintenance scheduling, calibration tracking, depreciation
+- Lab Materials: Stability requirements, storage conditions, shelf life
+
+2.2 INITIAL STOCK SETUP
+Stock Creation Process:
+- Item master data: Name, SKU, category, unit, description
+- Reorder point: Minimum quantity before reorder (e.g., 20 units)
+- Reorder quantity: Standard order amount (e.g., 100 units)
+- Safety stock: Extra buffer for emergencies (5-10% above reorder point)
+- Expiration tracking: Flag if item expires (date-tracked or shelf-life tracked)
+- Storage location: Primary storage location, backup locations
+- Unit cost: Cost per unit from supplier
+- Preferred supplier: Default supplier for ordering
+
+Initial Stock Entry:
+- Manual entry for existing inventory at system launch
+- Barcode scanning for verification and accuracy
+- Photo documentation for expensive equipment
+- Physical count verification by two staff members
+
+2.3 AUTOMATED REORDER WORKFLOWS
+Reorder Trigger:
+- Daily check: Compare current stock vs reorder point
+- Alert generated: "Item X stock below reorder point (5 units, reorder: 20)"
+- Automatic PO generation: Creates purchase order if enabled
+- Manual approval: Manager approves PO before sending to supplier
+- Procurement sends to supplier via EDI, email, or phone
+
+Reorder Point Calculation:
+- Lead time (days supplier takes to deliver): 5 days
+- Daily consumption: 4 units
+- Reorder point = lead time × daily consumption + safety stock
+- Example: 5 × 4 + 10 = 30 units minimum
+- Adjusts seasonally (higher before flu season, lower in summer)
+
+PO Management:
+- Purchase order created with supplier details
+- Expected delivery date calculated from lead time
+- Manager review and approval workflow
+- Supplier acknowledgment tracking
+- Follow-up alerts if delivery overdue
+
+2.4 RECEIVING & INTAKE WORKFLOW
+Receiving Process:
+- Supplier shipment arrives with packing slip
+- Receiving staff scans shipment barcode (if multiple items)
+- Scans each item's barcode to verify quantity and match PO
+- System alerts on quantity discrepancies
+- Verifies expiration dates (flags if <3 months from expiry)
+- Checks for damage or quality issues
+- Logs received items into inventory system
+
+Intake Actions:
+- Barcode label generation for items without barcodes (in-house generated)
+- Bin location assignment (rack A1, shelf 2, etc.)
+- Expiration date entry for tracked items
+- Lot number entry for controlled substances and pharmaceuticals
+- Serial number entry for equipment
+- Photo documentation for equipment
+- System updates inventory balance and reorder point
+- Receiving complete and inventory available for use
+
+2.5 CONSUMPTION & DISPENSING
+Daily Consumption Tracking:
+- Dispensing from clinic: Staff scans item barcode and quantity dispensed
+- System updates real-time inventory balance
+- Links dispensing to patient visit (for usage tracking and auditing)
+- Supports partial item usage (e.g., half a box of gloves)
+- FIFO enforcement: System prioritizes oldest stock first
+
+Consumption Scenarios:
+- Exam room supply: Gloves, syringes, bandages (via barcode)
+- Pharmacy dispense: Medications via pharmacy system (integrated)
+- Lab usage: Culture media, reagents via lab ordering
+- Procedure waste: Documented waste per procedure type
+- Emergency use: Override dispensing for urgent needs (audit logged)
+
+Consumption Analytics:
+- Daily usage patterns by category
+- Cost per encounter (supplies used per visit)
+- Departmental consumption (main clinic vs urgent care)
+- Waste tracking and minimization
+
+2.6 EXPIRATION & RECALL MANAGEMENT
+Expiration Date Tracking:
+- All items with expiration dates tracked
+- Real-time expiration alerts:
+  * 60 days before: Yellow flag ("Use by date approaching")
+  * 30 days before: Red flag ("Item expiring soon")
+  * On expiration date: Item locked from use
+- Automatic quarantine of expired items
+- Disposal tracking and documentation
+
+Recall Processing:
+- Supplier recall notification received
+- System searches for affected lot numbers or serial numbers
+- Quarantine workflow: Items flagged as recalled, removed from circulation
+- Notification to relevant staff (pharmacy, clinic managers)
+- Documentation of returned items to supplier
+- Refund processing with supplier
+- Replacement order submitted
+
+2.7 MULTI-LOCATION INVENTORY
+Location Management:
+- Main clinic: Central pharmacy and supply room
+- Exam rooms (4): Individual exam supply cabinets
+- Urgent care: Separate urgent care supply room
+- Storage warehouse: Off-site backup storage
+- Each location: Separate inventory tracking, reorder points, alerts
+
+Transfer Workflow:
+- Transfer initiated from source location to destination
+- Barcode scanning of items being transferred
+- Quantity verification
+- In-transit status
+- Receipt confirmation at destination
+- System adjusts inventory in both locations
+
+Centralized Visibility:
+- Dashboard shows inventory at all locations
+- Global inventory balance across all locations
+- Reorder alerts trigger based on total inventory
+- Transfer recommendations (consolidate, redistribute)
+
+2.8 CONTROLLED SUBSTANCE TRACKING
+DEA Compliance:
+- Separate tracking for DEA Schedule II-V controlled substances
+- Each transaction logged with timestamp, user, quantity, reason
+- Physical count verification (monthly physical vs system)
+- Variance investigation and documentation
+- Auditable chain of custody
+
+Controlled Substance Records:
+- Receipt: Item logged with lot number, quantity, date
+- Dispensing: Usage logged with patient visit, dosage, route
+- Destruction: Damaged/expired items logged with disposal method
+- Transfers: Inter-location transfers documented
+- Loss: Any theft or loss reported to DEA, documented
+
+DEA Audit Support:
+- Daily usage report by substance
+- Monthly inventory count vs system reconciliation
+- Annual usage summaries for DEA reporting
+- Complete transaction audit trail
+
+2.9 WASTAGE & ADJUSTMENTS
+Wastage Documentation:
+- Expired items: Reason (expiration), date, quantity, cost
+- Damaged items: Reason (damage), description, quantity, cost
+- Spillage/breakage: Reason, circumstances, quantity, cost
+- Theft/loss: Reported with investigation details
+- Adjustment: Correction of inventory discrepancy (reason required)
+
+Wastage Analysis:
+- Monthly wastage report by category
+- Highest waste items (identify process improvement opportunities)
+- Cost of wastage (identify expensive waste items)
+- Wastage trends (increasing/decreasing)
+
+Manager Approval:
+- Wastage/adjustments >$500 require manager approval
+- Theft/loss >$100 require incident documentation
+- Approval workflow tracks who authorized adjustment
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: inventory_items
+- item_id (UUID, PK)
+- sku (VARCHAR, unique)
+- item_name (VARCHAR)
+- category (ENUM: "medical_supply", "pharmaceutical", "controlled_substance", "equipment", "lab_material")
+- unit (ENUM: "box", "unit", "vial", "package", "case", "bottle", "each")
+- description (TEXT)
+- reorder_point (INT)
+- reorder_quantity (INT)
+- safety_stock (INT)
+- unit_cost (DECIMAL 10,4)
+- expires (BOOLEAN, true if item has expiration date)
+- shelf_life_days (INT, nullable, if not expires_at date)
+- preferred_supplier_id (UUID, FK → suppliers)
+- created_at (TIMESTAMP)
+- INDEX: (sku, category)
+
+TABLE: inventory_stock
+- stock_id (UUID, PK)
+- item_id (UUID, FK → inventory_items)
+- location (ENUM: "main_clinic", "exam_room_1", "exam_room_2", "exam_room_3", "exam_room_4", "urgent_care", "warehouse")
+- quantity_on_hand (INT)
+- quantity_reserved (INT)
+- available_quantity (INT, generated: on_hand - reserved)
+- last_counted_at (TIMESTAMP)
+- last_counted_by (UUID, FK → users)
+- reorder_status (ENUM: "in_stock", "low_stock", "reorder_pending", "critical")
+- updated_at (TIMESTAMP)
+- INDEX: (item_id, location)
+
+TABLE: inventory_lots
+- lot_id (UUID, PK)
+- item_id (UUID, FK → inventory_items)
+- lot_number (VARCHAR)
+- serial_number (VARCHAR, nullable)
+- quantity (INT)
+- received_date (DATE)
+- expiration_date (DATE, nullable)
+- manufactured_date (DATE, nullable)
+- location (VARCHAR, e.g., "Rack A, Shelf 2")
+- status (ENUM: "active", "low_stock", "expired", "quarantined", "recalled")
+- created_at (TIMESTAMP)
+- INDEX: (item_id, expiration_date, status)
+
+TABLE: purchase_orders
+- po_id (UUID, PK)
+- supplier_id (UUID, FK → suppliers)
+- po_number (VARCHAR, unique)
+- order_date (DATE)
+- expected_delivery_date (DATE)
+- actual_delivery_date (DATE, nullable)
+- status (ENUM: "draft", "pending_approval", "approved", "sent", "received", "cancelled")
+- approved_by (UUID, FK → users, nullable)
+- approved_at (TIMESTAMP, nullable)
+- total_amount (DECIMAL 10,2)
+- created_by (UUID, FK → users)
+- created_at (TIMESTAMP)
+- INDEX: (supplier_id, order_date, status)
+
+TABLE: po_line_items
+- line_item_id (UUID, PK)
+- po_id (UUID, FK → purchase_orders)
+- item_id (UUID, FK → inventory_items)
+- sku (VARCHAR)
+- quantity_ordered (INT)
+- quantity_received (INT)
+- unit_cost (DECIMAL 10,4)
+- line_total (DECIMAL 10,2)
+
+TABLE: inventory_transactions
+- transaction_id (UUID, PK)
+- item_id (UUID, FK → inventory_items)
+- lot_id (UUID, FK → inventory_lots, nullable)
+- transaction_type (ENUM: "receive", "dispense", "transfer", "adjustment", "waste", "recall", "count")
+- quantity (INT)
+- reason (VARCHAR)
+- reference_id (VARCHAR, nullable, e.g., visit_id, po_id, waste_id)
+- from_location (VARCHAR, nullable)
+- to_location (VARCHAR, nullable)
+- created_at (TIMESTAMP)
+- created_by (UUID, FK → users)
+- requires_approval (BOOLEAN, false unless wastage >$500)
+- approved_by (UUID, FK → users, nullable)
+- approved_at (TIMESTAMP, nullable)
+- INDEX: (item_id, transaction_type, created_at)
+
+TABLE: inventory_waste
+- waste_id (UUID, PK)
+- item_id (UUID, FK → inventory_items)
+- lot_id (UUID, FK → inventory_lots, nullable)
+- waste_type (ENUM: "expired", "damaged", "spillage", "theft", "loss", "adjustment")
+- quantity (INT)
+- cost (DECIMAL 10,2)
+- reason (TEXT)
+- incident_description (TEXT, nullable)
+- status (ENUM: "pending_approval", "approved", "documented", "disposed")
+- requested_by (UUID, FK → users)
+- approved_by (UUID, FK → users, nullable)
+- approved_at (TIMESTAMP, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (item_id, waste_type, created_at)
+
+TABLE: suppliers
+- supplier_id (UUID, PK)
+- supplier_name (VARCHAR)
+- contact_person (VARCHAR)
+- phone (VARCHAR)
+- email (VARCHAR)
+- address (VARCHAR)
+- lead_time_days (INT)
+- payment_terms (VARCHAR, e.g., "Net 30")
+- is_active (BOOLEAN)
+- created_at (TIMESTAMP)
+- INDEX: (supplier_name)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 INVENTORY LOOKUP API
+
+GET /api/v1/inventory/items
+Query params: category, search_term, low_stock_only
+Response:
+[
+  {
+    "item_id": "uuid",
+    "sku": "GLV-001",
+    "item_name": "Medical Gloves (Box of 100)",
+    "quantity_on_hand": 5,
+    "reorder_point": 20,
+    "reorder_status": "critical"
+  }
+]
+
+GET /api/v1/inventory/items/{item_id}/stock
+Response: Stock by location
+
+4.2 RECEIVING API
+
+POST /api/v1/inventory/receiving
+Body:
+{
+  "po_id": "uuid",
+  "items": [
+    {
+      "item_id": "uuid",
+      "quantity_received": 100,
+      "expiration_date": "2026-06-30",
+      "lot_number": "LOT-12345"
+    }
+  ]
+}
+
+4.3 DISPENSING API
+
+POST /api/v1/inventory/dispense
+Body:
+{
+  "visit_id": "uuid",
+  "items": [
+    {
+      "item_id": "uuid",
+      "quantity": 5,
+      "reason": "Exam supply"
+    }
+  ]
+}
+
+4.4 TRANSFER API
+
+POST /api/v1/inventory/transfer
+Body:
+{
+  "item_id": "uuid",
+  "quantity": 10,
+  "from_location": "main_clinic",
+  "to_location": "exam_room_1"
+}
+
+4.5 WASTAGE API
+
+POST /api/v1/inventory/waste
+Body:
+{
+  "item_id": "uuid",
+  "waste_type": "expired",
+  "quantity": 5,
+  "reason": "Expiration date passed"
+}
+
+4.6 PURCHASE ORDER API
+
+POST /api/v1/inventory/purchase-orders
+Body:
+{
+  "supplier_id": "uuid",
+  "items": [
+    {
+      "item_id": "uuid",
+      "quantity": 100
+    }
+  ]
+}
+
+GET /api/v1/inventory/purchase-orders
+Query: status, supplier_id, date_range
+
+PUT /api/v1/inventory/purchase-orders/{po_id}/approve
+PUT /api/v1/inventory/purchase-orders/{po_id}/cancel
+
+4.7 ANALYTICS API
+
+GET /api/v1/inventory/analytics/reorder-status
+GET /api/v1/inventory/analytics/expiration-alerts
+GET /api/v1/inventory/analytics/wastage-report
+GET /api/v1/inventory/analytics/consumption-trends
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 BARCODE SCANNING
+- Barcode generation: EAN-13 or Code 128 format
+- Barcode labels: Auto-print for received items
+- Barcode readers: Handheld wireless scanners (Zebra TC25, Symbol MC32N)
+- Scanning workflow: Scan item on receipt, scan when dispensing
+- Mobile app: Barcode scanning via phone camera
+- Quantity input: After scanning, staff enters quantity
+
+5.2 ALERTS & NOTIFICATIONS
+- Stock level alerts: Email to manager when below reorder point
+- Expiration alerts: Daily report of items expiring within 30 days
+- Low stock alerts: Real-time dashboard alerts
+- PO overdue alerts: Follow-up alert if PO not received by expected date
+- Recall alerts: Immediate notification when recall issued
+
+5.3 REPORTING & ANALYTICS
+- Daily consumption report: Quantity used, cost
+- Monthly inventory summary: Stock levels, reorder status
+- Wastage report: Items wasted, reason, cost
+- Supplier performance: On-time delivery, quality issues
+- Inventory valuation: Cost of inventory on hand (FIFO method)
+
+5.4 INTEGRATIONS
+- Pharmacy system: Auto-integration for medication dispensing
+- Finance system: Cost tracking and budget reporting
+- Lab system: Lab material consumption tracking
+- Electronic health record: Link inventory to patient encounters
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 DAILY OPERATIONS
+- Morning: Check dashboard for low stock and expired items
+- Throughout day: Dispense items via barcode scanning
+- End of day: Verify inventory against consumption
+- Nightly: Automatic reorder triggers
+
+6.2 WEEKLY OPERATIONS
+- Physical count of high-value items
+- PO review and submission
+- Supplier communication for delays or issues
+
+6.3 MONTHLY OPERATIONS
+- Full physical inventory count
+- Reconciliation with system (variance investigation)
+- Wastage report review
+- Budget analysis and cost trends
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (20+ test cases):
+- Reorder point calculation and trigger logic
+- FIFO dispensing logic
+- Expiration date alerts
+- Stock balance calculations
+- Multi-location transfers
+
+Integration Tests (18+ test cases):
+- End-to-end PO workflow (create, approve, receive)
+- Dispensing from patient visit
+- Barcode scanning workflows
+- Wastage and adjustment approval
+- Physical count reconciliation
+- Lot number tracking and recall
+
+Performance Tests (6+ test cases):
+- Barcode scanning speed (response <2 seconds)
+- Dashboard loading with 1000+ items
+- Daily reorder trigger (complete <30 seconds)
+- Bulk receive operation (100+ items)
+
+Edge Cases (8+ test cases):
+- Multiple lot numbers same item
+- Expiration date edge cases (within 1 day of expiry)
+- Zero quantity handling
+- Negative stock prevention
+- Partial item usage
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. Real-time inventory visibility across all locations
+2. Automated reorder point triggers with <5 minute latency
+3. Barcode scanning integration with <2 second response time
+4. Expiration alerts generated 60 days before expiry
+5. Complete audit trail of all inventory transactions
+6. FIFO dispensing enforcement verified in all scenarios
+7. Physical count variance <1% (accuracy within 99%)
+8. PO workflow from creation to receipt <7 days
+9. Wastage tracking with complete documentation
+10. Support for controlled substance DEA compliance
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Inventory item master database (SKU, reorder points)
+2. Stock tracking by location (real-time balances)
+3. Lot/serial number tracking system
+4. Automated reorder workflow with PO generation
+5. Receiving and intake process
+6. Dispensing and consumption tracking
+7. Expiration and recall management
+8. Multi-location transfer capability
+9. Wastage and adjustment workflows
+10. Barcode integration and scanning
+11. Reporting and analytics (12+ reports)
+12. API endpoints for inventory operations (18 total)
+
+Dependencies:
+- Task 1-10 (Phase 0): Foundation and infrastructure
+- Task 27 (Pharmacy): Medication inventory integration
+
+Blockers For:
+- Task 27 (Pharmacy: medication inventory)
+- Task 28 (Analytics: inventory data needed)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design & Architecture: 3 hours
+- Database schema design
+- Barcode integration planning
+- Multi-location architecture
+
+Development: 20 hours
+- Inventory item and stock management (4h)
+- PO workflow and automation (4h)
+- Receiving and intake process (3h)
+- Dispensing and tracking (3h)
+- Expiration and wastage management (3h)
+- Barcode scanning integration (3h)
+
+Testing: 6 hours
+- Unit tests (2h)
+- Integration tests (2h)
+- Barcode scanning tests (1h)
+- Physical count reconciliation (1h)
+
+Documentation: 2 hours
+- Barcode labeling and procedures
+- Staff training guide
+- Reporting documentation
+
+Contingency: 1 hour (5%)
+
+Total: 32 hours (1 developer, 1 week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Barcode scanning failures or scanning errors
+Mitigation: Manual quantity verification, batch error reports, operator training
+
+Risk: Inventory count discrepancies at month-end close
+Mitigation: Weekly spot checks, automated variance alerts, investigation protocol
+
+Risk: Expiration date tracking failures
+Mitigation: Automated alerts, manual verification, quarantine of near-expiry items
+
+Risk: Controlled substance tracking compliance
+Mitigation: Daily audit logs, monthly count verification, DEA reporting automation
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Inventory accuracy: >99% on physical count vs system
+- Stock-out events: <1 per month
+- Reorder cycle time: 5-7 days
+- Average inventory days: <30 days
+- Wastage cost: <2% of inventory value
+- Barcode scanning success rate: >99%
+- PO fulfillment accuracy: >98%
+- Staff time on inventory: <10 hours per week
+
+================================================================================

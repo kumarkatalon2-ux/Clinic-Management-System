@@ -1,0 +1,465 @@
+================================================================================
+TASK 29: FOLLOW-UP AUTOMATION SYSTEM
+================================================================================
+Module: Automation & Analytics
+Phase: Phase 1 - Implementation
+Priority: MEDIUM
+Effort Estimate: 30 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Tasks 21-24 (Clinical), Task 28 (Analytics)
+Blocking: None
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The Follow-up Automation System manages patient follow-up workflows including
+appointment scheduling, patient outreach, clinical reminders, and care coordination.
+It automatically identifies patients requiring follow-up based on clinical protocols,
+schedules appointments or sends notifications, tracks follow-up completion, and
+escalates cases when follow-up is missed. The system improves patient engagement,
+ensures continuity of care, reduces complications from missed follow-ups, and
+provides data on follow-up compliance for quality reporting.
+
+Key Responsibilities:
+- Automatic follow-up scheduling based on diagnosis and treatment plan
+- Clinical protocol-driven follow-up timing (e.g., post-op check in 2 weeks)
+- Multi-channel patient outreach (portal notification, SMS, email, phone call)
+- Follow-up reminder notifications (appointment reminder, medication refill)
+- Care coordination between providers (specialist referrals, care team)
+- Escalation alerts (patient missed follow-up appointment)
+- Follow-up compliance tracking and reporting
+- Patient engagement analytics
+
+================================================================================
+2. BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+2.1 FOLLOW-UP PROTOCOL DEFINITION
+Clinical Protocols:
+- Post-operative: Follow-up 2 weeks after surgery (wound check, suture removal)
+- Post-prescription: Follow-up 4 weeks after starting new medication (efficacy, side effects)
+- Chronic disease: Follow-up per condition (diabetes Q3 months, hypertension Q6 months)
+- Lab results: Follow-up when abnormal results returned (discuss findings, action plan)
+- Referral: Follow-up 2 weeks after specialist referral (obtain specialist report)
+- Discharge: Follow-up 1 week after hospital discharge (transition of care)
+- Inpatient: Follow-up 1 week after clinic discharge (urgent care episode)
+
+Protocol Customization:
+- Configurable by diagnosis, treatment type, provider preference
+- Evidence-based defaults from clinical guidelines
+- Manager/clinical director override for specific protocols
+- A/B testing: Different follow-up timing to optimize outcomes
+
+2.2 AUTOMATIC FOLLOW-UP SCHEDULING
+Trigger Events:
+- Consultation completion → Check treatment plan for follow-up orders
+- Prescription issued → Check medication type for post-med follow-up
+- Procedure performed → Schedule post-procedure follow-up
+- Lab results abnormal → Flag for follow-up discussion
+- Specialist referral sent → Track for follow-up report
+- Hospital discharge → Schedule transition of care visit
+
+Follow-up Order Entry (by clinician):
+- Type: Appointment (face-to-face), virtual (telemedicine), phone (check-in)
+- Timing: 2 weeks, 1 month, 3 months, 6 months (or custom)
+- Provider: Same provider or any provider with specialty
+- Visit type: Routine follow-up, urgent follow-up, medication review
+- Instructions: "Check wound healing", "Assess medication efficacy", "Review lab results"
+
+Automatic Scheduling:
+- System receives follow-up order at consultation/procedure end
+- Calculates target date (e.g., 2 weeks from today)
+- Checks provider availability on target date (±3 days flexibility)
+- Books earliest available appointment within window
+- Sends patient appointment confirmation (portal, email, SMS)
+- If no availability: Creates waitlist entry, alerts patient to call for scheduling
+
+2.3 PATIENT OUTREACH & ENGAGEMENT
+Appointment Reminders:
+- Automated reminders at 7 days before appointment
+- Reminder channels: SMS (preferred), email (fallback), portal notification
+- Content: "Reminder: You have follow-up appointment [date] [time] with Dr. Smith"
+- One-click reschedule: Patient can click to reschedule if unable to attend
+- Two-way: Patient can confirm attendance or request change
+
+Pre-Appointment Outreach:
+- 1 week before: Appointment reminder
+- 3 days before: "Do you still need this appointment?" (reduce no-shows)
+- If patient confirms unable to attend: Offer to reschedule
+- If patient unresponsive at 3 days: Phone call from clinic (if high-priority)
+
+Post-Visit Follow-up:
+- Immediate: Patient education materials sent (post-op care, medication info)
+- 24 hours: "How was your visit?" satisfaction survey
+- 3 days: Clinical questions (any problems, side effects, questions)
+- Weekly: Check-in for high-risk patients (post-op, new medication)
+- Monthly: Outcome assessment (symptom improvement, goal achievement)
+
+2.4 CLINICAL REMINDERS & ALERTS
+At-Risk Patient Identification:
+- Rules engine: Identify patients meeting risk criteria
+- Examples: Diabetics due for HbA1c, hypertensive overdue for BP check
+- Priority: Urgent (overdue >1 month), high (due within 1 week), normal (due within 1 month)
+- Provider alert: Dashboard notification of due/overdue patients
+
+Medication Refill Reminders:
+- Based on medication dispensing date + days supply
+- Reminder sent 7 days before expected supply runs out
+- Channels: SMS, email, patient portal
+- Patient can request refill via portal, SMS, or clinic call
+- Automatic refill enabled for chronic medications (patient opt-in)
+
+Lab Results Follow-up:
+- Abnormal result identified → Doctor notified
+- Doctor enters follow-up order (discuss result, repeat test, lifestyle change)
+- Follow-up reminder to patient: "Your [lab] result came back. Schedule appointment to discuss."
+- Doctor appointment queue: "Results to discuss: patient X"
+- Patient outreach: SMS/email/call if patient doesn't schedule within 3 days
+
+2.5 CARE COORDINATION
+Internal Care Team:
+- When referred to specialist: Track referral status
+- Get specialist report: Flag for chart review, incorporation into care plan
+- Care team assignments: Nurse coordinator, case manager, social worker
+- Collaborative notes: Multi-provider communication about patient care
+
+Specialist Referrals:
+- Provider submits referral with clinical justification
+- Insurance pre-auth obtained (if required)
+- Patient notified of referral and specialist contact info
+- Specialist appointment booked (if in-network)
+- Tracking: Follow-up with patient on appointment date
+- Report retrieval: Automatic follow-up to obtain specialist report
+
+Care Coordination Workflows:
+- Complex patient: Assign care coordinator
+- Coordinator schedules multi-provider conference call
+- Coord tracks care plan implementation
+- Coord manages patient engagement (frequent check-ins, barrier removal)
+- Outcome: Improved compliance, better outcomes
+
+2.6 ESCALATION & NON-COMPLIANCE
+Missed Appointment Follow-up:
+- Patient misses appointment → System flags
+- Automatic action: Reschedule attempt (portal/SMS/email)
+- No response at 24 hours: Phone call from clinic
+- No response at 48 hours: Escalate to nurse/manager for outreach
+- Document reason (patient cancelled, patient unresponsive, etc.)
+- Pattern detection: If repeated no-shows, review care plan
+
+Non-Compliance Patterns:
+- Track: Missed appointments, missed medications, lab non-adherence
+- Flag: Patient with pattern of non-compliance (3+ missed appointments in 6 months)
+- Intervention: Nurse/case manager outreach
+- Root cause analysis: Barriers to engagement (transportation, cost, understanding)
+- Solutions: Telemedicine if transportation barrier, financial assistance if cost barrier
+
+Escalation Levels:
+- Level 1: Auto-reminder (SMS/email)
+- Level 2: Manual outreach (phone call from clinic staff)
+- Level 3: Care coordinator engagement (home visit, intensive support)
+- Level 4: Provider escalation (discuss care plan changes, higher intensity intervention)
+
+2.7 FOLLOW-UP TRACKING & COMPLIANCE
+Follow-up Completion Tracking:
+- Track: Scheduled follow-up appointment vs actual completion
+- Measure: Follow-up compliance rate (% of ordered follow-ups completed)
+- Delay tracking: How long after recommended date was follow-up completed
+- Breakdown: By diagnosis, provider, visit type, patient demographics
+
+Non-Completion Investigation:
+- Categorize: No-show, refused, patient unavailable, provider cancelled
+- Outcome: If patient never completes, document and escalate
+- Pattern: If diagnosis or provider has low compliance, investigate process
+
+Quality Metrics:
+- Follow-up compliance rate: >90% of ordered follow-ups completed
+- Time to follow-up: Average delay from recommended date
+- Patient satisfaction: Ease of scheduling, communication quality
+- Clinical outcomes: Link follow-up to patient outcomes (readmission, complications)
+
+2.8 ANALYTICS & REPORTING
+Follow-up Metrics:
+- Total follow-ups ordered vs completed
+- Average follow-up compliance by diagnosis
+- Average follow-up compliance by provider
+- Follow-up wait time (from recommendation to completion)
+- No-show rate for follow-up appointments
+- Patient engagement (response rate to reminders)
+
+Predictive Analytics:
+- No-follow-up risk: Predict patients unlikely to follow-up
+- Non-compliance risk: Predict patients at risk for missing appointments
+- Intervention: Target outreach to high-risk patients
+
+Reporting:
+- Provider dashboard: Follow-ups due, pending, completed
+- Manager report: Compliance by provider, by department
+- Quality report: Follow-up compliance vs clinical outcomes
+- Patient report: Personal follow-up summary, upcoming appointments
+
+================================================================================
+3. DATA MODEL & SCHEMA
+================================================================================
+
+3.1 CORE TABLES
+
+TABLE: follow_up_protocols
+- protocol_id (UUID, PK)
+- diagnosis_code (VARCHAR, ICD-10)
+- condition_name (VARCHAR)
+- follow_up_type (ENUM: "appointment", "phone_call", "virtual_visit")
+- timing_days (INT, e.g., 14 for 2 weeks)
+- timing_range (INT, flexibility ±days)
+- priority_level (ENUM: "urgent", "high", "normal")
+- clinical_rationale (TEXT)
+- is_active (BOOLEAN)
+- created_at (TIMESTAMP)
+
+TABLE: follow_up_orders
+- order_id (UUID, PK)
+- visit_id (UUID, FK → consultations)
+- patient_id (UUID, FK → patients)
+- provider_id (UUID, FK → providers)
+- follow_up_type (ENUM: "appointment", "phone", "video", "in_house")
+- ordered_date (DATE)
+- target_date (DATE, recommended follow-up date)
+- provider_preference (VARCHAR, nullable)
+- visit_type (VARCHAR, e.g., "post-med check", "wound check")
+- clinical_instructions (TEXT)
+- status (ENUM: "pending", "scheduled", "completed", "cancelled", "overdue")
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, status, target_date)
+
+TABLE: follow_up_appointments
+- appointment_id (UUID, PK)
+- order_id (UUID, FK → follow_up_orders)
+- appointment_date (DATE)
+- appointment_time (TIME)
+- provider_id (UUID, FK → providers)
+- status (ENUM: "scheduled", "completed", "no_show", "cancelled")
+- patient_confirmed (BOOLEAN)
+- confirmation_date (TIMESTAMP, nullable)
+- completion_date (TIMESTAMP, nullable)
+- notes (TEXT)
+- INDEX: (order_id, appointment_date)
+
+TABLE: patient_outreach
+- outreach_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- outreach_type (ENUM: "appointment_reminder", "medication_refill", "lab_result", "follow_up_check_in")
+- channel (ENUM: "sms", "email", "portal", "phone_call")
+- message (TEXT)
+- scheduled_date (DATE)
+- sent_date (TIMESTAMP, nullable)
+- response_received (BOOLEAN)
+- response_content (TEXT, nullable)
+- response_date (TIMESTAMP, nullable)
+- created_at (TIMESTAMP)
+- INDEX: (patient_id, outreach_type, sent_date)
+
+TABLE: care_coordination
+- coordination_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- coordinator_id (UUID, FK → users)
+- start_date (DATE)
+- end_date (DATE, nullable)
+- reason (VARCHAR, e.g., "Complex patient", "Post-op")
+- status (ENUM: "active", "completed", "on_hold")
+- care_plan (TEXT)
+- index: (patient_id, status)
+
+TABLE: follow_up_compliance
+- compliance_id (UUID, PK)
+- patient_id (UUID, FK → patients)
+- tracking_period_start (DATE)
+- tracking_period_end (DATE)
+- follow_ups_ordered (INT)
+- follow_ups_completed (INT)
+- compliance_rate (DECIMAL 5,2, e.g., 92.5)
+- on_time_count (INT, completed within 7 days of target)
+- overdue_count (INT, completed >7 days late)
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 FOLLOW-UP ORDER API
+
+POST /api/v1/follow-up/orders
+Request:
+{
+  "visit_id": "uuid",
+  "follow_up_type": "appointment",
+  "target_date": "2026-02-14",
+  "clinical_instructions": "Post-op wound check"
+}
+Response: Follow-up order created
+
+GET /api/v1/follow-up/orders/{patient_id}
+Response: All follow-up orders for patient
+
+4.2 APPOINTMENT SCHEDULING API
+
+POST /api/v1/follow-up/schedule-appointment
+Body:
+{
+  "order_id": "uuid",
+  "provider_id": "uuid",
+  "appointment_date": "2026-02-14",
+  "time": "14:00"
+}
+Response: Appointment scheduled
+
+PUT /api/v1/follow-up/appointments/{appointment_id}/mark-completed
+
+4.3 PATIENT OUTREACH API
+
+POST /api/v1/follow-up/outreach
+Body: { patient_id, outreach_type, channel, message }
+
+GET /api/v1/follow-up/outreach/response-rate
+Query: date_range, outreach_type
+
+4.4 COMPLIANCE TRACKING API
+
+GET /api/v1/follow-up/compliance/{patient_id}
+Response: Follow-up compliance metrics
+
+GET /api/v1/follow-up/compliance/provider/{provider_id}
+Response: Provider's follow-up compliance
+
+================================================================================
+5. TECHNICAL REQUIREMENTS & INTEGRATIONS
+================================================================================
+
+5.1 SCHEDULING ENGINE
+- Integration with appointment scheduling system (Task 17)
+- Automatic slot finder: Find earliest available within date range
+- Conflict detection: Check provider availability, room availability
+- Multi-provider support: Route to same provider or available provider
+- Fallback: Waitlist if no availability
+
+5.2 NOTIFICATION SYSTEM
+- Multi-channel: SMS (Twilio), email (SendGrid), push notification
+- Message templating: Customizable messages per organization
+- Scheduling: Send at optimal times (avoid evening/weekends)
+- Tracking: Log all outreach, responses
+
+5.3 CLINICAL PROTOCOL ENGINE
+- Configurable rules: Define follow-up protocols per diagnosis
+- Evidence-based defaults: HEDIS measures, clinical guidelines
+- Override capability: Allow exceptions per patient/provider
+- Versioning: Track protocol changes, audit trail
+
+================================================================================
+6. WORKFLOWS & PROCESSES
+================================================================================
+
+6.1 DAILY PROCESS
+- Morning: Generate follow-up reminders for appointments within 7 days
+- Throughout day: Process follow-up orders, schedule appointments
+- End of day: Process patient responses, escalate non-responsive patients
+- Nightly: Send scheduled outreach messages
+
+6.2 WEEKLY PROCESS
+- Review overdue follow-ups, escalate to manager
+- Compliance report generation
+- Follow-up protocol audit
+
+================================================================================
+7. TESTING STRATEGY
+================================================================================
+
+Unit Tests (18+ test cases):
+- Follow-up protocol application logic
+- Automatic scheduling date calculation
+- Compliance rate calculations
+- Escalation triggers
+
+Integration Tests (16+ test cases):
+- End-to-end follow-up order workflow
+- Appointment scheduling integration
+- Patient outreach and response tracking
+- Compliance metric calculation
+
+Performance Tests (6+ test cases):
+- Bulk follow-up order processing
+- Daily reminder generation (1000+ patients)
+- Compliance calculation performance
+
+Edge Cases (8+ test cases):
+- No availability for scheduling
+- Patient non-responsive to multiple outreach attempts
+- Follow-up scheduled before visit completion
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+1. Automatic follow-up scheduling within 2 hours of order
+2. Appointment reminders sent 7 days before appointment
+3. Follow-up compliance tracked with >95% accuracy
+4. Non-compliance escalation within 48 hours
+5. Patient response rate tracked for all outreach
+6. Multi-channel outreach working (SMS, email, portal)
+7. Follow-up compliance reporting available
+8. Clinical protocol customization supported
+
+================================================================================
+9. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Follow-up protocol definition and configuration
+2. Automatic follow-up order generation
+3. Appointment scheduling automation
+4. Patient outreach and engagement system
+5. Follow-up compliance tracking
+6. Care coordination workflows
+7. Escalation and non-compliance management
+8. Reporting and analytics
+9. API endpoints (10 total)
+
+Dependencies:
+- Task 1-10 (Phase 0)
+- Task 21-24 (Clinical workflows)
+- Task 17 (Appointment scheduling)
+- Task 28 (Analytics)
+
+================================================================================
+10. EFFORT ESTIMATION
+================================================================================
+
+Design: 3 hours
+Development: 18 hours
+Testing: 6 hours
+Documentation: 2 hours
+Contingency: 1 hour (5%)
+
+Total: 30 hours (1 developer, 1 week)
+
+================================================================================
+11. RISKS & MITIGATION
+================================================================================
+
+Risk: Patient non-compliance with follow-up
+Mitigation: Multiple outreach channels, escalation to care coordinator
+
+Risk: Scheduling conflicts or unavailability
+Mitigation: Flexible date windows, waitlist management
+
+Risk: Data quality issues in follow-up orders
+Mitigation: Validation rules, manual review process
+
+================================================================================
+12. SUCCESS METRICS
+================================================================================
+
+- Follow-up compliance rate: >90%
+- Appointment no-show rate: <10% for follow-ups
+- Patient engagement: >80% response rate to reminders
+- Time to follow-up: Average <7 days late
+- Cost savings: Reduced complications from missed follow-ups
+
+================================================================================

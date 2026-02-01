@@ -1,0 +1,456 @@
+================================================================================
+TASK: Offline Sync & Conflict Resolution Engine
+Module: CORE - SYNC ENGINE
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: HIGH (Essential for mobile/remote clinics)
+Duration: 7-10 days
+Effort: 25 hours
+================================================================================
+
+OBJECTIVE
+---------
+Design and implement an offline-first synchronization system allowing clinic
+staff to work seamlessly with poor/no internet connectivity, with automatic
+conflict resolution when reconnecting to the network.
+
+BUSINESS LOGIC
+--------------
+Use Case:
+A doctor in a remote clinic with unreliable internet should:
+1. View patient records offline (cached locally)
+2. Create/update patient records while offline
+3. Prescribe medications while offline
+4. When connection returns, sync changes automatically
+5. Resolve conflicts intelligently (server data usually wins, but with exceptions)
+
+Offline Scenarios:
+- No internet for hours (rural clinic)
+- Intermittent connection (flaky WiFi)
+- Mobile doctor visiting multiple clinics
+- Emergency backup (in case API is down)
+- Fast mobile app experience (cached data)
+
+ARCHITECTURE OVERVIEW
+---------------------
+1. LOCAL DATABASE (Device)
+   - SQLite (mobile) or IndexedDB (web)
+   - Mirrors schema of server
+   - Stores all viewed/modified records
+   - Tracks sync state (synced/pending/conflicted)
+
+2. CHANGE TRACKING
+   - Every change logged locally with timestamp, user, type
+   - Marked as "pending" until synced
+   - If offline, remains pending
+
+3. SYNC ENGINE
+   - When connectivity detected, initiates sync
+   - Sends pending changes to server
+   - Fetches any remote changes
+   - Applies changes intelligently
+
+4. CONFLICT RESOLUTION
+   - When same record modified both locally and on server
+   - Apply conflict resolution rules
+   - Ask user if ambiguous
+
+DATA MODEL - LOCAL STATE
+------------------------
+Every entity has metadata:
+
+```javascript
+// Example: Patient record in local database
+{
+  id: "patient-123",
+  tenant_id: "clinic-001",
+  
+  // Clinical data
+  first_name: "John",
+  last_name: "Doe",
+  // ... other fields ...
+  
+  // Sync metadata
+  _sync_status: "pending", // synced|pending|conflicted|deleted_locally
+  _last_modified_locally: "2024-01-15T10:30:00Z",
+  _last_modified_remotely: "2024-01-15T09:00:00Z",
+  _version: 3, // Change tracking
+  _pending_changes: {
+    phone: { old: "555-1234", new: "555-5678", updated_at: "..." }
+  },
+  _conflict: null, // {remote_value, local_value, field} if conflicted
+  _deleted_locally: false
+}
+```
+
+SYNC STATE MACHINE
+------------------
+Record states:
+
+SYNCED
+  ↓ (User makes change)
+PENDING
+  ↓ (Connectivity detected)
+SYNCING
+  ├→ SUCCESS → SYNCED
+  ├→ CONFLICT → CONFLICTED
+  └→ ERROR → PENDING (retry later)
+
+CONFLICTED state requires:
+- Display to user
+- Manual resolution or
+- Automatic resolution rule
+
+CHANGE TRACKING QUEUE
+--------------------
+All local changes queued:
+
+```json
+{
+  "queue_id": "queue_abc123",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "operation": "create|update|delete",
+  "resource_type": "patient",
+  "resource_id": "patient-123",
+  "old_value": {...},
+  "new_value": {...},
+  "sync_status": "pending"
+}
+```
+
+When internet returns, send all queued operations.
+
+CONFLICT RESOLUTION RULES
+-------------------------
+Rule 1: SERVER WINS (Default)
+- When conflict occurs, server value takes precedence
+- Reason: Server is source of truth
+- Exception: Don't use for real-time collaborative edits
+
+Rule 2: LAST-WRITE-WINS
+- Timestamp determines winner
+- Most recent change wins
+- Simple but can lose data
+
+Rule 3: CLIENT-SPECIFIC RULES
+- Patient demographics: Server wins (canonical)
+- Doctor notes: Client wins (personal observations)
+- Prescription status: Server wins (approval status)
+- Vital signs: More recent wins (timestamp)
+
+Rule 4: USER-DECIDES (Manual Resolution)
+- Show conflict to user
+- User chooses: "Keep mine", "Use theirs", "Merge manually"
+- Manual merge: Open text editor, resolve manually
+
+Rule 5: SMART MERGE (Field-level)
+- Conflict resolution at field level
+- Example: Medical record
+  - Chief complaint: Client wins (doctor was with patient)
+  - Diagnosis: Server wins (review/approval required)
+  - Vital signs: More recent wins
+
+SYNC API ENDPOINTS
+------------------
+Mobile/Offline client sends:
+
+1. Get Latest Snapshot
+```
+POST /api/v1/sync/snapshot
+Request: { lastSyncTime: "2024-01-15T09:00:00Z" }
+Response: {
+  snapshot: {
+    patients: [...],
+    appointments: [...],
+    medical_records: [...]
+  },
+  timestamp: "2024-01-15T10:30:00Z"
+}
+```
+
+2. Push Changes
+```
+POST /api/v1/sync/changes
+Request: {
+  changes: [
+    {
+      operation: "update",
+      resource: "patient",
+      id: "patient-123",
+      data: {...},
+      version: 3
+    },
+    ...
+  ],
+  clientTimestamp: "2024-01-15T10:30:00Z"
+}
+Response: {
+  applied: [
+    { id: "change-1", status: "success" }
+  ],
+  conflicts: [
+    { id: "change-2", reason: "version_mismatch", serverData: {...} }
+  ],
+  newServerChanges: [...],
+  timestamp: "2024-01-15T10:30:00Z"
+}
+```
+
+3. Resolve Conflict
+```
+POST /api/v1/sync/resolve-conflict
+Request: {
+  conflictId: "conflict-123",
+  resolution: "server_wins|client_wins|merged",
+  mergedData: {...} // If manual merge
+}
+Response: { status: "resolved" }
+```
+
+LOCAL STORAGE STRATEGY (MOBILE)
+-------------------------------
+SQLite Database on device:
+
+Tables (mirror server schema + sync columns):
+- patients (_sync_status, _version, _conflicts)
+- medical_records (_sync_status, _version, _conflicts)
+- appointments (_sync_status, _version, _conflicts)
+- prescriptions (_sync_status, _version, _conflicts)
+
+Plus sync-specific tables:
+- sync_queue (pending operations)
+- sync_history (past syncs)
+- conflicts (unresolved conflicts)
+
+Storage limits:
+- Recent 100 patients
+- Recent 30 days of records
+- Recent 7 days of messages
+- ~50MB total (compressible to ~10MB)
+
+LOCAL STORAGE STRATEGY (WEB)
+----------------------------
+IndexedDB or LocalStorage:
+
+Recommended: IndexedDB (larger storage, better performance)
+
+Benefits:
+- Asynchronous (non-blocking)
+- ~50MB per origin (more than needed)
+- Structured storage
+- Transactions
+
+Implementation:
+```javascript
+// Open local DB
+const db = await idb.open('clinic_offline');
+
+// Store patient
+await db.put('patients', patientData);
+
+// Query locally
+const patient = await db.get('patients', 'patient-123');
+
+// All offline patients
+const localPatients = await db.getAll('patients');
+```
+
+BANDWIDTH OPTIMIZATION
+-----------------------
+1. DELTA SYNC (Only changed fields)
+Instead of sending entire record:
+```
+Old: { patient: {...all 30 fields...} }
+New: { patient_id: "123", phone: "555-5678" }
+```
+
+2. COMPRESSION
+Compress JSON before sending over network
+- GZip compression: ~80% size reduction
+
+3. BATCH OPERATIONS
+Send multiple changes in one request instead of separate requests
+- Reduces overhead
+
+4. INCREMENTAL UPLOAD
+Send important changes first, background other changes
+
+SYNC INITIATION
+---------------
+Sync can be triggered by:
+1. User manually taps "Sync Now" button
+2. App detects connectivity returned
+3. App determines sufficient time passed (background sync)
+4. App has accumulated sufficient changes (threshold)
+5. User navigates away from offline mode
+
+Recommended: Combination of 2 + 4
+
+SYNC ERROR HANDLING
+-------------------
+Network Error During Sync:
+- Keep changes in queue
+- Retry with exponential backoff (1s, 2s, 4s, 8s, max 1 hour)
+- Don't discard local changes
+
+Server Validation Error:
+- Prescription.quantity = -5 (invalid)
+- Show error to user
+- Let user fix and retry
+
+Version Mismatch:
+- Record has been updated on server
+- Need to merge client change with server change
+- Trigger conflict resolution
+
+Database Corruption:
+- If local database corrupted
+- Rebuild from server snapshot (clear all local, re-download)
+- User loses unsaved changes (fail-safe)
+
+OFFLINE-FIRST UI PATTERNS
+--------------------------
+Visual indicators:
+- Connectivity badge: "Online" (green) vs "Offline" (red)
+- Sync status: "Synced", "Syncing...", "Pending changes (3)"
+- Conflict badge: Show conflicted records with warning icon
+
+Behavior:
+- Disable network-dependent features (search across all patients)
+- Disable features requiring approval (prescription approval)
+- Allow local-only operations (patient notes, vital signs)
+
+Example UI:
+```
+┌─ Clinic Manager ────────────────────────┐
+│ Status: [🔴 Offline] | Pending: 3       │
+├─────────────────────────────────────────┤
+│ Patients (Cached: 45)                   │
+│ ├─ John Doe                   [⚠️ Conflict]
+│ ├─ Jane Smith                           │
+│ └─ ...                                  │
+│                                         │
+│ Actions:                                │
+│ ├─ [View] [Edit] (allowed offline)      │
+│ └─ [Approve Rx] (disabled offline)      │
+│                                         │
+│ Bottom: [⟳ Sync Now] [Settings]        │
+└─────────────────────────────────────────┘
+```
+
+SYNC NOTIFICATIONS
+------------------
+Notify user of sync events:
+
+Success:
+- "✓ Synced 3 changes successfully"
+
+Conflict:
+- "⚠️ Conflict in patient 'John Doe' (phone number)"
+- "Tap to resolve"
+
+Error:
+- "✗ Sync failed (network error)"
+- "Retrying in 5s..."
+
+Large Sync:
+- "Syncing 150 records... 45%"
+
+TESTING STRATEGY
+---------------
+Offline Tests:
+[ ] Can view cached data when offline
+[ ] Can create new records when offline
+[ ] Can edit records when offline
+[ ] Can delete records when offline
+[ ] All changes marked as pending
+[ ] Cannot use network-dependent features
+
+Sync Tests:
+[ ] Successful sync uploads pending changes
+[ ] Successful sync downloads server changes
+[ ] Partial sync succeeds (some changes fail)
+[ ] Sync retries on network error
+[ ] Sync resumes if interrupted
+[ ] Sync completes within acceptable time
+
+Conflict Tests:
+[ ] Detect conflicts (same field edited both sides)
+[ ] Apply server-wins rule
+[ ] Apply client-wins rule
+[ ] Apply smart merge
+[ ] User can manually resolve
+[ ] Resolved conflicts sync correctly
+[ ] Conflicted records show UI warning
+
+Edge Cases:
+[ ] User deletes record offline, server also deletes
+[ ] Record created offline and offline-only
+[ ] Large sync (>10k changes)
+[ ] Concurrent syncs (multiple tabs/devices)
+[ ] Storage quota exceeded
+[ ] Local database corrupted
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Offline functionality implemented
+[ ] Local database schema mirrors server
+[ ] Change tracking working
+[ ] Sync queue functional
+[ ] Conflict detection working
+[ ] Conflict resolution rules implemented
+[ ] Delta sync optimization working
+[ ] Compression implemented
+[ ] Sync API endpoints working
+[ ] Error handling robust
+[ ] UI indicators show status
+[ ] All offline tests passing
+[ ] All sync tests passing
+[ ] All conflict tests passing
+[ ] Performance: Sync <2 minutes for 100 changes
+[ ] Storage: Uses <50MB per device
+
+DELIVERABLES
+-----------
+1. Offline Architecture Design Document
+2. Sync Protocol Specification
+3. Local Database Schema
+4. Conflict Resolution Rules
+5. Change Tracking Implementation
+6. Sync Engine Code
+7. Offline-First UI Component Library
+8. Mobile Offline Implementation (iOS/Android)
+9. Web Offline Implementation (IndexedDB)
+10. Test Suite (50+ tests)
+11. Operational Guide (monitoring sync, troubleshooting)
+
+DEPENDENCIES
+-----------
+BLOCKING: Database schema, API layer
+BLOCKS: Mobile app release, Remote clinic support
+
+RELATED TASKS
+-----------
+- Mobile app development
+- API layer design
+- Database schema
+- Client-side architecture
+
+ADVANCED FEATURES (Phase 2+)
+---------------------------
+- Encryption of local database (security)
+- Automatic sync on schedule
+- Conflict resolution ML/rules engine
+- Peer-to-peer sync (clinic to clinic)
+- Multi-device sync coordination
+
+NOTES
+-----
+This is one of the unique features making the platform valuable.
+Many competitors don't have proper offline support.
+Test thoroughly with simulated poor connections.
+
+Timeline: Week 2-3 of Phase 0
+Priority: HIGH
+
+STATUS: Ready for implementation
+================================================================================

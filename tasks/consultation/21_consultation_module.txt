@@ -1,0 +1,1202 @@
+================================================================================
+TASK 21: CONSULTATION MODULE - DOCTOR-PATIENT ENCOUNTER DOCUMENTATION
+================================================================================
+
+Project: Clinical Management SaaS - Phase 1 (Clinical Workflows)
+Category: Clinical Operations - Encounter Management
+Priority Level: CRITICAL
+Effort Estimate: 32 hours
+Timeline: 4-5 days (1 developer), 1-2 days (2 developers)
+
+Depends On: 
+  - Task 11: EMR Specification (patient records)
+  - Task 12: Patient Management System (patient data access)
+  - Task 17: Appointment Engine (appointment context)
+
+Blocks: 
+  - Task 22: Prescription System (prescriptions created during consultation)
+  - Task 23: Diagnosis Recording (diagnosis findings documented here)
+  - Task 24: Clinical Notes (notes finalized from consultation)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+Implement comprehensive consultation module enabling doctors to document 
+patient encounters in real-time. System must capture chief complaint, vital 
+signs, examination findings, assessments, and create structured clinical 
+documentation. Support multiple consultation types (new patient initial visit, 
+follow-up, urgent care, telemedicine). Provide clinical decision support and 
+ensure HIPAA-compliant audit trails for all documentation.
+
+Expected Outcome:
+- Complete consultation workflow from appointment → documentation → finalization
+- Structured encounter notes supporting clinical decision-making
+- Real-time vital sign capture and trending
+- HIPAA-compliant encounter recording
+- Integrated assessment and plan generation
+
+================================================================================
+2. BUSINESS LOGIC EXPLANATION
+================================================================================
+
+CONSULTATION LIFECYCLE:
+1. Appointment Status Check
+   - Verify appointment is CONFIRMED or IN_PROGRESS
+   - Lock appointment from cancellation once consultation starts
+   - Record consultation start timestamp
+   - Retrieve patient's complete medical history context
+
+2. Chief Complaint Capture
+   - Doctor records patient's primary complaint
+   - Free-text or structured symptom selection
+   - Duration of symptom (days, weeks, months)
+   - Severity rating (1-10 scale)
+   - Associated symptoms listing
+   - Impact on daily activities
+
+3. Vital Signs Entry
+   - Real-time capture: BP, HR, Temperature, O2 Sat, RR, Height, Weight
+   - Automatic BMI calculation from height/weight
+   - Flag abnormal values for immediate attention
+   - Compare against patient baselines and normal ranges
+   - Time-stamp each vital sign entry
+   - Support manual entry and device integration
+
+4. Physical Examination
+   - Document systems reviewed (constitutional, eyes, ears, nose, throat, etc.)
+   - Structured vs. free-text examination findings
+   - Abnormal findings highlighted for clinician review
+   - Cross-reference to potential diagnoses
+   - Support for examination templates by body system
+
+5. Assessment Generation
+   - Doctor's clinical assessment of findings
+   - Rule-out diagnoses list
+   - Differential diagnosis support via clinical decision support (CDS)
+   - Problem identification and severity assessment
+   - Evidence-based recommendations for next steps
+
+6. Plan Development
+   - Treatment plan creation
+   - Medication recommendations (pre-populated based on diagnosis)
+   - Diagnostic test ordering (lab, imaging)
+   - Referral recommendations to specialists
+   - Patient education points
+   - Follow-up scheduling (timeframe, type)
+
+7. Consultation Finalization
+   - Doctor attestation and signature (e-signature with timestamp)
+   - Availability for patient review (with delay if needed)
+   - Auto-creation of work items (prescriptions, orders, referrals)
+   - Trigger follow-up appointment scheduling if needed
+   - Update problem list and active medication list
+   - Notify care team of any alerts or critical findings
+
+CONSULTATION TYPES:
+
+New Patient Initial Visit (90+ minutes)
+- Comprehensive history taking (past medical history, surgical history, medications, allergies, family history, social history)
+- Complete physical examination
+- Initial assessment and problem list creation
+- Comprehensive care plan development
+- Baseline vital signs documentation
+- Insurance and authorization verification
+
+Follow-up Visit (20-30 minutes)
+- Review of prior encounter findings
+- Assessment of treatment plan compliance
+- Repeat of relevant vital signs
+- Brief focused examination based on chief complaint
+- Updated assessment based on interim history
+- Modified plan as needed
+
+Urgent Care Visit (15-20 minutes)
+- Rapid assessment of acute complaint
+- Focused physical examination
+- Immediate intervention or referral
+- Brief documentation (streamlined for speed)
+- Clear follow-up instructions
+
+Telemedicine Consultation (varies)
+- Limited physical examination (visual assessment only)
+- Rely on vital signs provided by patient (if available)
+- Video documentation of appearance and affect
+- Written instructions for follow-up in-person exam if needed
+- Recording for quality assurance and compliance
+
+Post-Operative Follow-up (15-30 minutes)
+- Assessment of surgical recovery
+- Wound or incision site examination
+- Pain level assessment
+- Medication tolerance review
+- Return-to-normal-activities guidance
+
+================================================================================
+3. DATA MODEL DEFINITION
+================================================================================
+
+TABLE: consultations
+  consultation_id (UUID, PK)
+  appointment_id (UUID, FK → appointments)
+  patient_id (UUID, FK → patients)
+  clinic_id (UUID, FK → clinics)
+  doctor_id (UUID, FK → doctors)
+  created_at (TIMESTAMP)
+  started_at (TIMESTAMP)
+  completed_at (TIMESTAMP, nullable - finalization time)
+  consultation_type (ENUM: NEW_PATIENT, FOLLOW_UP, URGENT_CARE, TELEMEDICINE, POST_OP)
+  status (ENUM: DRAFT, IN_PROGRESS, COMPLETED, FINALIZED, CANCELLED)
+  chief_complaint (TEXT)
+  chief_complaint_duration (VARCHAR) - e.g., "3 days", "2 weeks"
+  chief_complaint_severity (INT 1-10)
+  assessment_text (TEXT)
+  plan_text (TEXT)
+  signed_at (TIMESTAMP, nullable)
+  signed_by (UUID, FK → doctors)
+  is_visible_to_patient (BOOLEAN, default false)
+  visibility_timestamp (TIMESTAMP, nullable)
+  requires_followup (BOOLEAN)
+  followup_timeframe (VARCHAR) - e.g., "1 week", "2 weeks", "1 month"
+  metadata (JSONB) - additional consultation-specific data
+
+TABLE: consultation_vital_signs
+  vital_sign_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  recorded_at (TIMESTAMP)
+  bp_systolic (INT, mmHg)
+  bp_diastolic (INT, mmHg)
+  heart_rate (INT, bpm)
+  temperature (DECIMAL, Celsius)
+  respiratory_rate (INT, breaths/min)
+  oxygen_saturation (DECIMAL, %)
+  height (DECIMAL, cm)
+  weight (DECIMAL, kg)
+  bmi (DECIMAL, auto-calculated)
+  pain_level (INT 0-10, nullable)
+  additional_vitals (JSONB) - for extensibility
+
+TABLE: consultation_findings
+  finding_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  finding_type (ENUM: SYMPTOM, EXAMINATION, ABNORMAL_VALUE, ALERT)
+  body_system (VARCHAR) - e.g., "respiratory", "cardiovascular", "neurological"
+  finding_text (TEXT)
+  severity (ENUM: MILD, MODERATE, SEVERE, CRITICAL)
+  clinician_action_required (BOOLEAN)
+  priority_level (INT 1-5)
+  created_at (TIMESTAMP)
+
+TABLE: consultation_diagnoses
+  consultation_diagnosis_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  icd10_code (VARCHAR)
+  diagnosis_name (VARCHAR)
+  diagnosis_type (ENUM: PRIMARY, DIFFERENTIAL, RULED_OUT, SUSPECTED)
+  is_new (BOOLEAN) - NEW diagnosis for this patient
+  certainty (ENUM: CONFIRMED, PROBABLE, POSSIBLE)
+  status (ENUM: ACTIVE, RESOLVED, CHRONIC)
+  priority (INT 1-10)
+  created_at (TIMESTAMP)
+
+TABLE: consultation_assessments
+  assessment_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  assessment_template_id (UUID, FK → assessment_templates, nullable)
+  assessment_category (VARCHAR) - e.g., "functional_status", "mental_health", "pain"
+  assessment_score (DECIMAL, nullable)
+  assessment_result (VARCHAR) - e.g., "mild depression", "moderate anxiety"
+  notes (TEXT)
+  created_at (TIMESTAMP)
+
+TABLE: consultation_actions
+  action_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  action_type (ENUM: PRESCRIPTION, LAB_ORDER, IMAGING_ORDER, REFERRAL, PATIENT_EDUCATION, FOLLOWUP_APPOINTMENT)
+  action_status (ENUM: PLANNED, INITIATED, COMPLETED, CANCELLED)
+  action_description (TEXT)
+  target_resource_id (UUID, nullable) - links to prescription_id, order_id, referral_id, etc.
+  due_date (DATE, nullable)
+  created_at (TIMESTAMP)
+  initiated_at (TIMESTAMP, nullable)
+  completed_at (TIMESTAMP, nullable)
+
+TABLE: consultation_templates
+  template_id (UUID, PK)
+  clinic_id (UUID, FK → clinics)
+  template_name (VARCHAR)
+  consultation_type (ENUM: NEW_PATIENT, FOLLOW_UP, URGENT_CARE, TELEMEDICINE, POST_OP)
+  template_sections (JSONB) - structured template definition
+  is_active (BOOLEAN)
+  created_at (TIMESTAMP)
+  updated_at (TIMESTAMP)
+
+TABLE: consultation_notes_drafts
+  draft_id (UUID, PK)
+  consultation_id (UUID, FK → consultations)
+  doctor_id (UUID, FK → doctors)
+  draft_content (JSONB) - semi-structured draft data
+  last_saved_at (TIMESTAMP)
+  auto_saved (BOOLEAN)
+
+================================================================================
+4. API LAYER SPECIFICATION
+================================================================================
+
+ENDPOINT: POST /api/v1/consultations
+Description: Initiate new consultation from appointment
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "appointment_id": "uuid",
+  "consultation_type": "FOLLOW_UP",
+  "chief_complaint": "Persistent cough for 5 days",
+  "chief_complaint_duration": "5 days",
+  "chief_complaint_severity": 6
+}
+Response (201):
+{
+  "consultation_id": "uuid",
+  "status": "IN_PROGRESS",
+  "patient_id": "uuid",
+  "patient_name": "John Doe",
+  "appointment_id": "uuid",
+  "doctor_id": "uuid",
+  "started_at": "2026-01-31T14:30:00Z",
+  "consultation_type": "FOLLOW_UP"
+}
+Error Responses:
+  - 400: Appointment not in correct status (must be CONFIRMED or IN_PROGRESS)
+  - 404: Appointment not found
+  - 403: Doctor not assigned to appointment
+  - 409: Consultation already exists for this appointment
+
+---
+
+ENDPOINT: POST /api/v1/consultations/{consultation_id}/vital-signs
+Description: Record patient vital signs during consultation
+Authorization: ROLE_DOCTOR, ROLE_NURSE
+Request Body:
+{
+  "bp_systolic": 130,
+  "bp_diastolic": 85,
+  "heart_rate": 78,
+  "temperature": 37.2,
+  "respiratory_rate": 16,
+  "oxygen_saturation": 98.5,
+  "height": 178,
+  "weight": 82,
+  "pain_level": 3
+}
+Response (201):
+{
+  "vital_sign_id": "uuid",
+  "consultation_id": "uuid",
+  "recorded_at": "2026-01-31T14:35:00Z",
+  "bp_systolic": 130,
+  "bp_diastolic": 85,
+  "heart_rate": 78,
+  "temperature": 37.2,
+  "bmi": 25.9,
+  "abnormal_flags": [
+    {
+      "value": "bp_systolic",
+      "flag": "ELEVATED",
+      "threshold": "> 130 mmHg"
+    }
+  ]
+}
+Error Responses:
+  - 400: Invalid vital sign values or missing required fields
+  - 404: Consultation not found
+
+---
+
+ENDPOINT: POST /api/v1/consultations/{consultation_id}/findings
+Description: Document examination finding or symptom
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "finding_type": "EXAMINATION",
+  "body_system": "respiratory",
+  "finding_text": "Bilateral wheezing on lung auscultation",
+  "severity": "MODERATE",
+  "clinician_action_required": true
+}
+Response (201):
+{
+  "finding_id": "uuid",
+  "consultation_id": "uuid",
+  "finding_type": "EXAMINATION",
+  "body_system": "respiratory",
+  "finding_text": "Bilateral wheezing on lung auscultation",
+  "severity": "MODERATE",
+  "priority_level": 3,
+  "created_at": "2026-01-31T14:40:00Z"
+}
+
+---
+
+ENDPOINT: GET /api/v1/consultations/{consultation_id}/clinical-summary
+Description: Retrieve current consultation summary with vital signs and findings
+Authorization: ROLE_DOCTOR, ROLE_NURSE
+Response (200):
+{
+  "consultation_id": "uuid",
+  "patient_id": "uuid",
+  "consultation_type": "FOLLOW_UP",
+  "status": "IN_PROGRESS",
+  "chief_complaint": "Persistent cough for 5 days",
+  "vital_signs": {
+    "latest": {
+      "bp": "130/85",
+      "hr": 78,
+      "temp": 37.2,
+      "o2sat": 98.5,
+      "bmi": 25.9
+    },
+    "abnormal_flags": ["ELEVATED_BP"]
+  },
+  "findings": [
+    {
+      "finding_id": "uuid",
+      "type": "EXAMINATION",
+      "body_system": "respiratory",
+      "text": "Bilateral wheezing",
+      "severity": "MODERATE"
+    }
+  ],
+  "prior_diagnoses": [
+    {
+      "icd10": "J45.9",
+      "name": "Asthma, unspecified",
+      "last_documented": "2025-12-15"
+    }
+  ],
+  "medication_list": [
+    {
+      "medication": "Albuterol inhaler",
+      "dose": "2 puffs",
+      "frequency": "As needed"
+    }
+  ]
+}
+
+---
+
+ENDPOINT: POST /api/v1/consultations/{consultation_id}/assessment
+Description: Record diagnostic assessment and suspected diagnoses
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "assessment_text": "Patient presents with 5-day cough and wheezing. Vital signs show elevated BP. Physical exam reveals bilateral wheezing suggestive of asthma exacerbation or bronchitis.",
+  "suspected_diagnoses": [
+    {
+      "icd10_code": "J20.9",
+      "diagnosis_name": "Acute bronchitis, unspecified",
+      "diagnosis_type": "PRIMARY",
+      "certainty": "PROBABLE"
+    },
+    {
+      "icd10_code": "J45.1",
+      "diagnosis_name": "Nonallergic asthma",
+      "diagnosis_type": "DIFFERENTIAL",
+      "certainty": "POSSIBLE"
+    }
+  ],
+  "clinical_decision_support_requested": true
+}
+Response (201):
+{
+  "assessment_id": "uuid",
+  "consultation_id": "uuid",
+  "assessment_text": "...",
+  "diagnoses": [
+    {
+      "consultation_diagnosis_id": "uuid",
+      "icd10": "J20.9",
+      "diagnosis": "Acute bronchitis",
+      "type": "PRIMARY",
+      "certainty": "PROBABLE"
+    }
+  ],
+  "cds_recommendations": [
+    {
+      "recommendation": "Consider X-ray chest to rule out pneumonia",
+      "evidence": "Bilateral wheezing + 5-day cough",
+      "priority": "HIGH"
+    },
+    {
+      "recommendation": "Consider AB treatment for bronchitis (amoxicillin-clavulanate)",
+      "evidence": "Clinical presentation consistent with bacterial bronchitis",
+      "priority": "MEDIUM"
+    }
+  ]
+}
+
+---
+
+ENDPOINT: POST /api/v1/consultations/{consultation_id}/plan
+Description: Create treatment plan with recommended actions
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "plan_text": "Start amoxicillin-clavulanate 875-125mg BID x 7 days. Continue albuterol as needed. Order chest X-ray to rule out pneumonia. Follow up in 1 week if symptoms persist. Advise rest, fluids, and avoid smoking.",
+  "actions": [
+    {
+      "action_type": "PRESCRIPTION",
+      "action_description": "Amoxicillin-Clavulanate 875-125mg",
+      "due_date": null
+    },
+    {
+      "action_type": "LAB_ORDER",
+      "action_description": "Chest X-ray to rule out pneumonia",
+      "due_date": "2026-02-01"
+    },
+    {
+      "action_type": "FOLLOWUP_APPOINTMENT",
+      "action_description": "Follow-up visit in 1 week if symptoms persist",
+      "due_date": "2026-02-07"
+    }
+  ],
+  "patient_education_points": [
+    "Rest and avoid strenuous activity",
+    "Stay hydrated",
+    "Avoid smoking and secondhand smoke",
+    "Return if fever develops or cough worsens"
+  ]
+}
+Response (201):
+{
+  "plan_id": "uuid",
+  "consultation_id": "uuid",
+  "plan_text": "...",
+  "actions": [
+    {
+      "action_id": "uuid",
+      "action_type": "PRESCRIPTION",
+      "status": "PLANNED"
+    }
+  ],
+  "education_points": [...]
+}
+
+---
+
+ENDPOINT: POST /api/v1/consultations/{consultation_id}/finalize
+Description: Complete consultation, lock from further editing, generate documentation
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "final_notes": "Consultation completed. Patient educated on treatment plan.",
+  "requires_followup": true,
+  "followup_timeframe": "1 week",
+  "is_visible_to_patient": true,
+  "visibility_delay_minutes": 0
+}
+Response (200):
+{
+  "consultation_id": "uuid",
+  "status": "FINALIZED",
+  "signed_at": "2026-01-31T15:00:00Z",
+  "signed_by": "uuid",
+  "is_finalized": true,
+  "work_items_created": [
+    {
+      "work_item_type": "PRESCRIPTION",
+      "work_item_id": "uuid",
+      "status": "CREATED"
+    },
+    {
+      "work_item_type": "LAB_ORDER",
+      "work_item_id": "uuid",
+      "status": "CREATED"
+    },
+    {
+      "work_item_type": "FOLLOWUP_APPOINTMENT",
+      "work_item_id": "uuid",
+      "status": "CREATED"
+    }
+  ],
+  "patient_notification_sent": true
+}
+Error Responses:
+  - 400: Cannot finalize - missing required documentation
+  - 403: Doctor not authorized to finalize
+  - 409: Consultation already finalized
+
+---
+
+ENDPOINT: GET /api/v1/consultations/{consultation_id}/draft
+Description: Retrieve current draft for auto-save restoration
+Authorization: ROLE_DOCTOR
+Response (200):
+{
+  "draft_id": "uuid",
+  "consultation_id": "uuid",
+  "last_saved_at": "2026-01-31T14:58:00Z",
+  "draft_content": {
+    "chief_complaint": "...",
+    "vital_signs": {...},
+    "findings": [...],
+    "assessment_text": "...",
+    "plan_text": "..."
+  }
+}
+
+---
+
+ENDPOINT: POST /api/v1/consultations/{consultation_id}/draft-autosave
+Description: Auto-save consultation draft every 30 seconds
+Authorization: ROLE_DOCTOR
+Request Body:
+{
+  "draft_content": {
+    "chief_complaint": "...",
+    "assessment_text": "...",
+    "plan_text": "..."
+  }
+}
+Response (201):
+{
+  "draft_id": "uuid",
+  "last_saved_at": "2026-01-31T14:58:30Z"
+}
+
+================================================================================
+5. WORKFLOW DESCRIPTION - STEP-BY-STEP PROCESS FLOW
+================================================================================
+
+NEW PATIENT INITIAL VISIT (90+ minutes):
+
+Step 1: Appointment Start
+  └─ Doctor clicks "Start Consultation" from appointment detail
+  └─ System creates consultation record, sets status to IN_PROGRESS
+  └─ Appointment locked from cancellation
+  └─ Retrieve patient's complete medical history:
+     ├─ Prior diagnoses and problems
+     ├─ Current medications
+     ├─ Allergies and adverse reactions
+     ├─ Prior surgeries
+     ├─ Immunization history
+     └─ Family history
+
+Step 2: Chief Complaint & History Taking
+  └─ Doctor enters chief complaint ("Patient complains of...")
+  └─ Enter symptom duration and severity
+  └─ For new patient: Conduct comprehensive history taking
+     ├─ Past medical history (PMH) - major illnesses, hospitalizations
+     ├─ Past surgical history (PSH) - prior surgeries
+     ├─ Medications - all current medications reviewed and reconciled
+     ├─ Allergies - drug allergies and environmental allergies
+     ├─ Family history - major diseases in relatives
+     ├─ Social history - occupation, smoking, alcohol, drug use
+     └─ Preventive health - last physical, immunizations, screenings
+
+Step 3: Vital Signs Capture
+  └─ Nurse or doctor enters vital signs:
+     ├─ Blood pressure (Systolic/Diastolic)
+     ├─ Heart rate (bpm)
+     ├─ Temperature (°C)
+     ├─ Respiratory rate (breaths/min)
+     ├─ Oxygen saturation (%)
+     └─ Height, weight (auto-calculates BMI)
+  └─ System flags abnormal values:
+     ├─ Red flag critical values (HR > 120, O2 Sat < 90%, Temp > 39)
+     ├─ Yellow flag elevated values (BP elevated, BMI > 30)
+     └─ Trending alerts (BP higher than baseline)
+
+Step 4: Physical Examination
+  └─ Doctor performs systematic physical examination:
+     ├─ Constitutional (general appearance, distress level, affect)
+     ├─ Eyes, Ears, Nose, Throat (HEENT)
+     ├─ Cardiovascular (heart sounds, murmurs, pulses)
+     ├─ Respiratory (lung sounds, wheezing, rales)
+     ├─ Abdominal (palpation, tenderness, masses)
+     ├─ Neurological (mentation, coordination, reflexes)
+     ├─ Extremities (edema, pulses, wounds)
+     └─ Skin (rashes, lesions, color)
+  └─ For each system:
+     ├─ Enter findings (normal vs abnormal)
+     ├─ Flag abnormal findings for clinical action
+     └─ System prompts for follow-up examination if indicated
+
+Step 5: Assessment Development
+  └─ Doctor enters clinical assessment:
+     ├─ Summary of key findings
+     ├─ Integration of history + examination + vital signs
+     └─ Clinical reasoning process
+  └─ Suggest differential diagnoses:
+     ├─ Retrieve ICD-10 codes matching findings
+     ├─ Rank primary vs differential vs ruled-out diagnoses
+     └─ Request Clinical Decision Support (CDS) if needed
+  └─ CDS engine analyzes:
+     ├─ Patient findings vs knowledge base
+     ├─ Recommends most probable diagnoses
+     ├─ Suggests diagnostic tests
+     └─ Alerts for drug interactions, contraindications
+  └─ Doctor confirms diagnosis:
+     ├─ Primary diagnosis (most likely)
+     ├─ Differential diagnoses (possible alternatives)
+     ├─ Ruled-out diagnoses (ruled out by examination)
+     └─ Mark as NEW or existing problem
+
+Step 6: Plan Development
+  └─ Doctor creates treatment plan:
+     ├─ Medications (recommendations pre-populated based on diagnosis)
+     ├─ Diagnostic tests (lab, imaging, specialty tests)
+     ├─ Referrals (to specialists if indicated)
+     ├─ Procedures (if indicated)
+     ├─ Patient education points
+     └─ Follow-up instructions
+  └─ For new patient:
+     ├─ Establish baseline care plan
+     ├─ Schedule routine preventive care (physical, screenings)
+     └─ Establish follow-up schedule
+
+Step 7: Documentation Review & Attestation
+  └─ Doctor reviews complete consultation:
+     ├─ Chief complaint and history
+     ├─ Vital signs and findings
+     ├─ Assessment and plan
+     └─ Actions and recommendations
+  └─ Doctor makes corrections if needed:
+     ├─ Draft auto-saved every 30 seconds
+     ├─ Can restore from any auto-saved version
+     └─ Final review before finalization
+  └─ Doctor signs consultation:
+     ├─ Electronic signature with timestamp
+     ├─ Sets as FINALIZED (locked from editing)
+     └─ Generates permanent clinical record
+
+Step 8: Finalization & Work Item Creation
+  └─ System creates work items from plan:
+     ├─ Prescription orders → sent to pharmacy
+     ├─ Lab orders → sent to lab for processing
+     ├─ Imaging orders → sent to radiology
+     ├─ Referrals → sent to receiving provider
+     └─ Follow-up appointments → scheduled automatically
+  └─ Patient notifications:
+     ├─ Email notification of new prescriptions ready for pickup
+     ├─ Lab results notification when available
+     ├─ Follow-up appointment reminders
+     └─ Consultation note access (with optional delay)
+  └─ Care team notifications:
+     ├─ Alerts for abnormal findings requiring action
+     ├─ Updates to problem list and medication list
+     └─ Alerts for critical values or flags
+
+FOLLOW-UP VISIT (20-30 minutes):
+
+Step 1-2: [Same as above - chief complaint]
+
+Step 3-4: [Same as above - vital signs, focused examination]
+
+Step 5-6: [Brief assessment and plan update]
+
+Step 7-8: [Documentation, attestation, finalization]
+
+Key Differences:
+  ├─ Limited history taking (focus on interval history since last visit)
+  ├─ Focused examination (on chief complaint area)
+  ├─ Review of treatment compliance with prior plan
+  ├─ Assessment of response to prior treatment
+  └─ Plan modifications based on response
+
+URGENT CARE VISIT (15-20 minutes):
+
+Key Differences:
+  ├─ Rapid assessment (minimal history taking)
+  ├─ Focused examination (on acute complaint only)
+  ├─ Rapid decision-making (immediate intervention or referral)
+  ├─ Streamlined documentation (quick note, brief plan)
+  ├─ High alert threshold (critical findings escalated immediately)
+  └─ Clear discharge instructions (follow-up, return precautions)
+
+================================================================================
+6. TECHNICAL REQUIREMENTS & CONSTRAINTS
+================================================================================
+
+PERFORMANCE REQUIREMENTS:
+- Consultation list load: < 2 seconds for 100+ consultations
+- Clinical summary retrieval: < 1 second (vital signs, findings, diagnoses)
+- Vital sign entry: < 500ms from data entry to confirmation
+- Finding documentation: < 700ms from entry to display
+- CDS analysis: < 3 seconds for diagnosis recommendations
+- Consultation finalization: < 2 seconds including work item creation
+- Draft auto-save: < 200ms every 30 seconds without blocking UI
+
+SECURITY & COMPLIANCE:
+- All consultation data encrypted at rest and in transit (TLS 1.2+)
+- HIPAA compliance:
+  * Audit log of all access to consultation (who, when, what)
+  * Access control by role (doctor, nurse, patient, admin)
+  * Automatic logging of failed access attempts
+  * Consultation notes withheld until provider configurable delay (0-72 hours)
+  * Restrict patient access to own consultations only
+- Patient privacy:
+  * Consultation not visible to patient by default
+  * Doctor must explicitly mark "visible_to_patient" before patient can access
+  * Optional delay (24-72 hours) before patient sees consultation
+  * Option to redact sensitive sections before patient visibility
+- Concurrent edit prevention:
+  * Only one doctor can actively edit consultation at a time
+  * Lock consultation during active editing (prevents race conditions)
+  * Warn if another doctor is editing same consultation
+  * Auto-save prevents data loss on connection interruption
+
+ACCESSIBILITY REQUIREMENTS:
+- Consultation form must be WCAG 2.1 AA compliant
+- Keyboard navigation for all form fields
+- Screen reader compatible for vital sign entry and findings
+- High contrast mode support
+- Text size adjustability (100%-200%)
+- Speech recognition for voice input (optional telemedicine feature)
+
+INTEGRATION REQUIREMENTS:
+- Integrate with Task 22 (Prescription System) - create prescriptions from plan
+- Integrate with Task 23 (Diagnosis Recording) - feed diagnosis into problem list
+- Integrate with Task 24 (Clinical Notes) - create note templates from consultation
+- Integrate with Task 17 (Appointment Engine) - validate appointment context
+- Integrate with Task 12 (Patient Management) - retrieve/update patient record
+- Integrate with Clinical Decision Support engine - provide diagnostic recommendations
+
+================================================================================
+7. TESTING STRATEGY - 60+ TEST CASES
+================================================================================
+
+Unit Tests (15 tests):
+1. Test consultation creation from appointment (valid/invalid)
+2. Test chief complaint validation (required fields, length limits)
+3. Test vital sign validation (range checks, abnormal flag detection)
+4. Test vital sign abnormality detection (elevated BP, low O2, high temp)
+5. Test BMI calculation from height/weight
+6. Test finding severity classification
+7. Test diagnosis ICD-10 code validation
+8. Test assessment text required field validation
+9. Test plan text required field validation
+10. Test draft auto-save timing (every 30 seconds)
+11. Test draft restoration from auto-save
+12. Test consultation finalization workflow
+13. Test work item creation from plan actions
+14. Test concurrent edit prevention (lock mechanism)
+15. Test consultation status transitions (DRAFT → IN_PROGRESS → FINALIZED)
+
+Integration Tests (25 tests):
+16. Test appointment context retrieval in consultation start
+17. Test patient medical history population in consultation
+18. Test vital sign entry with abnormal flag notification
+19. Test finding documentation with severity classification
+20. Test CDS engine integration for diagnosis recommendations
+21. Test diagnosis confirmation and ICD-10 code assignment
+22. Test treatment plan creation with action items
+23. Test prescription creation from plan action
+24. Test lab order creation from plan action
+25. Test referral creation from plan action
+26. Test follow-up appointment auto-scheduling
+27. Test patient notification on consultation finalization
+28. Test care team notification on abnormal findings
+29. Test audit logging of all consultation access
+30. Test consultation visibility settings (patient vs staff)
+31. Test consultation finalization triggers work item creation
+32. Test medication interaction checking via CDS
+33. Test allergy checking against plan recommendations
+34. Test drug-disease interaction checking
+35. Test consultation retrieval with complete history context
+36. Test multi-consultation view for patient history
+37. Test vital sign trending across consultations
+38. Test draft auto-save on network interruption
+39. Test draft recovery on browser refresh
+40. Test concurrent consultation between two doctors (conflict resolution)
+
+End-to-End Tests (15 tests):
+41. Complete new patient visit workflow (chief complaint → vitals → exam → assessment → plan → finalization)
+42. Complete follow-up visit workflow (abbreviated)
+43. Complete urgent care visit workflow (rapid)
+44. Complete telemedicine consultation workflow (vital entry from patient)
+45. Post-operative follow-up visit workflow
+46. Consultation with abnormal findings triggering alerts
+47. Consultation with critical findings requiring escalation
+48. Consultation with CDS recommendations accepted
+49. Consultation with CDS recommendations rejected
+50. Consultation with multiple diagnoses
+51. Consultation with drug-disease contraindication alert
+52. Consultation with allergy conflict alert
+53. Consultation finalization with work item creation (Rx + Lab + Referral)
+54. Consultation with patient visibility delay (24-hour hold)
+55. Consultation with consultation note access by patient
+56. Consultation audit trail verification
+
+Edge Case Tests (8 tests):
+57. Test consultation with no findings documented
+58. Test consultation with incomplete vital signs
+59. Test consultation with max text length (assessment, plan)
+60. Test consultation navigation away without saving (recovery check)
+
+Performance Tests (3 tests):
+61. Load test: Create 1000 consultations concurrently - verify <2s retrieval
+62. Benchmark: Vital sign entry performance - target <500ms
+63. Benchmark: CDS analysis response - target <3 seconds
+
+================================================================================
+8. ACCEPTANCE CRITERIA
+================================================================================
+
+REQUIREMENT 1: Consultation can be initiated from appointment
+ ✓ Appointment status must be CONFIRMED or IN_PROGRESS
+ ✓ Doctor must be assigned to appointment
+ ✓ Appointment locks from cancellation once consultation starts
+ ✓ System retrieves patient medical history context
+ ✓ Consultation status set to IN_PROGRESS
+ ✓ Chief complaint required field validated
+
+REQUIREMENT 2: Vital signs captured and validated in real-time
+ ✓ All vital signs (BP, HR, Temp, O2, RR, Height, Weight) entered
+ ✓ Vital sign values validated against normal ranges
+ ✓ Abnormal values flagged with red/yellow indicators
+ ✓ BMI auto-calculated from height/weight
+ ✓ Trending detection (BP higher than baseline alerts)
+ ✓ Critical value alerts trigger immediate notification
+ ✓ Vital signs searchable and retrievable
+
+REQUIREMENT 3: Physical examination findings documented
+ ✓ Multiple body systems documented (HEENT, CV, Resp, Abd, Neuro, Extremity)
+ ✓ Each finding marked as normal or abnormal
+ ✓ Abnormal findings linked to severity levels (mild/moderate/severe)
+ ✓ Clinical action required flag tracked
+ ✓ Findings displayed in structured format
+
+REQUIREMENT 4: Assessment with diagnosis recommendations
+ ✓ Free-text assessment entered by doctor
+ ✓ CDS engine provides diagnosis recommendations
+ ✓ Primary diagnosis marked (most probable)
+ ✓ Differential diagnoses listed (alternative possibilities)
+ ✓ Ruled-out diagnoses documented (excluded by findings)
+ ✓ New vs existing problem marked
+ ✓ ICD-10 code assigned to each diagnosis
+ ✓ Certainty level assigned (confirmed, probable, possible)
+
+REQUIREMENT 5: Treatment plan created with actions
+ ✓ Medications prescribed with dose/frequency/duration
+ ✓ Drug interaction checking against medication list
+ ✓ Allergy checking against drug allergies
+ ✓ Lab orders created for diagnostic tests
+ ✓ Imaging orders created for radiological studies
+ ✓ Referrals generated for specialist consultations
+ ✓ Follow-up appointments automatically scheduled
+ ✓ Patient education points documented
+
+REQUIREMENT 6: Consultation finalization and documentation
+ ✓ Doctor attestation via e-signature with timestamp
+ ✓ Consultation locked from editing after finalization
+ ✓ Work items created from plan actions
+ ✓ Prescriptions submitted to pharmacy
+ ✓ Lab orders sent to lab system
+ ✓ Referrals sent to receiving provider
+ ✓ Follow-up appointments scheduled in appointment system
+ ✓ Patient notifications sent
+
+REQUIREMENT 7: Auto-save and draft recovery
+ ✓ Consultation draft auto-saved every 30 seconds
+ ✓ Auto-save triggered without blocking user interaction
+ ✓ Draft restored on browser crash or connection loss
+ ✓ User can restore from any prior auto-saved version
+ ✓ Draft timestamp clearly displayed to user
+
+REQUIREMENT 8: HIPAA compliance and security
+ ✓ All consultation data encrypted at rest (AES-256)
+ ✓ All consultation access via HTTPS/TLS 1.2+
+ ✓ Audit log tracks all access to consultation (who, when, what)
+ ✓ Access control enforced by role (doctor, nurse, patient, admin)
+ ✓ Failed access attempts logged and alerted
+ ✓ Patient access restricted to own consultations only
+ ✓ Consultation visibility delay configurable (0-72 hours)
+ ✓ Sensitive data not exposed in logs or monitoring
+
+REQUIREMENT 9: Patient visibility and privacy
+ ✓ Consultation not visible to patient by default
+ ✓ Doctor marks "visible_to_patient" before patient can access
+ ✓ Optional visibility delay (24-72 hours) before patient access
+ ✓ Patient cannot access other patients' consultations
+ ✓ Patient can request clarification on medical terms
+ ✓ Option to schedule doctor follow-up call to discuss findings
+
+REQUIREMENT 10: Concurrent edit safety
+ ✓ Only one doctor actively editing consultation at a time
+ ✓ Consultation locked during active editing
+ ✓ Other doctors warned if attempting to edit locked consultation
+ ✓ Edit lock released after 15 minutes of inactivity
+ ✓ No race conditions or data loss on concurrent edits
+
+================================================================================
+9. DELIVERABLES & ARTIFACTS
+================================================================================
+
+Code Deliverables:
+ 1. Consultation domain model (consultation.entity.ts)
+ 2. Consultation repository with CRUD + queries (consultation.repository.ts)
+ 3. Consultation service with business logic (consultation.service.ts)
+ 4. Vital signs service (vital-signs.service.ts)
+ 5. Clinical findings service (findings.service.ts)
+ 6. Assessment and diagnosis service (assessment.service.ts)
+ 7. Treatment plan service (plan.service.ts)
+ 8. CDS integration service (cds-integration.service.ts)
+ 9. Draft auto-save service (draft-autosave.service.ts)
+10. Consultation API controller (consultation.controller.ts)
+11. Consultation React component (ConsultationForm.tsx)
+12. Vital signs entry component (VitalSignsEntry.tsx)
+13. Findings documentation component (FindingsPanel.tsx)
+14. Assessment component (AssessmentPanel.tsx)
+15. Treatment plan component (PlanPanel.tsx)
+16. CDS recommendations component (CDSRecommendations.tsx)
+17. Database migration scripts (001_consultation_tables.sql)
+18. Unit test suites (consultation.service.spec.ts, etc.)
+19. Integration test suites
+20. E2E test specifications
+
+Documentation Deliverables:
+21. Consultation module design document
+22. API documentation (OpenAPI/Swagger)
+23. Data model ERD diagram
+24. User workflow diagrams (new patient, follow-up, urgent care)
+25. CDS integration guide
+26. HIPAA compliance checklist
+27. Developer setup guide
+28. Testing guide and test matrix
+
+================================================================================
+10. DEPENDENCIES & BLOCKING RELATIONSHIPS
+================================================================================
+
+DEPENDS ON:
+  ✓ Task 11: EMR Specification (patient records structure)
+  ✓ Task 12: Patient Management System (patient data access)
+  ✓ Task 17: Appointment Engine (appointment context and status)
+  ✓ Phase 0: Database schema (consultations tables)
+  ✓ Phase 0: Authentication/Authorization (doctor roles, access control)
+
+BLOCKS:
+  ─ Task 22: Prescription System (requires consultation context for prescription creation)
+  ─ Task 23: Diagnosis Recording (requires diagnosis documented in consultation)
+  ─ Task 24: Clinical Notes (requires consultation note templates and data)
+
+PARALLEL DEPENDENCIES:
+  • Can start once Task 12 and Task 17 complete
+  • Can proceed in parallel with Task 20 (Telemedicine - different workflow)
+  • Can proceed in parallel with Task 19 (Doctor Schedule - independent)
+
+================================================================================
+11. EFFORT ESTIMATION & TIMELINE
+================================================================================
+
+TASK BREAKDOWN:
+
+Backend Development (18 hours):
+  └─ Database schema design & migration (2 hours)
+  └─ Consultation domain model & repository (3 hours)
+  └─ Consultation service & business logic (5 hours)
+  └─ Vital signs, findings, assessment services (4 hours)
+  └─ CDS integration service (2 hours)
+  └─ Draft auto-save service (2 hours)
+
+API Development (8 hours):
+  └─ Consultation CRUD endpoints (2 hours)
+  └─ Vital signs endpoints (1.5 hours)
+  └─ Findings endpoints (1.5 hours)
+  └─ Assessment/diagnosis endpoints (1.5 hours)
+  └─ Plan/finalization endpoints (1 hour)
+  └─ Draft retrieval/auto-save endpoints (0.5 hour)
+
+Frontend Development (4 hours):
+  └─ Consultation form component (1.5 hours)
+  └─ Vital signs entry component (0.5 hour)
+  └─ Findings panel component (0.5 hour)
+  └─ Assessment/plan components (1 hour)
+  └─ CDS recommendations display (0.5 hour)
+
+Testing (2 hours):
+  └─ Unit tests (0.75 hour)
+  └─ Integration tests (0.75 hour)
+  └─ E2E tests (0.5 hour)
+
+TOTAL EFFORT: 32 hours (4-5 days for 1 developer, 2 days for 2 developers)
+
+TIMELINE:
+  Day 1: Backend + API development (26 hours compressed into 1 day with 2 devs)
+  Day 2: Frontend + Testing (6 hours)
+  Total: 4-5 days (1 developer @ 8 hrs/day) or 2-3 days (2 developers)
+
+CRITICAL PATH:
+  1. Database schema design
+  2. Domain model & repository
+  3. Consultation service
+  4. API endpoints
+  5. Frontend components
+  6. Integration testing
+
+================================================================================
+12. RISKS & MITIGATION
+================================================================================
+
+RISK 1: CDS Engine Performance
+  │ Impact: If CDS analysis takes > 3 seconds, blocks doctor workflow
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Pre-calculate common diagnosis patterns
+  │  ├─ Cache diagnosis recommendations
+  │  ├─ Implement timeout (3 seconds max)
+  │  └─ Fall back to manual entry if CDS timeout
+
+RISK 2: Vital Sign Abnormality Alert Threshold
+  │ Impact: Too sensitive → alert fatigue; Too lenient → miss abnormalities
+  │ Probability: MEDIUM
+  │ Mitigation:
+  │  ├─ Configurable alert thresholds per clinic
+  │  ├─ Machine learning to personalize thresholds
+  │  ├─ Beta testing with pilot clinics
+  │  └─ Continuous monitoring and refinement
+
+RISK 3: Draft Auto-Save on Slow Network
+  │ Impact: Auto-save every 30s may conflict with active editing
+  │ Probability: LOW
+  │ Mitigation:
+  │  ├─ Async auto-save (non-blocking)
+  │  ├─ Debounce auto-save (wait for typing pause)
+  │  ├─ Queue unsaved changes if network unavailable
+  │  └─ Notify user of sync status
+
+RISK 4: Concurrent Edit Conflicts
+  │ Impact: Two doctors editing same consultation simultaneously
+  │ Probability: LOW (but possible with shift handovers)
+  │ Mitigation:
+  │  ├─ Lock consultation during active editing
+  │  ├─ Warn user if another doctor is editing
+  │  ├─ Implement conflict resolution (last-write-wins or manual merge)
+  │  └─ Audit trail of all changes
+
+RISK 5: Data Entry Errors (Wrong Diagnosis Code, Drug Allergy Override)
+  │ Impact: Patient safety risk, medication errors, wrong treatment
+  │ Probability: MEDIUM (human factors)
+  │ Mitigation:
+  │  ├─ Confirmation dialogs for critical changes
+  │  ├─ Drug allergy checking with override warnings
+  │  ├─ ICD-10 code verification with lookup tool
+  │  ├─ Peer review before finalization (optional)
+  │  └─ Audit trail for accountability
+
+================================================================================
+13. SUCCESS METRICS
+================================================================================
+
+CLINICAL QUALITY:
+  • Consultation completion rate: > 95%
+  • Average consultation documentation time: < 15 minutes (follow-up), < 45 min (new patient)
+  • Diagnosis accuracy (CDS recommendations accepted): > 80%
+  • Clinical decision support utilization: > 70% of consultations
+  • Abnormal finding alert accuracy: > 95% sensitivity, > 80% specificity
+
+OPERATIONAL EFFICIENCY:
+  • Consultation processing time: < 2 seconds for retrieval
+  • Vital sign entry time: < 500ms
+  • Doctor time saved (vs paper): 20-30% less documentation time
+  • Auto-save recovery success rate: > 99%
+  • Draft restoration reliability: > 99%
+
+SAFETY & COMPLIANCE:
+  • Zero medication errors from drug-drug interaction misses
+  • Zero allergy-related incidents
+  • 100% audit trail accuracy and completeness
+  • Zero unauthorized access incidents
+  • 100% HIPAA compliance audit pass rate
+
+PATIENT SATISFACTION:
+  • Patient access to consultation notes: > 90% access within 24 hours
+  • Patient understanding of consultation (survey): > 85% satisfied
+  • Patient follow-up compliance: > 80%
+  • Patient follow-up appointment adherence: > 75%
+
+================================================================================
+14. ADDITIONAL NOTES & CONTEXT
+================================================================================
+
+CONSULTATION TYPE VARIATIONS:
+
+New Patient Visit (90+ minutes):
+  - Comprehensive history and physical
+  - Establishes baseline health status
+  - Creates problem list
+  - Establishes care plan
+  - Highest documentation time
+
+Follow-up Visit (20-30 minutes):
+  - Focused on chief complaint
+  - Brief interval history
+  - Assess treatment response
+  - Modify plan as needed
+  - Most common consultation type
+
+Urgent Care Visit (15-20 minutes):
+  - Rapid assessment
+  - Immediate intervention or referral
+  - Streamlined documentation
+  - May be incomplete (transferred to hospital)
+
+Telemedicine Consultation:
+  - Limited to visual assessment
+  - Vital signs from patient report
+  - Clear instructions for in-person follow-up if needed
+  - Security/privacy considerations
+
+Post-Operative Follow-up:
+  - Specific focus on surgical recovery
+  - Wound/incision assessment
+  - Pain management review
+  - Return-to-activity guidance
+
+CLINICAL DECISION SUPPORT (CDS):
+
+The Consultation Module integrates with a Clinical Decision Support engine that:
+  ├─ Analyzes patient findings against medical knowledge base
+  ├─ Recommends diagnoses ranked by probability
+  ├─ Suggests diagnostic tests (lab, imaging)
+  ├─ Checks medication interactions
+  ├─ Checks drug-allergy contraindications
+  ├─ Checks drug-disease contraindications
+  ├─ Provides evidence-based treatment recommendations
+  └─ Flags critical findings requiring escalation
+
+CDS recommendations are ADVISORY ONLY. Doctor retains full authority over diagnosis
+and treatment decisions. All CDS rejections/overrides logged for quality review.
+
+TEMPLATE SYSTEM:
+
+Consultation module supports templates for common visit types:
+  ├─ New patient intake template (comprehensive history/exam)
+  ├─ Follow-up visit template (abbreviated)
+  ├─ Urgent care template (rapid)
+  ├─ Telemedicine template (visual assessment only)
+  ├─ Post-op follow-up template (recovery assessment)
+  └─ Custom templates per clinic
+
+Templates pre-populate form sections to reduce data entry time and improve consistency.
+
+AUDIT & ACCOUNTABILITY:
+
+Every consultation action logged:
+  ├─ Who: User ID and role
+  ├─ What: Action (create, modify, finalize, view)
+  ├─ When: Timestamp (audit trail)
+  ├─ Where: IP address, device, browser
+  └─ Why: Reason code (routine, administrative, legal)
+
+Critical actions logged for compliance:
+  ├─ Consultation finalization
+  ├─ Drug allergy overrides
+  ├─ CDS recommendation rejections
+  ├─ Consultation visibility changes
+  ├─ Patient access to consultation
+  └─ Any access by non-treating physician
+
+================================================================================
+END OF TASK 21: CONSULTATION MODULE
+================================================================================

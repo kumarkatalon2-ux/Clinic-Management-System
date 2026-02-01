@@ -1,0 +1,799 @@
+================================================================================
+TASK 40: MONITORING & OBSERVABILITY
+================================================================================
+Project: Clinical Management System (Multi-tenant SaaS)
+Module: Operations & DevOps
+Phase: Phase 1 - Feature Development
+Task ID: 40
+Status: Specification & Design
+Created: January 2026
+
+================================================================================
+1. OBJECTIVE
+================================================================================
+
+Design and implement comprehensive monitoring, logging, and observability
+infrastructure that provides real-time visibility into system health,
+performance, security, and clinical operations for rapid incident detection,
+troubleshooting, and operational optimization.
+
+Key Goals:
+- Monitor application and infrastructure health (99.9% uptime SLA)
+- Track performance metrics (response times, database queries, API latency)
+- Collect and analyze logs (application, audit, access, error)
+- Distribute tracing for request flow visibility
+- Alert on anomalies and security events
+- Provide dashboards for operations and clinical teams
+- Maintain compliance audit trails
+- Enable root cause analysis for incidents
+
+Scope:
+- Application performance monitoring (APM)
+- Infrastructure monitoring (servers, databases, networks)
+- Log aggregation and analysis
+- Distributed tracing
+- Alerting and incident management
+- Custom dashboards and reporting
+- Security event monitoring
+- Clinical workflow monitoring
+
+================================================================================
+2. BUSINESS LOGIC & MONITORING STRATEGY
+================================================================================
+
+2.1 KEY METRICS BY LAYER
+------------------------
+
+Application Layer:
+- API response times (p50, p95, p99)
+- Request throughput (requests/sec)
+- Error rates (5xx, 4xx by endpoint)
+- Database query times
+- Cache hit rates
+- Background job execution times
+- Queue lengths and processing delays
+
+Infrastructure Layer:
+- CPU utilization per server
+- Memory usage and OOM events
+- Disk I/O and space availability
+- Network bandwidth and errors
+- Database connection pools
+- Replication lag (PostgreSQL)
+
+Clinical Operations:
+- Appointments scheduled vs booked
+- Consultations completed per hour
+- Prescription turnaround time
+- Insurance claim approval rate
+- Patient portal login frequency
+- Report generation performance
+
+Business Metrics:
+- Revenue per hour
+- Invoice generation time
+- Payment processing success rate
+- System uptime % (target: 99.9%)
+
+2.2 OBSERVABILITY STACK
+-----------------------
+
+Three Pillars of Observability:
+
+1. LOGS (Application events and audit trails)
+   - Centralized log aggregation
+   - Structured logging (JSON format)
+   - Log levels: DEBUG, INFO, WARN, ERROR, CRITICAL
+   - Retention: 30 days hot, 90 days cold storage
+   - Tool: ELK Stack (Elasticsearch, Logstash, Kibana)
+
+2. METRICS (Quantitative measurements)
+   - Time-series data (counters, gauges, histograms)
+   - 1-minute granularity for real-time
+   - 5-minute granularity for trends
+   - Retention: 15 days detailed, 2 years aggregated
+   - Tool: Prometheus + Grafana
+
+3. TRACES (Request flow tracking)
+   - Distributed tracing across services
+   - Track request from API → database → response
+   - Identify slow operations and bottlenecks
+   - Sampling: 10% in production, 100% in staging
+   - Tool: Jaeger or Datadog APM
+
+2.3 LOGGING STRATEGY
+--------------------
+
+Structured Logging Format (JSON):
+{
+  "timestamp": "2026-01-31T14:30:45.123Z",
+  "level": "INFO",
+  "service": "consultation-service",
+  "request_id": "req-123abc",
+  "user_id": "user-456",
+  "tenant_id": "tenant-789",
+  "action": "consultation_finalized",
+  "duration_ms": 245,
+  "status": "SUCCESS",
+  "error": null
+}
+
+Log Categories:
+
+1. Application Logs (application behavior)
+   - Service startup/shutdown
+   - Configuration loaded
+   - Background job execution
+   - Task queue processing
+   - Email sent, notifications delivered
+   
+2. Audit Logs (compliance and security)
+   - User login/logout
+   - Patient record accessed
+   - Data modification (create, update, delete)
+   - Financial transaction
+   - Report generated
+   - Authorization decision
+   
+3. Error Logs (troubleshooting)
+   - Exception stack traces
+   - Failed database queries
+   - External API failures
+   - Timeout events
+   - Resource exhaustion
+   
+4. Security Logs (threat detection)
+   - Failed login attempts
+   - Unauthorized access attempts
+   - Rate limiting triggered
+   - SQL injection attempts
+   - XSS attempts
+   - CSRF violations
+   
+5. Performance Logs (optimization)
+   - Slow queries (>1 second)
+   - Slow API endpoints (>500ms)
+   - Memory leaks detected
+   - GC pauses >100ms
+   - Database connection pool exhaustion
+
+Log Retention Policy:
+- Application logs: 30 days
+- Audit logs: 7 years (HIPAA requirement)
+- Security logs: 1 year
+- Performance logs: 90 days
+- Debug logs: 7 days (prod), 30 days (staging)
+
+2.4 METRICS COLLECTION
+---------------------
+
+Key Metrics by Component:
+
+API Endpoints:
+- request_count (by method, path, status)
+- request_duration (histogram: 50ms buckets)
+- request_size (bytes)
+- response_size (bytes)
+- error_count (by type)
+
+Database:
+- query_count (by query type: SELECT, INSERT, UPDATE, DELETE)
+- query_duration (histogram)
+- connection_pool_active (gauge)
+- connection_pool_idle (gauge)
+- replication_lag (seconds)
+- transaction_duration
+- lock_wait_time
+- slow_query_count
+
+Cache (Redis):
+- cache_hit_rate (%)
+- cache_miss_rate (%)
+- key_eviction_rate
+- memory_usage (bytes)
+- connection_count
+
+Background Jobs:
+- job_count (total, active, queued)
+- job_duration (histogram)
+- job_failure_rate
+- job_retry_count
+- queue_depth
+
+System:
+- cpu_usage (%)
+- memory_usage (%)
+- disk_usage (%)
+- disk_iops
+- network_throughput (bytes/sec)
+- network_latency (ms)
+
+2.5 ALERTING STRATEGY
+---------------------
+
+Alert Severity Levels:
+
+CRITICAL (Page immediately):
+- API error rate >5% for 5 minutes
+- Database connection pool exhausted
+- Disk space <5% available
+- Replication lag >60 seconds
+- Authentication service down
+- Patient data encryption key unavailable
+- System memory <10% available
+
+HIGH (Alert within 15 minutes):
+- API error rate >1% for 10 minutes
+- p95 API response time >1 second for 10 minutes
+- Database CPU >90% for 5 minutes
+- Slow query execution >2 seconds (top 10 queries)
+- Payment processor unavailable
+- Insurance claim submission failing
+- Multiple failed payment attempts
+
+MEDIUM (Alert within 1 hour):
+- API error rate >0.1% for 20 minutes
+- p95 response time >500ms for 20 minutes
+- Database disk space <20% available
+- Cache hit rate <70%
+- Background job failure rate >1%
+- HTTPS certificate expiring in <30 days
+
+LOW (Summary daily):
+- API latency trend increasing
+- Database query performance degrading
+- Cache eviction rate increasing
+- New relic errors (non-critical)
+- Unusual traffic patterns
+
+2.6 INCIDENT RESPONSE WORKFLOW
+-------------------------------
+
+Alert triggered → Investigation → Mitigation → Resolution
+
+1. Alert Fired
+   - Alert rule evaluates metrics/logs
+   - Threshold exceeded or anomaly detected
+   - Incident created with severity level
+   - Notification sent to on-call engineer
+   
+2. Investigation
+   - Engineer receives alert (SMS, email, Slack)
+   - Checks dashboard to understand issue
+   - Reviews recent deployments (check release notes)
+   - Examines logs for error patterns
+   - Checks metrics for correlation
+   
+3. Mitigation
+   - If rollback needed: revert recent deployment
+   - If scaling needed: increase server count
+   - If database issue: run optimization
+   - If external API down: activate fallback
+   - If security issue: isolate affected service
+   
+4. Resolution
+   - Root cause identified and documented
+   - Permanent fix deployed
+   - Monitor for recurrence
+   - Post-incident review (if critical)
+   - Update runbooks for future incidents
+
+Escalation:
+- CRITICAL not responded in 5 min → Escalate to manager
+- CRITICAL not resolved in 30 min → Escalate to director
+- HIGH not resolved in 4 hours → Escalate to manager
+
+================================================================================
+3. MONITORING ARCHITECTURE
+================================================================================
+
+3.1 COMPONENTS
+--------------
+
+Application Level:
+- App Instrumentation (code exports metrics)
+- APM Agent (collects application traces)
+- Custom Exporters (publish metrics to Prometheus)
+
+Metrics Collection:
+- Prometheus (scrapes metrics from exporters)
+- Remote storage (long-term metric retention)
+- Thanos (distributed Prometheus)
+
+Log Collection:
+- Fluent-bit/Filebeat (log shipping agent)
+- Elasticsearch (log storage and search)
+- Logstash (optional: log parsing/enrichment)
+
+Visualization:
+- Grafana (metrics dashboards)
+- Kibana (log exploration)
+- Custom dashboard (clinical metrics)
+
+Alerting:
+- Prometheus Alertmanager (rule evaluation)
+- Alert Router (routes to on-call, escalation)
+- Integration: Slack, PagerDuty, SMS
+
+3.2 DEPLOYMENT ARCHITECTURE
+---------------------------
+
+Per-Tenant Monitoring:
+- Each tenant's metrics tagged with tenant_id
+- Dashboards scoped by tenant
+- Alerts specific to tenant service levels
+
+Multi-Cluster:
+- Prometheus instance per region
+- Federated Prometheus (global view)
+- Disaster recovery for monitoring stack
+
+3.3 SECURITY & COMPLIANCE
+-------------------------
+
+Access Control:
+- Role-based access to dashboards (viewer, editor, admin)
+- Audit log for who accessed what metrics
+- Patient data never in metrics/logs (no PHI)
+- Sensitive data masked in logs
+
+Data Protection:
+- Logs encrypted in transit (HTTPS)
+- Logs encrypted at rest (EBS encryption)
+- Audit logs: 7-year retention, immutable
+- Regular backups of monitoring data
+
+PII/PHI Handling:
+- Remove patient names from logs
+- Remove medical record numbers
+- Hash patient IDs if logged
+- Never log full credit card numbers
+- Mask social security numbers
+
+================================================================================
+4. DATA MODEL & SCHEMA
+================================================================================
+
+4.1 METRICS DATABASE (Time-Series)
+-----------------------------------
+
+Metrics stored as time-series in Prometheus:
+
+Format:
+  metric_name{label1="value1", label2="value2"} value timestamp
+
+Examples:
+
+http_request_duration_ms{
+  service="consultation-api",
+  method="POST",
+  path="/api/v1/consultations",
+  status="200",
+  tenant_id="tenant-1"
+} 245 1676473845000
+
+database_query_duration_ms{
+  database="clinical_db",
+  query_type="SELECT",
+  table="consultations",
+  slow="false"
+} 45 1676473845000
+
+Cache hit rate:
+redis_cache_hit_rate{
+  service="appointment-service",
+  cache_name="appointment_availability"
+} 0.92 1676473845000
+
+4.2 LOGS DATABASE (Elasticsearch)
+----------------------------------
+
+Document structure:
+{
+  "@timestamp": "2026-01-31T14:30:45.123Z",
+  "level": "INFO",
+  "service": "consultation-service",
+  "tenant_id": "tenant-1",
+  "user_id": "user-456",
+  "request_id": "req-123abc",
+  "action": "consultation_created",
+  "resource_type": "consultation",
+  "resource_id": "consult-789",
+  "details": {
+    "chief_complaint": "headache",
+    "provider_id": "doc-1",
+    "patient_id": "pat-1"
+  },
+  "duration_ms": 245,
+  "status": "SUCCESS",
+  "ip_address": "192.168.1.1",
+  "user_agent": "Mozilla/5.0...",
+  "error": null
+}
+
+Index mapping:
+- Index retention: 30 days (rolling indices)
+- Shards: 3 (distribution)
+- Replicas: 2 (redundancy)
+- Refresh rate: 1 second (near-real-time)
+
+4.3 ALERTS & INCIDENTS
+-----------------------
+
+TABLE: alerts
+  alert_id (UUID, PK)
+  tenant_id (UUID, FK)
+  alert_rule_name (VARCHAR 255)
+  alert_severity (ENUM: CRITICAL, HIGH, MEDIUM, LOW)
+  alert_status (ENUM: FIRING, RESOLVED)
+  metric_name (VARCHAR 255)
+  threshold_value (DECIMAL)
+  actual_value (DECIMAL)
+  alert_message (TEXT)
+  fired_at (TIMESTAMP)
+  resolved_at (TIMESTAMP)
+  acknowledged_by (UUID, FK to users)
+  acknowledged_at (TIMESTAMP)
+  created_at (TIMESTAMP)
+  INDEX: (tenant_id, alert_severity, alert_status, fired_at)
+
+TABLE: incidents
+  incident_id (UUID, PK)
+  alert_id (UUID, FK)
+  incident_title (VARCHAR 255)
+  incident_description (TEXT)
+  incident_status (ENUM: OPEN, IN_PROGRESS, RESOLVED, CLOSED)
+  severity (ENUM: CRITICAL, HIGH, MEDIUM, LOW)
+  assigned_to (UUID, FK to users)
+  started_at (TIMESTAMP)
+  resolved_at (TIMESTAMP)
+  resolution_summary (TEXT)
+  root_cause (TEXT)
+  created_at (TIMESTAMP)
+  INDEX: (incident_status, started_at)
+
+================================================================================
+5. MONITORING DASHBOARDS
+================================================================================
+
+5.1 OPERATIONAL DASHBOARD
+-------------------------
+
+Displayed metrics:
+- System uptime % (target: 99.9%)
+- API error rate (target: <0.1%)
+- Average API response time (target: <200ms)
+- Database query time (p95, target: <100ms)
+- Cache hit rate (target: >90%)
+- Active users (gauge)
+- Requests per second (RPS)
+- Top slow endpoints (list)
+- Recent errors (alert feed)
+- Server CPU and memory usage
+
+4.2 CLINICAL OPERATIONS DASHBOARD
+---------------------------------
+
+Displayed metrics:
+- Appointments today (scheduled, completed, no-show)
+- Consultations in progress (count)
+- Average consultation duration
+- Prescriptions issued today
+- Insurance claims pending (count, aging)
+- Patient payments processed today
+- Overdue invoices (count, total amount)
+- Telemedicine sessions active
+- Clinical data integrity checks (passing/failing)
+- System health status (green/yellow/red)
+
+4.3 SECURITY & COMPLIANCE DASHBOARD
+-----------------------------------
+
+Displayed metrics:
+- Failed login attempts (last 24h)
+- Suspicious activity alerts
+- HIPAA audit log entries (count)
+- Access control violations
+- Data encryption status
+- Certificate expiration (days remaining)
+- Backup last completed (timestamp)
+- Compliance violations (if any)
+- Penetration test results
+- Security patch status
+
+================================================================================
+6. API & INTEGRATION ENDPOINTS
+================================================================================
+
+6.1 METRICS ENDPOINTS
+---------------------
+
+GET /api/v1/metrics/health
+  System health check (Kubernetes liveness probe)
+  Response: {
+    "status": "healthy",
+    "uptime_seconds": 604800,
+    "version": "1.2.3",
+    "services": {
+      "api": "healthy",
+      "database": "healthy",
+      "cache": "healthy",
+      "queue": "healthy"
+    }
+  }
+
+GET /api/v1/metrics/readiness
+  Ready to receive traffic (Kubernetes readiness probe)
+  Response: { "ready": true }
+
+6.2 OBSERVABILITY ENDPOINTS
+---------------------------
+
+GET /metrics
+  Prometheus-format metrics (scraped by Prometheus)
+  Response: Plain text metrics format
+  
+GET /api/v1/alerts?severity=CRITICAL
+  Get active alerts
+  Response: List[Alert]
+
+GET /api/v1/incidents?status=OPEN
+  Get open incidents
+  Response: List[Incident]
+
+POST /api/v1/incidents/{incident_id}/acknowledge
+  Acknowledge incident
+  Response: Updated Incident
+
+================================================================================
+7. IMPLEMENTATION DETAILS
+================================================================================
+
+7.1 APPLICATION INSTRUMENTATION
+-------------------------------
+
+Python (using OpenTelemetry):
+```
+from opentelemetry import metrics
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
+
+# Initialize metrics
+reader = PrometheusMetricReader()
+provider = MeterProvider(metric_readers=[reader])
+meter = provider.get_meter(__name__)
+
+# Create metrics
+request_counter = meter.create_counter(
+  name="http_requests_total",
+  description="Total HTTP requests"
+)
+
+request_histogram = meter.create_histogram(
+  name="http_request_duration_ms",
+  description="HTTP request duration"
+)
+
+# Use in code
+request_counter.add(1, {"method": "POST", "status": "200"})
+request_histogram.record(245, {"method": "POST"})
+```
+
+Node.js (using Prom client):
+```
+const prometheus = require('prom-client');
+
+const httpRequestDuration = new prometheus.Histogram({
+  name: 'http_request_duration_ms',
+  help: 'Duration of HTTP requests in ms',
+  buckets: [50, 100, 200, 500, 1000]
+});
+
+// Middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    httpRequestDuration.record(duration, {method: req.method});
+  });
+  next();
+});
+```
+
+7.2 LOG AGGREGATION PIPELINE
+----------------------------
+
+Application → Fluent-bit → Elasticsearch → Kibana
+
+Fluent-bit config:
+```
+[INPUT]
+    Name              tail
+    Path              /var/log/app/*.log
+    Tag               app.*
+
+[FILTER]
+    Name              parser
+    Match             app.*
+    Key_Name          log
+    Parser            json
+
+[OUTPUT]
+    Name              es
+    Match             *
+    Host              elasticsearch
+    Port              9200
+    Index             logs-%Y.%m.%d
+```
+
+7.3 ALERT RULES (Prometheus)
+---------------------------
+
+```yaml
+groups:
+  - name: APIAlerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        severity: CRITICAL
+        
+      - alert: SlowAPIResponse
+        expr: histogram_quantile(0.95, http_request_duration_ms) > 1000
+        for: 10m
+        severity: HIGH
+        
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connection_pool_active >= db_connection_pool_max
+        for: 1m
+        severity: CRITICAL
+```
+
+================================================================================
+8. TESTING STRATEGY
+================================================================================
+
+Unit Tests (15 tests):
+- Metric collection accuracy
+- Log formatting (JSON validation)
+- Alert threshold evaluation
+- Alert rule parsing
+
+Integration Tests (20 tests):
+- Metrics export to Prometheus
+- Log shipping to Elasticsearch
+- Alert triggering and notification
+- Distributed tracing across services
+- Metric scraping failure handling
+- Log ingestion rate limiting
+
+Operational Tests (10 tests):
+- Dashboard rendering performance
+- Kibana search queries (large datasets)
+- Alert rule update hot-reload
+- Metrics retention policies
+
+Total Test Cases: 45+
+
+================================================================================
+9. ACCEPTANCE CRITERIA
+================================================================================
+
+1. ✓ All application metrics exported (API, database, cache, jobs)
+2. ✓ Structured logs centralized in Elasticsearch
+3. ✓ Distributed traces show request flow across services
+4. ✓ Prometheus scrapes metrics every 15 seconds
+5. ✓ Grafana dashboards operational and updated in real-time
+6. ✓ Kibana logs searchable and filterable
+7. ✓ Alert rules firing correctly at thresholds
+8. ✓ Critical alerts trigger SMS/Slack immediately
+9. ✓ Incident tracking: alert → incident → resolution
+10. ✓ Clinical operations metrics displayed
+11. ✓ Security event logging and alerting
+12. ✓ Audit logs retained 7 years (HIPAA)
+13. ✓ PHI/PII masked in logs and metrics
+14. ✓ System uptime tracking: 99.9% SLA monitored
+15. ✓ On-call escalation workflow implemented
+
+================================================================================
+10. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. Prometheus setup and configuration
+2. Elasticsearch cluster deployment
+3. Grafana dashboards (operational, clinical, security)
+4. Kibana saved searches and visualizations
+5. Application instrumentation (APM agent integration)
+6. Distributed tracing with Jaeger
+7. Alert rules and routing
+8. Incident management system
+9. On-call schedule management
+10. Log retention and archival policies
+11. Monitoring security and access control
+12. Runbooks for common incidents
+13. Dashboards: operations, clinical, security, business
+14. Metrics documentation
+15. Alerting policy documentation
+
+Dependencies:
+- Infrastructure and servers deployed (Task 09)
+- Application logging framework configured
+- Multi-tenant architecture established
+- API layer complete
+- Database operational
+
+================================================================================
+11. EFFORT ESTIMATION
+================================================================================
+
+Backend Development: 80 hours
+- Metrics instrumentation: 20 hours
+- Log aggregation pipeline: 20 hours
+- Alert rules and evaluation: 15 hours
+- Incident management system: 15 hours
+- Integration with alert channels: 10 hours
+
+DevOps/SRE: 60 hours
+- Prometheus setup and clustering: 15 hours
+- Elasticsearch deployment: 15 hours
+- Grafana dashboards: 15 hours
+- Kibana configuration: 8 hours
+- Alertmanager setup: 7 hours
+
+QA/Testing: 30 hours
+- Test plan and test cases: 10 hours
+- Integration testing: 15 hours
+- Load testing (metrics) pipeline: 5 hours
+
+Documentation: 20 hours
+- Monitoring runbooks: 10 hours
+- Alert rule documentation: 5 hours
+- Dashboard documentation: 5 hours
+
+Total Effort: 190 hours
+Timeline: 6-7 weeks (1 person), 3-4 weeks (2 people)
+
+================================================================================
+12. RISKS & MITIGATION
+================================================================================
+
+Risk 1: Alert Fatigue
+- Risk: Too many false alerts → team ignores them
+- Mitigation: Tune thresholds carefully, require context in alerts
+- Owner: SRE team
+
+Risk 2: Monitoring Overhead
+- Risk: Metrics collection impacts performance
+- Mitigation: Metric sampling, async collection, batching
+- Owner: Development team
+
+Risk 3: Storage Explosion
+- Risk: Logs/metrics consume too much disk space
+- Mitigation: Retention policies, log sampling, archival
+- Owner: DevOps team
+
+Risk 4: PHI Exposure in Logs
+- Risk: Accidental logging of patient data
+- Mitigation: Log redaction filters, code review, scanning
+- Owner: Security team
+
+Risk 5: Monitoring System Failure
+- Risk: Blind spot if monitoring itself down
+- Mitigation: Redundant monitoring, heartbeat monitoring
+- Owner: DevOps team
+
+================================================================================
+13. SUCCESS METRICS
+================================================================================
+
+- 99%+ application metrics successfully exported
+- <1 second latency for log indexing
+- <100ms p95 latency for dashboard queries
+- Alert accuracy: >95% signal-to-noise ratio
+- MTTD (Mean Time To Detect): <5 minutes
+- MTTR (Mean Time To Resolve): <30 minutes critical, <4 hours high
+- System uptime: 99.9% monthly
+
+================================================================================
+END OF TASK 40
+================================================================================

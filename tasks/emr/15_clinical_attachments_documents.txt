@@ -1,0 +1,578 @@
+================================================================================
+TASK: Clinical Attachments & Documents - Storage, Retrieval, Security
+Module: EMR - Clinical Documents
+Phase: PHASE 1 (Features)
+Priority: MEDIUM-HIGH
+Duration: 5-6 days
+Effort: 22 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement document management system for storing, organizing, and securing
+patient clinical attachments including scanned records, lab reports, imaging,
+prescriptions, consent forms, and external medical documents.
+
+BUSINESS LOGIC
+--------------
+Clinical Document Purpose:
+
+Clinicians need to store and reference various documents:
+1. Scanned external medical records (from other clinics)
+2. Lab reports (not just data, but full report)
+3. Imaging reports (radiologist interpretation)
+4. Imaging images (actual X-ray/CT/MRI images)
+5. EKG tracings
+6. Pathology reports
+7. Discharge summaries (if hospitalized)
+8. Referral letters
+9. Insurance cards (photo)
+10. Consent forms (signed)
+11. Advance directives
+12. Power of attorney documents
+
+Document Storage Considerations:
+
+SPACE CONSTRAINTS:
+- X-ray image: 2-5 MB
+- CT scan (100 slices): 50-200 MB
+- MRI (200 slices): 100-300 MB
+- Scanned document: 200-500 KB
+- Lab report PDF: 50-100 KB
+
+HIPAA REQUIREMENTS:
+- All documents encrypted at rest
+- All documents encrypted in transit
+- Access logged (who accessed what, when)
+- Audit trail maintained
+- No unauthorized deletion
+- Retention period enforced (6 years)
+- Backups maintained
+
+DOCUMENT ORGANIZATION STRATEGY
+------------------------------
+Organizational Hierarchy:
+
+Patient
+  └─ Document Categories
+      ├─ Lab Reports
+      │  ├─ 2024-01-15: CBC results
+      │  └─ 2024-01-10: Comprehensive metabolic panel
+      │
+      ├─ Imaging Reports
+      │  ├─ 2024-01-12: Chest X-ray report (PA and lateral)
+      │  ├─ 2024-01-12: Chest X-ray images (DICOM format)
+      │  └─ 2023-06-30: CT abdomen/pelvis report
+      │
+      ├─ Scanned External Records
+      │  ├─ Records from City Hospital (2020)
+      │  └─ Records from Dr. Smith (2022)
+      │
+      ├─ Consent Forms
+      │  ├─ Surgical consent (2024-01-10)
+      │  └─ Research study consent (2023-06-15)
+      │
+      ├─ Discharge Summaries
+      │  ├─ City Hospital (2020-06-15)
+      │  └─ Emergency Department (2023-03-20)
+      │
+      └─ Other Documents
+         ├─ Advance directive (2020-01-01)
+         ├─ Power of attorney (2021-06-15)
+         └─ Insurance card photos
+
+Document Metadata:
+
+Every document has:
+- Document ID (UUID)
+- Document type (lab report, imaging, consent, etc.)
+- Document name/title
+- Date created (when scanned/generated)
+- Date uploaded to system
+- Uploaded by (user)
+- Document category
+- File size
+- File format (PDF, DICOM, JPEG, etc.)
+- Encryption status
+- Access count
+- Last accessed date
+- Retention expiration date
+
+DOCUMENT TYPES & FORMATS
+------------------------
+1. TEXT DOCUMENTS
+   Format: PDF, DOCX, TXT
+   Examples: Lab reports, discharge summaries, consent forms
+   Storage: Standard file storage
+   Size: Usually < 1 MB
+
+2. MEDICAL IMAGES
+   Format: DICOM, JPEG, PNG
+   Examples: X-rays, ultrasound, CT, MRI images
+   Storage: DICOM server or standard file storage
+   Size: 2 MB - 300 MB (depending on modality)
+   Special: May include metadata (patient info, timestamps)
+
+3. SCANNED DOCUMENTS
+   Format: PDF (most common), TIFF
+   Examples: External medical records, insurance cards
+   Storage: PDF storage (searchable if OCR enabled)
+   Size: 100 KB - 5 MB
+
+4. STRUCTURED DATA
+   Format: HL7, CDA (Clinical Document Architecture)
+   Examples: Lab orders/results in structured format
+   Storage: Database + file storage
+   Size: Usually < 1 MB
+
+DOCUMENT UPLOAD WORKFLOW
+------------------------
+Document Upload Process:
+
+1. USER INITIATES UPLOAD
+   Doctor/staff chooses "Upload Document"
+   Selects document type (lab report, imaging, etc.)
+   Selects patient
+   Selects date of document
+
+   UI:
+   [ ] Document Type: [Lab Report ▼]
+   [ ] Select Patient: [Search: ________________]
+   [ ] Document Date: [2024-01-15]
+   [ ] Select File: [Choose file...] (PDF, JPEG, DICOM supported)
+   [ ] Description: [________________________________________________]
+   [ ] Related Appointment: [Select or leave blank]
+   [Upload]
+
+2. FILE VALIDATION
+   Check file size (max 100 MB per file)
+   Check file format (allowed types only)
+   Check file integrity (no corruption)
+   Scan for malware
+   
+   Validation Rules:
+   - Max file size: 100 MB
+   - Allowed formats: PDF, JPEG, PNG, DICOM, TIFF
+   - Max files per upload: 10 (batch upload)
+   - Virus scan required
+   - No executable files allowed
+
+3. ENCRYPTION
+   File encrypted before storage (AES-256)
+   Encryption key stored separately
+   Metadata encrypted separately
+   Encryption verified before storage
+
+4. STORAGE
+   File stored in secure cloud storage (S3 with encryption)
+   Metadata stored in database
+   Backup created automatically
+   Access log created
+
+5. INDEXING & SEARCH
+   Document indexed for search
+   OCR performed on PDFs (optional)
+   Keywords extracted and indexed
+   Searchable by date, type, keywords
+
+6. NOTIFICATION
+   User notified: "Document uploaded successfully"
+   Doctor notified: "New document available"
+   Document appears in EMR for patient
+
+DOCUMENT RETRIEVAL
+------------------
+Viewing Document:
+
+GET /patients/{patientId}/documents/{documentId}
+
+Security checks:
+- Is user authorized to view this patient?
+- Is user authorized to view this document?
+- Has document retention period expired?
+- Log access in audit trail
+
+Response:
+- If PDF/image: Return file for display
+- If DICOM: Return via DICOM viewer
+- If text: Return content for display
+
+Download Document:
+
+GET /patients/{patientId}/documents/{documentId}/download
+
+- Download document to user's computer
+- Audit log records download
+- Document not modified
+- Encryption maintained during transit
+
+List Documents:
+
+GET /patients/{patientId}/documents
+
+Query parameters:
+- documentType: Filter by type (lab, imaging, etc.)
+- dateRange: Filter by date range
+- category: Filter by category
+- sort: Sort by date, type, name
+- limit: Pagination
+
+Response:
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid-123",
+      "name": "CBC results 2024-01-15",
+      "type": "lab_report",
+      "category": "Lab Reports",
+      "dateCreated": "2024-01-15",
+      "dateUploaded": "2024-01-15 14:30:00",
+      "uploadedBy": "Dr. Sarah Johnson",
+      "size": "125 KB",
+      "format": "PDF",
+      "accessCount": 3,
+      "lastAccessed": "2024-01-16 09:15:00"
+    }
+  ]
+}
+
+Search Documents:
+
+GET /patients/{patientId}/documents/search?q=CBC
+
+Searches document names, descriptions, and (if OCR enabled) content
+Returns matching documents
+Highlights search terms in results
+
+DOCUMENT SECURITY
+-----------------
+Encryption:
+
+At Rest:
+- All documents encrypted with AES-256
+- Encryption keys stored in AWS KMS
+- Keys rotated every 90 days
+- Keys never stored with documents
+
+In Transit:
+- HTTPS/TLS 1.3 encryption
+- Certificate pinning for mobile apps
+- No HTTP allowed (only HTTPS)
+
+Access Control:
+
+Role-based access:
+- Patient: Can access own documents
+- Doctor: Can access patient's documents (if relationship exists)
+- Staff: Limited access based on role
+- Admin: Can audit document access
+
+Field-level encryption:
+- Patient name in metadata: Encrypted
+- Document date: Encrypted
+- Upload user: Encrypted
+
+Audit Logging:
+
+Every document access logged:
+- Who accessed document
+- When accessed
+- From which IP
+- What action (view, download, print)
+- Duration (how long viewed)
+- Whether data downloaded/exported
+
+Suspicious Activity Detection:
+- Bulk document downloads (>10 documents in 1 hour) → Alert
+- Document access outside normal hours → Log
+- Access by user with no relationship to patient → Block
+- Failed access attempts (wrong password, etc.) → Log
+
+Data Retention:
+
+HIPAA Requirements:
+- Retention period: 6 years minimum
+- After 6 years: Can be deleted
+- Exception: Legal holds, litigation
+- Deletion: Hard delete (not recoverable)
+- Audit log retained separately (6 years)
+
+Deletion API:
+
+DELETE /patients/{patientId}/documents/{documentId}
+
+Business Logic:
+- Document marked as "deleted"
+- If retention period passed: Hard delete to storage
+- If retention period not passed: Soft delete (recoverable)
+- Audit logged
+- Staff notified
+- Reversible if soft delete
+
+DICOM IMAGE MANAGEMENT
+---------
+DICOM (Digital Imaging and Communications in Medicine):
+
+Medical imaging standard used for:
+- X-rays
+- CT scans
+- MRI scans
+- Ultrasounds
+- PET scans
+
+DICOM Files:
+- Include image data (pixel matrix)
+- Include metadata (patient name, date, modality, etc.)
+- Large file sizes (typically 2-300 MB)
+- Binary format (not text)
+
+DICOM Viewer:
+
+UI for viewing DICOM images:
+- Display image
+- Zoom/pan controls
+- Window/level adjustment (brightness/contrast)
+- Measurement tools (distance, area)
+- Annotation tools
+- Series navigation (view multiple slices)
+
+Example DICOM Display:
+- CT chest scan: 100 slices
+- User can page through slices
+- User can adjust window/level to highlight different tissues
+- User can measure distances
+- User can add annotations (circles, arrows, text)
+
+DICOM Storage:
+
+Options:
+1. Store in regular file storage (S3)
+   - Simpler
+   - Requires DICOM viewer software
+   - Less expensive
+
+2. Store in DICOM server (PACS - Picture Archiving System)
+   - Specialized for medical images
+   - Optimized retrieval
+   - Better compression
+   - More expensive
+
+For MVP: Use regular file storage + DICOM viewer library
+
+OCR & TEXT EXTRACTION
+--------------------
+Optical Character Recognition (OCR):
+
+Purpose:
+- Scanned documents are images (pixels)
+- OCR converts image to text
+- Allows text search within scanned documents
+
+Implementation:
+- Run OCR on all uploaded PDFs
+- Extract text and index
+- Store text separately from image
+- Allow search within document text
+
+Example:
+- User uploads scanned lab report
+- OCR extracts text (patient name, test results, etc.)
+- User can search for "potassium" and find document
+- OCR result displays alongside scanned image
+
+Cost: OCR service ($0.50-$2 per page for cloud services)
+
+DOCUMENT SHARING
+----------------
+Share Document with Other Clinic:
+
+Use case: Patient transfers to another clinic, needs records transferred
+
+Share Workflow:
+
+1. REQUEST GENERATION
+   Other clinic requests records
+   OR doctor manually shares records
+   
+   POST /patients/{patientId}/share-requests
+   {
+     "recipientClinicId": "uuid",
+     "recipientEmail": "admin@otherclinic.com",
+     "documents": ["uuid-1", "uuid-2"],
+     "expirationDate": "2024-02-15"
+   }
+
+2. SECURE LINK
+   System generates secure download link
+   Link includes encryption key
+   Link expires after set period
+   Link can only be used once
+
+3. RECIPIENT DOWNLOADS
+   Recipient receives link via email
+   Recipient downloads documents
+   Download logged in audit trail
+   Link expires
+
+4. REVOCATION
+   Original clinic can revoke access
+   Link becomes invalid
+   Recipient cannot download
+
+Share Restrictions:
+- Only document owner can share
+- Recipient must be verified clinic
+- Sharing logged in audit
+- Retention policy respected
+
+CLINICAL WORKFLOW INTEGRATION
+-----------------------------
+Documents linked to clinical events:
+
+Document can be associated with:
+- Appointment (lab report from visit)
+- Diagnosis (imaging report for pneumonia diagnosis)
+- Prescription (pharmacy record)
+- Treatment plan
+
+Example:
+- Doctor sees patient with chest pain
+- Orders chest X-ray
+- X-ray image uploaded after imaging
+- X-ray report uploaded
+- X-ray linked to appointment and diagnosis
+- Doctor reviews report
+- Diagnoses pneumonia
+- Prescribes antibiotics
+
+EMR Display:
+- Appointment shows linked documents
+- Doctor can click to view X-ray
+- Doctor can click to view radiology report
+
+TESTING STRATEGY
+----------------
+Document Upload:
+[ ] Valid file uploaded successfully
+[ ] File size limit enforced (100 MB)
+[ ] Invalid file format rejected
+[ ] Virus scan performed
+[ ] Encryption successful
+[ ] File stored securely
+[ ] Metadata stored correctly
+
+Document Retrieval:
+[ ] Document displayed correctly (PDF, image, DICOM)
+[ ] Correct file format
+[ ] No corruption
+[ ] Decryption successful
+[ ] Access logged
+
+Document Search:
+[ ] Search by document type works
+[ ] Search by date range works
+[ ] OCR search works (if implemented)
+[ ] Pagination works
+[ ] Sorting works
+
+Document Security:
+[ ] Unauthorized access blocked
+[ ] Access logged
+[ ] Bulk access detected
+[ ] Suspicious activity alerted
+[ ] Encryption verified
+
+Document Retention:
+[ ] Retention period enforced
+[ ] Auto-deletion after period
+[ ] Hard delete verified
+[ ] Audit logged
+
+Document Deletion:
+[ ] Soft delete succeeds
+[ ] Document hidden from search
+[ ] Hard delete after retention period
+[ ] Reversible if within retention
+
+DICOM:
+[ ] DICOM file uploaded successfully
+[ ] DICOM viewer displays image
+[ ] Window/level adjustment works
+[ ] Measurement tools work
+[ ] Annotation tools work
+[ ] Series navigation works
+
+Compliance:
+[ ] HIPAA audit logged
+[ ] All access logged
+[ ] Encryption verified
+[ ] Retention policy enforced
+[ ] Patient access logged (GDPR)
+
+Performance:
+[ ] Upload <10s for 10 MB file
+[ ] Display PDF <2s
+[ ] Display DICOM <3s
+[ ] Search <500ms
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Document upload system working
+[ ] File validation working
+[ ] Encryption implemented
+[ ] Document retrieval working
+[ ] Document search working
+[ ] PDF viewer working
+[ ] DICOM viewer working
+[ ] OCR implemented
+[ ] Document sharing working
+[ ] Access control enforced
+[ ] Audit logging complete
+[ ] Retention policy enforced
+[ ] Delete functionality working
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Document data model
+2. Document upload APIs
+3. Document retrieval APIs
+4. Document search APIs
+5. Document deletion APIs
+6. Document sharing APIs
+7. Access control layer
+8. Encryption implementation
+9. Audit logging
+10. DICOM viewer integration
+11. OCR integration
+12. Retention policy engine
+13. Test suite (40+ tests)
+14. Document storage architecture
+15. Backup/recovery procedures
+
+DEPENDENCIES
+-----------
+BLOCKING: Database schema (Phase 0), API layer (Phase 0), Storage (S3)
+BLOCKS: Telemedicine (needs imaging sharing), Referrals (needs document sharing)
+
+RELATED TASKS
+-----------
+- EMR Specification (Task 11)
+- Diagnostic Data (Task 14)
+- Appointment System (associates documents with visits)
+
+NOTES
+-----
+Document storage is critical for regulatory compliance.
+Security and encryption non-negotiable (HIPAA).
+Performance important (users won't wait for image loading).
+DICOM is medical standard for imaging.
+OCR expensive but enables powerful search.
+
+Timeline: Week 1-2 of Phase 1
+Priority: MEDIUM-HIGH (needed for complete EMR)
+
+STATUS: Ready for implementation
+================================================================================

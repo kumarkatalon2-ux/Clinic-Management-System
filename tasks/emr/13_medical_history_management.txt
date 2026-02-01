@@ -1,0 +1,537 @@
+================================================================================
+TASK: Medical History Management - Patient Health Timeline
+Module: EMR - Clinical Data
+Phase: PHASE 1 (Features)
+Priority: HIGH
+Duration: 6-7 days
+Effort: 28 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement comprehensive medical history tracking system capturing patient's
+complete health timeline including past illnesses, surgeries, hospitalizations,
+family history, and social history.
+
+BUSINESS LOGIC
+--------------
+Medical History Purpose:
+
+Medical history answers the question: "What health events has this patient
+experienced in their lifetime?"
+
+Why It Matters:
+1. CLINICAL DECISION MAKING
+   - Doctor knows patient's surgical history
+   - Doctor knows previous surgeries → knows complications
+   - Doctor knows allergies to medications
+   - Doctor knows chronic conditions
+
+2. PATTERN RECOGNITION
+   - Recurrent infections → might indicate immune problem
+   - Multiple surgeries → patient may be high-risk
+   - Diabetes + heart disease → metabolic syndrome pattern
+   - Family history of cancer → screening needed
+
+3. PREVENTIVE CARE
+   - Family history of heart disease → aggressive BP management
+   - Smoking history → lung cancer screening needed
+   - Age 50+ → colonoscopy needed
+   - Blood clot history → anticoagulation needed
+
+4. MEDICATION SAFETY
+   - Previous adverse drug reaction → avoid that drug
+   - Kidney disease → avoid nephrotoxic drugs
+   - Liver disease → avoid hepatotoxic drugs
+   - Pregnancy → avoid teratogenic drugs
+
+MEDICAL HISTORY COMPONENTS
+--------------------------
+1. PAST MEDICAL HISTORY (PMHx)
+   ├─ Previous diagnoses (resolved or chronic)
+   ├─ Previous hospitalizations
+   ├─ Previous surgeries
+   ├─ Previous injuries/trauma
+   └─ Timeline of major health events
+
+2. SURGICAL HISTORY
+   ├─ Surgery name (appendectomy, hysterectomy, etc.)
+   ├─ Date performed
+   ├─ Hospital/clinic where performed
+   ├─ Surgeon name
+   ├─ Indications (why was it done)
+   ├─ Complications (if any)
+   └─ Outcome
+
+3. HOSPITALIZATION HISTORY
+   ├─ Hospital name
+   ├─ Admission date
+   ├─ Discharge date
+   ├─ Reason for admission
+   ├─ Procedures performed
+   ├─ Outcome
+   └─ Discharge summary
+
+4. INJURY/TRAUMA HISTORY
+   ├─ Type of injury (car accident, fall, sports injury)
+   ├─ Date
+   ├─ Resulting injuries
+   ├─ Treatment received
+   ├─ Residual effects (permanent disability)
+   └─ Follow-up care needed
+
+5. CHRONIC CONDITIONS
+   ├─ Condition (diabetes, hypertension, COPD, etc.)
+   ├─ Date diagnosed
+   ├─ Severity
+   ├─ Current status (controlled, poorly controlled)
+   ├─ Medications for this condition
+   └─ Complications related to this condition
+
+6. FAMILY HISTORY
+   ├─ Father
+   │  ├─ Alive (Y/N), age at death (if deceased)
+   │  ├─ Health conditions (diabetes, heart disease, etc.)
+   │  └─ Cause of death (if deceased)
+   │
+   ├─ Mother
+   │  └─ Same as father
+   │
+   ├─ Siblings
+   │  ├─ Number of siblings
+   │  ├─ Each sibling: conditions, outcomes
+   │  └─ Age/status
+   │
+   ├─ Children
+   │  └─ Any genetic conditions inherited?
+   │
+   └─ Relatives with genetic conditions
+      ├─ Cancer (type, age at diagnosis)
+      ├─ Heart disease (age at event)
+      ├─ Diabetes (type, age at diagnosis)
+      └─ Genetic disorders (sickle cell, cystic fibrosis, etc.)
+
+7. SOCIAL HISTORY
+   ├─ SMOKING
+   │  ├─ Never smoker
+   │  ├─ Former smoker (quit when, how many years)
+   │  ├─ Current smoker (how many cigarettes/day, start age)
+   │  └─ Pack-years (cigarettes per day × years)
+   │
+   ├─ ALCOHOL
+   │  ├─ Non-drinker
+   │  ├─ Social drinker
+   │  ├─ Heavy drinker (how many drinks/week)
+   │  ├─ Substance abuse history (drugs, alcohol)
+   │  └─ Recovery status (if applicable)
+   │
+   ├─ EXERCISE
+   │  ├─ Sedentary (no exercise)
+   │  ├─ Light (exercise <3x/week)
+   │  ├─ Moderate (3-5x/week)
+   │  └─ Vigorous (>5x/week)
+   │
+   ├─ OCCUPATION
+   │  ├─ Current job
+   │  ├─ Occupational exposures (chemicals, dust, etc.)
+   │  ├─ Previous jobs with exposures
+   │  └─ Disability status
+   │
+   ├─ LIVING SITUATION
+   │  ├─ Lives alone / with family / in facility
+   │  ├─ Housing status (owned, rented, homeless)
+   │  ├─ Access to transportation
+   │  └─ Access to pharmacy
+   │
+   ├─ EDUCATION LEVEL
+   │  └─ None, high school, college, graduate
+   │
+   └─ SOCIAL SUPPORT
+      ├─ Family support system
+      ├─ Financial stress
+      └─ Food security (access to food)
+
+8. IMMUNIZATION HISTORY
+   ├─ Vaccine name
+   ├─ Date administered
+   ├─ Dose number (if multi-dose series)
+   ├─ Route (IV, IM, oral, intranasal)
+   ├─ Clinic/provider who administered
+   └─ Reactions (if any)
+
+PAST MEDICAL HISTORY WORKFLOW
+-----------------------------
+New Patient Intake:
+
+1. HISTORY COLLECTION
+   - Patient arrives for first visit
+   - Medical history form provided (paper or digital)
+   - Patient completes (or staff interviews)
+   - Covers: Past illnesses, surgeries, hospitalizations, medications, allergies
+
+2. CLINICAL REVIEW
+   - Doctor reviews history
+   - Asks clarifying questions
+   - Confirms accuracy
+   - Updates if needed
+
+3. DOCUMENTATION
+   - Entered into EMR
+   - Structured data (dropdown menus, not free text)
+   - Free text notes for additional context
+   - Audit trail recorded
+
+4. PROBLEM LIST CREATION
+   - Extracted from history
+   - Active problems marked as "active"
+   - Resolved problems marked as "resolved"
+   - Used as baseline for ongoing care
+
+CHRONIC CONDITION MANAGEMENT
+----------------------------
+Chronic Condition Entry:
+
+POST /patients/{patientId}/medical-history/conditions
+{
+  "conditionName": "Type 2 Diabetes",
+  "icdCode": "E11.9",  // ICD-10 code
+  "dateOfDiagnosis": "2010-03-15",
+  "severity": "moderate",  // mild, moderate, severe
+  "status": "active",  // active, controlled, poorly-controlled, resolved
+  "medications": ["metformin", "lisinopril"],
+  "complications": ["diabetic neuropathy", "hypertension"],
+  "notes": "Diagnosed 15 years ago, poorly controlled recently"
+}
+
+Chronic conditions used for:
+- Problem list (displayed in EMR)
+- Medication safety checking (avoid drug interactions)
+- Screening recommendations (diabetes → annual eye exam)
+- Risk stratification (multiple chronic conditions = higher risk)
+
+FAMILY HISTORY TRACKING
+----------------------
+Family History Structure:
+
+Family Member Relationship → Medical Conditions → Outcomes
+
+Example:
+- Father: Died at 65 from MI (myocardial infarction)
+- Mother: Hypertension, age 72
+- Brother: Type 2 diabetes
+- Sister: Healthy
+
+Clinical Implications:
+- Patient (likely age ~45): High risk for early MI
+- Patient's family should be screened
+
+Family History Entry:
+
+POST /patients/{patientId}/family-history
+{
+  "relationship": "father",  // father, mother, sibling, child, grandparent
+  "name": "John Senior",
+  "dateOfBirth": "1935-06-15",
+  "isAlive": false,
+  "ageAtDeath": 65,
+  "causeOfDeath": "Myocardial infarction",
+  "medicalConditions": [
+    {
+      "condition": "Hypertension",
+      "ageAtOnset": 45
+    },
+    {
+      "condition": "Myocardial infarction",
+      "ageAtOnset": 65
+    }
+  ]
+}
+
+Family Health Summary:
+GET /patients/{patientId}/family-history/summary
+
+Returns risk assessment:
+- Cardiovascular disease: HIGH RISK (multiple family members)
+- Diabetes: MODERATE RISK (one sibling)
+- Cancer: LOW RISK (none in family)
+
+SOCIAL HISTORY TRACKING
+-----------------------
+Smoking History Example:
+
+{
+  "smokingStatus": "former",
+  "startAge": 18,
+  "quitAge": 35,
+  "cigarettesPerDay": 20,  // historical
+  "packYears": 17,  // (cigarettes per day / 20) × years smoking = (20/20) × 17
+  "notes": "Quit 10 years ago, using nicotine patches"
+}
+
+Why It Matters:
+- Smoking → COPD, lung cancer, heart disease screening
+- Former smoker → Still needs more screening than never-smoker
+- Alcohol use → Liver disease screening, medication interactions
+- Drug history → Addiction medicine, pain management considerations
+
+SURGICAL HISTORY TRACKING
+-------------------------
+Surgical History Entry:
+
+POST /patients/{patientId}/surgical-history
+{
+  "surgeryName": "Appendectomy",
+  "surgeryType": "abdominal",  // abdominal, thoracic, cardiac, orthopedic, etc.
+  "dateOfSurgery": "2005-07-20",
+  "ageAtSurgery": 24,
+  "hospitalName": "City Hospital",
+  "surgeonName": "Dr. Michael Smith",
+  "indications": "Acute appendicitis",
+  "procedures": [
+    {
+      "code": "47.01",
+      "description": "Appendectomy"
+    }
+  ],
+  "complications": "None",
+  "outcome": "Uneventful recovery",
+  "scarDiagram": "URL to image"
+}
+
+Surgical History Used For:
+- Risk assessment (multiple abdominal surgeries → adhesions)
+- Pain management planning (prior surgery → chronic pain?)
+- Anesthesia planning (prior reactions?)
+- MRI compatibility (metal implants from surgery?)
+
+IMMUNIZATION TRACKING
+--------------------
+Immunization Entry:
+
+POST /patients/{patientId}/immunizations
+{
+  "vaccineCode": "CVX0006",  // CDC vaccine code
+  "vaccineName": "Hepatitis B vaccine",
+  "dateAdministered": "2024-01-15",
+  "age": 44,
+  "doseNumber": 1,  // If series: 1, 2, 3
+  "route": "IM",  // IM (intramuscular), IV, oral, intranasal
+  "site": "left arm",
+  "manufacturer": "Pfizer",
+  "lot": "ABC123",
+  "administeredBy": "Dr. Sarah Johnson",
+  "reactions": "None",
+  "notes": "Patient new to clinic, catching up on vaccines"
+}
+
+Immunization Recommendations:
+- Age 50+: Shingles vaccine (Shingrix)
+- Age 65+: Pneumonia vaccine
+- Annually: Flu vaccine
+- High-risk: COVID-19 boosters
+- Travel: Yellow fever, hepatitis A, typhoid
+
+System generates recommendations based on:
+- Age
+- Chronic conditions (diabetes → pneumonia vaccine)
+- Travel plans (international → additional vaccines)
+- Prior infections
+- Occupational exposure
+
+PROBLEM LIST INTEGRATION
+------------------------
+Problem List derived from medical history:
+
+Active Problems (from past medical history):
+1. Type 2 Diabetes (ICD-10: E11.9)
+2. Hypertension (ICD-10: I10)
+3. Hyperlipidemia (ICD-10: E78.5)
+
+New Problems (from current visits):
+4. Community-acquired pneumonia (ICD-10: J18.9)
+
+Resolved Problems (marked as resolved):
+- Appendicitis (resolved 2005)
+- Wisdom teeth extraction (resolved 1995)
+
+Problem list displayed in EMR as:
+┌─ Active Problems (ongoing management)
+│  ├─ Type 2 Diabetes (since 2010)
+│  ├─ Hypertension (since 2005)
+│  └─ Hyperlipidemia (since 2008)
+│
+└─ Resolved Problems (history only)
+   └─ Appendicitis (2005)
+
+TIMELINE VIEW
+-------------
+Patient's complete health timeline displayed chronologically:
+
+2005-07-20: Appendectomy (emergency surgery)
+2005-09-15: Hypertension diagnosed
+2008-03-22: Hyperlipidemia diagnosed
+2010-03-15: Type 2 Diabetes diagnosed
+2015-01-10: Diabetic neuropathy complication noted
+2020-06-30: Pneumonia (hospitalized 5 days)
+2024-01-15: Annual physical, vaccines up to date
+
+This timeline helps doctor understand:
+- Chronological progression of disease
+- How conditions developed over time
+- Impact of interventions
+- Pattern of healthcare utilization
+
+CLINICAL DECISION SUPPORT
+-------------------------
+Based on medical history, system provides:
+
+1. PREVENTIVE SCREENING ALERTS
+   Medical History → Recommended Screening
+   
+   - Age 50+ → Colonoscopy recommended
+   - Smoking history → Lung cancer screening (LDCT)
+   - Hypertension → Annual cardiac exam
+   - Diabetes → Annual eye exam, kidney function test
+   - Family history of breast cancer → Earlier mammography
+
+2. MEDICATION SAFETY ALERTS
+   Medical History → Drug Contraindications
+   
+   - Kidney disease → Avoid nephrotoxic drugs
+   - Liver disease → Avoid hepatotoxic drugs
+   - History of GI bleed → Avoid NSAIDs
+   - Diabetes → Caution with certain antibiotics
+   - Asthma history → Avoid beta-blockers
+
+3. RISK STRATIFICATION
+   Medical History → Risk Score
+   
+   High Risk Factors:
+   - Age > 65
+   - Multiple chronic conditions
+   - Recent hospitalization
+   - Multiple emergency visits
+   - Non-adherence to medications
+   
+   Risk Score used for:
+   - Care coordination (high-risk patients need more support)
+   - Preventive interventions (high-risk get priority)
+   - Hospital readmission prevention programs
+
+TESTING STRATEGY
+----------------
+Medical History Tests:
+
+Past Medical History:
+[ ] Chronic condition added successfully
+[ ] Chronic condition updated
+[ ] Chronic condition deleted
+[ ] Chronic condition retrievable
+[ ] Status changes tracked (active → resolved)
+
+Family History:
+[ ] Family member added successfully
+[ ] Multiple family members stored
+[ ] Family member deleted
+[ ] Family health summary accurate
+[ ] Risk assessment generated
+
+Social History:
+[ ] Smoking history calculated correctly (pack-years)
+[ ] Alcohol use tracked
+[ ] Exercise level tracked
+[ ] Occupational exposure tracked
+
+Surgical History:
+[ ] Surgery added successfully
+[ ] Complication data captured
+[ ] Multiple surgeries tracked
+[ ] Timeline accurate
+
+Immunization History:
+[ ] Vaccine added successfully
+[ ] Series tracking works (dose 1, 2, 3)
+[ ] Recommendations generated
+[ ] Due dates calculated correctly
+
+Problem List Integration:
+[ ] Problem list generated from history
+[ ] Active/resolved distinction correct
+[ ] Problem list updatable
+[ ] New problems added during visits
+
+Timeline View:
+[ ] Events displayed chronologically
+[ ] All event types included
+[ ] Performance acceptable (< 2s)
+
+Decision Support:
+[ ] Screening recommendations accurate
+[ ] Drug interaction alerts work
+[ ] Risk score calculated correctly
+[ ] Alerts displayed prominently
+
+Compliance:
+[ ] HIPAA audit logged
+[ ] All history retrievable (GDPR)
+[ ] Data retention policy enforced
+[ ] No data loss on system failure
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Past medical history system implemented
+[ ] Chronic condition tracking working
+[ ] Family history tracking working
+[ ] Social history tracking working
+[ ] Surgical history tracking working
+[ ] Immunization history tracking working
+[ ] Problem list generation from history
+[ ] Timeline view working
+[ ] Clinical decision support rules implemented
+[ ] Preventive screening recommendations
+[ ] Medication safety checking from history
+[ ] Risk stratification working
+[ ] All validations in place
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Medical history data model
+2. Past medical history APIs
+3. Chronic condition management
+4. Family history tracking system
+5. Social history tracking
+6. Surgical history tracking
+7. Immunization tracking
+8. Problem list generation algorithm
+9. Timeline view implementation
+10. Clinical decision support rules
+11. Risk stratification algorithm
+12. Test suite (50+ tests)
+13. Medical history import/export
+
+DEPENDENCIES
+-----------
+BLOCKING: Patient Management (Task 12), Database schema (Phase 0)
+BLOCKS: Clinical workflows, Preventive care recommendations
+
+RELATED TASKS
+-----------
+- Patient Management System (Task 12)
+- Diagnostic Data Management (Task 14)
+- Appointment System (depends on history for risk assessment)
+- Prescription System (drug safety checking needs history)
+
+NOTES
+-----
+Medical history is foundation of clinical care.
+Accuracy critical (garbage history = bad decisions).
+Timeline view helps spot patterns and trends.
+Preventive care recommendations based on history.
+
+Timeline: Week 1-2 of Phase 1
+Priority: HIGH (required for all clinical decisions)
+
+STATUS: Ready for implementation
+================================================================================

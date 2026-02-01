@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinical Management System</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      margin: 20px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 30px;
+      gap: 10px;
+    }
+    
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .status-text {
+      color: #10b981;
+      font-weight: 600;
+    }
+    
+    .info-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .info-section h2 {
+      color: #333;
+      font-size: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .info-section ul {
+      list-style: none;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    
+    .info-section li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .info-section li:before {
+      content: "✓";
+      color: #10b981;
+      font-weight: bold;
+    }
+    
+    .phases {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .phase {
+      padding: 15px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 12px;
+    }
+    
+    .phase .number {
+      font-size: 24px;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 5px;
+    }
+    
+    .phase .name {
+      color: #333;
+      font-weight: 600;
+    }
+    
+    .phase.current {
+      background: #ede9fe;
+      border-color: #667eea;
+    }
+    
+    .phase.completed {
+      background: #ecfdf5;
+      border-color: #10b981;
+    }
+    
+    .action-section {
+      margin-top: 30px;
+      padding: 20px;
+      background: #fef3c7;
+      border-radius: 8px;
+      border-left: 4px solid #f59e0b;
+    }
+    
+    .action-section h3 {
+      color: #d97706;
+      font-size: 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .action-section p {
+      color: #b45309;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer !important;
+      transition: all 0.3s ease;
+      min-width: 120px;
+      text-align: center;
+      display: inline-block;
+      white-space: nowrap;
+    }
+    
+    button:active {
+      outline: none;
+    }
+    
+    button:focus {
+      outline: none;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-primary:active {
+      background: #4c56b8;
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+    
+    .btn-secondary:hover {
+      background: #f3f4f6;
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary:active {
+      background: #e5e7eb;
+    }
+    
+    .footer {
+      margin-top: 30px;
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 20px;
+    }
+    
+    .tech-stack {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+    
+    .badge {
+      background: #e0e7ff;
+      color: #667eea;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🏥</div>
+      <h1>Clinical Management System</h1>
+      <p class="subtitle">Open-Source Healthcare Platform</p>
+    </div>
+    
+    <div class="status">
+      <div class="status-indicator"></div>
+      <div class="status-text">System Online</div>
+    </div>
+    
+    <div class="info-section">
+      <h2>🚀 Phase 1 Status</h2>
+      <ul>
+        <li>Backend API: Running on port 3000</li>
+        <li>Frontend UI: Running on port 5173</li>
+        <li>Project Scaffolding: Complete</li>
+        <li>Database Layer: Ready for Phase 2</li>
+        <li>Authentication: Next phase</li>
+      </ul>
+    </div>
+    
+    <div class="info-section">
+      <h2>📋 Development Roadmap</h2>
+      <div class="phases">
+        <div class="phase completed">
+          <div class="number">1</div>
+          <div class="name">Setup ✓</div>
+        </div>
+        <div class="phase current">
+          <div class="number">2</div>
+          <div class="name">Auth</div>
+        </div>
+        <div class="phase">
+          <div class="number">3</div>
+          <div class="name">Patients</div>
+        </div>
+        <div class="phase">
+          <div class="number">4</div>
+          <div class="name">Appointments</div>
+        </div>
+        <div class="phase">
+          <div class="number">5</div>
+          <div class="name">Telemedicine</div>
+        </div>
+        <div class="phase">
+          <div class="number">6</div>
+          <div class="name">Prescriptions</div>
+        </div>
+        <div class="phase">
+          <div class="number">7</div>
+          <div class="name">Labs</div>
+        </div>
+        <div class="phase">
+          <div class="number">8+</div>
+          <div class="name">More</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="info-section">
+      <h2>🔗 Available Endpoints</h2>
+      <ul>
+        <li><strong>Health:</strong> GET /health</li>
+        <li><strong>Ready:</strong> GET /health/ready</li>
+        <li><strong>Live:</strong> GET /health/live</li>
+        <li><strong>Patients:</strong> GET /api/patients (mock data)</li>
+        <li><strong>Auth:</strong> POST /api/auth/login (Phase 2)</li>
+        <li><strong>Appointments:</strong> GET /api/appointments (Phase 4)</li>
+      </ul>
+    </div>
+    
+    <div class="action-section">
+      <h3>⚙️ Next Steps</h3>
+      <p>Phase 1 (Project Setup) is complete! The system is running with:</p>
+      <div class="buttons">
+        <button class="btn-primary" onclick="testBackendAPI()">
+          Check Backend API
+        </button>
+        <button class="btn-secondary" onclick="viewSampleData()">
+          View Sample Data
+        </button>
+      </div>
+    </div>
+    
+    <div class="info-section">
+      <h2>🛠️ Technology Stack</h2>
+      <div class="tech-stack">
+        <span class="badge">Node.js 22</span>
+        <span class="badge">Express.js</span>
+        <span class="badge">React 18</span>
+        <span class="badge">PostgreSQL</span>
+        <span class="badge">Redis</span>
+        <span class="badge">Docker</span>
+        <span class="badge">TypeScript</span>
+        <span class="badge">Tailwind CSS</span>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>Clinical Management System v1.0.0 | Phase 1 Complete | Built with ❤️ for Healthcare</p>
+      <p style="margin-top: 10px; color: #bbb;">📚 Documentation: <code>/docs</code> folder | 📋 Roadmap: <code>BUILD_PLAN.md</code></p>
+    </div>
+  </div>
+
+  <script>
+    // Define test functions
+    window.testBackendAPI = function() {
+      console.log('[BUTTON CLICK] testBackendAPI triggered');
+      alert('🔄 Testing Backend API...\n\nPlease wait...');
+      
+      fetch('http://localhost:3000/health', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+        .then(function(response) {
+          console.log('[API] Response received:', response.status);
+          return response.json();
+        })
+        .then(function(data) {
+          console.log('[API] Data:', data);
+          const message = '✅ Backend API is Working!\n\nStatus: ' + data.status + '\nService: ' + data.service + '\nPhase: ' + data.phase + '\nUptime: ' + Math.round(data.uptime) + ' seconds';
+          alert(message);
+        })
+        .catch(function(error) {
+          console.error('[API ERROR]', error);
+          alert('❌ Error connecting to backend:\n\n' + error.toString());
+        });
+    };
+
+    window.viewSampleData = function() {
+      console.log('[BUTTON CLICK] viewSampleData triggered');
+      alert('🔄 Fetching Sample Data...\n\nPlease wait...');
+      
+      fetch('http://localhost:3000/api/patients', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+        .then(function(response) {
+          console.log('[API] Response received:', response.status);
+          return response.json();
+        })
+        .then(function(data) {
+          console.log('[API] Patient data:', data);
+          
+          if (data.mockData && data.mockData.length > 0) {
+            let message = '✅ Sample Patient Data Retrieved!\n\n';
+            data.mockData.forEach(function(patient, index) {
+              message += 'Patient ' + (index + 1) + ':\n';
+              message += '  Name: ' + patient.firstName + ' ' + patient.lastName + '\n';
+              message += '  Email: ' + patient.email + '\n';
+              message += '  Blood Type: ' + patient.bloodType + '\n';
+              message += '  Gender: ' + patient.gender + '\n\n';
+            });
+            alert(message);
+          } else {
+            alert('Sample data: ' + JSON.stringify(data, null, 2));
+          }
+        })
+        .catch(function(error) {
+          console.error('[API ERROR]', error);
+          alert('❌ Error fetching sample data:\n\n' + error.toString());
+        });
+    };
+
+    // Log on page load
+    console.log('✅ Page loaded successfully');
+    console.log('✅ testBackendAPI function:', typeof window.testBackendAPI);
+    console.log('✅ viewSampleData function:', typeof window.viewSampleData);
+    
+    // Check API health on page load
+    fetch('http://localhost:3000/health')
+      .then(function(r) { return r.json(); })
+      .then(function(d) { console.log('✅ Backend API responding:', d); })
+      .catch(function(e) { console.warn('⚠️ Backend not ready yet:', e.message); });
+  </script>
+</body>
+</html>

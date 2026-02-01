@@ -1,0 +1,605 @@
+================================================================================
+TASK: Diagnostic Data Management - Diagnoses, Symptoms, Clinical Findings
+Module: EMR - Clinical Assessment
+Phase: PHASE 1 (Features)
+Priority: HIGH
+Duration: 6-7 days
+Effort: 26 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement comprehensive diagnostic data system capturing diagnoses, clinical
+findings, symptoms, test results, and diagnostic reasoning.
+
+BUSINESS LOGIC
+--------------
+Diagnostic Data Purpose:
+
+Diagnostic data captures "What is the patient's current medical problem?"
+
+Components:
+1. SYMPTOMS (reported by patient)
+2. SIGNS (observed by clinician)
+3. ASSESSMENT (doctor's diagnosis)
+4. DIAGNOSTIC TESTING (lab work, imaging, etc.)
+
+Diagnostic Process:
+
+Patient has symptoms (chest pain, cough, fever)
+  ↓
+Doctor gathers history and performs examination
+  ↓
+Doctor formulates differential diagnosis (list of possible diagnoses)
+  ↓
+Doctor orders diagnostic tests to narrow differential
+  ↓
+Test results come back
+  ↓
+Doctor confirms diagnosis
+  ↓
+Doctor initiates treatment
+
+Example:
+Patient: "I have fever, cough, shortness of breath"
+Doctor exam: Lung sounds abnormal, SpO2 low
+Differential: Community-acquired pneumonia, influenza, bronchitis
+Tests ordered: Chest X-ray, sputum culture, influenza test
+Results: Chest X-ray shows pneumonia infiltrate, flu negative
+Diagnosis: Community-acquired pneumonia, bacterial
+Treatment: Antibiotics
+
+DIAGNOSTIC DATA STRUCTURE
+------------------------
+1. CHIEF COMPLAINT
+   ├─ Primary reason for visit
+   ├─ Duration (acute vs chronic)
+   ├─ Severity (mild, moderate, severe)
+   └─ Associated symptoms
+
+   Example:
+   {
+     "complaint": "Chest pain",
+     "duration": "1 day",
+     "severity": "severe",
+     "type": "crushing",
+     "location": "substernal",
+     "radiation": "to left arm"
+   }
+
+2. HISTORY OF PRESENT ILLNESS (HPI)
+   ├─ Timeline of symptoms
+   ├─ Associated symptoms
+   ├─ Precipitating factors
+   ├─ Alleviating factors
+   ├─ Severity progression
+   └─ Previous similar episodes
+
+   Structured Template:
+   {
+     "symptomOnset": "2024-01-15 at 3:00 PM",
+     "precipitatingFactors": ["heavy lifting", "stress"],
+     "severityProgression": "worsening over 3 hours",
+     "associatedSymptoms": ["shortness of breath", "diaphoresis"],
+     "alleviatingFactors": "rest",
+     "previousEpisodes": false
+   }
+
+3. REVIEW OF SYSTEMS (ROS)
+   Systematically reviews all body systems:
+   
+   General: Weight loss, fever, fatigue
+   HEENT: Headache, vision change, hearing loss
+   Respiratory: Cough, dyspnea, wheezing
+   Cardiovascular: Chest pain, palpitations, edema
+   GI: Nausea, vomiting, diarrhea, abdominal pain
+   GU: Dysuria, frequency, urgency
+   MSK: Joint pain, muscle weakness, stiffness
+   Neuro: Dizziness, headache, numbness, seizures
+   Psych: Anxiety, depression, mood changes
+   Skin: Rash, lesions, bruising
+   
+   Documented as Yes/No/Details for each system
+
+4. PHYSICAL EXAMINATION FINDINGS
+   ├─ Vital Signs (BP, HR, RR, Temp, SpO2, BMI)
+   ├─ General appearance
+   ├─ Head/Neck exam
+   ├─ Cardiovascular exam
+   ├─ Respiratory exam
+   ├─ Abdominal exam
+   ├─ Extremities/MSK exam
+   ├─ Neurological exam
+   └─ Skin exam
+
+   Example Cardiac Exam:
+   {
+     "rate": 88,
+     "rhythm": "regular",
+     "murmurs": "II/VI systolic murmur at apex",
+     "gallop": false,
+     "jvd": false,
+     "edema": false,
+     "notes": "Consistent with mitral regurgitation"
+   }
+
+5. ASSESSMENT & DIAGNOSIS
+   ├─ Primary diagnosis (ICD-10 code)
+   ├─ Secondary diagnoses
+   ├─ Differential diagnoses considered
+   ├─ Clinical reasoning/justification
+   └─ Status (confirmed, suspected, ruled out)
+
+   Diagnosis Entry:
+   {
+     "diagnosis": "Community-acquired pneumonia",
+     "icdCode": "J18.9",
+     "status": "confirmed",
+     "certainty": "high",  // low, moderate, high
+     "dateOfOnset": "2024-01-15",
+     "clinicalReasoning": "Fever, productive cough, lung consolidation on CXR",
+     "differentialDiagnoses": [
+       {
+         "diagnosis": "Acute bronchitis",
+         "reasoning": "Symptoms similar but CXR infiltrate suggests pneumonia"
+       },
+       {
+         "diagnosis": "Influenza",
+         "reasoning": "Ruled out by negative flu test"
+       }
+     ]
+   }
+
+6. DIAGNOSTIC TESTING ORDERS
+   ├─ Lab orders (blood work, urinalysis, etc.)
+   ├─ Imaging orders (X-ray, CT, ultrasound, MRI)
+   ├─ Special studies (ECG, EEG, spirometry, etc.)
+   └─ Results integration
+
+   Test Order:
+   {
+     "testCode": "BACT_CXR",
+     "testName": "Chest X-ray",
+     "orderDate": "2024-01-15 14:30:00",
+     "orderedBy": "Dr. Sarah Johnson",
+     "indication": "Rule out pneumonia",
+     "urgency": "routine",
+     "location": "Radiology",
+     "status": "ordered"
+   }
+
+7. TEST RESULTS & INTERPRETATION
+   ├─ Result value
+   ├─ Reference range
+   ├─ Abnormal flag (normal, abnormal, critical)
+   ├─ Units
+   ├─ Trending (compare to prior)
+   └─ Clinical interpretation
+
+   Lab Result:
+   {
+     "testName": "Complete Blood Count (CBC)",
+     "orderDate": "2024-01-15",
+     "resultDate": "2024-01-15 18:45:00",
+     "results": [
+       {
+         "component": "WBC",
+         "value": 14.5,
+         "unit": "K/uL",
+         "referenceRange": "4.5-11.0",
+         "status": "H",  // H=high, L=low, N=normal
+         "interpretation": "Elevated WBC suggests infection"
+       },
+       {
+         "component": "Hemoglobin",
+         "value": 13.2,
+         "unit": "g/dL",
+         "referenceRange": "13.5-17.5",
+         "status": "L",
+         "interpretation": "Slightly low, mild anemia"
+       }
+     ]
+   }
+
+DIAGNOSTIC WORKFLOW
+-------------------
+Encounter Documentation:
+
+1. CHIEF COMPLAINT & HPI
+   Doctor records why patient came in and history
+   
+   Example:
+   CC: "Fever and cough x 3 days"
+   HPI: "Patient is 45M with fever (101.5°F), productive cough with yellow 
+        sputum, and dyspnea for 3 days. Fever worsened today. Started after
+        URI symptoms 5 days ago."
+
+2. REVIEW OF SYSTEMS
+   Doctor systematically reviews each body system
+   
+   Example:
+   ROS: Positive for fever, cough, dyspnea, chills
+        Negative for chest pain, palpitations, leg swelling
+
+3. PHYSICAL EXAMINATION
+   Doctor examines patient and documents findings
+   
+   Example:
+   Vitals: BP 130/85, HR 98, RR 22, Temp 101.3°F, SpO2 94%
+   Lungs: Crackles in right lower lobe, decreased breath sounds
+   Heart: Regular rate and rhythm, normal S1/S2
+   Abdomen: Soft, non-tender
+   Extremities: No edema
+
+4. ASSESSMENT
+   Doctor synthesizes findings into diagnosis
+   
+   Example:
+   Assessment: 45-year-old male with clinical and radiographic evidence
+   of right lower lobe pneumonia. Likely bacterial pneumonia.
+
+5. DIFFERENTIAL DIAGNOSIS
+   Doctor considers alternative diagnoses
+   
+   Example:
+   DDx: 
+   - Acute bronchitis (ruled out by infiltrate on CXR)
+   - Influenza (ruled out by negative rapid flu test)
+   - Atypical pneumonia (possible, but bacterial pneumonia more likely)
+
+6. PLAN
+   Doctor orders tests and treatments
+   
+   Example:
+   Plan:
+   - Chest X-ray (to confirm diagnosis and rule out complications)
+   - CBC, CMP, blood cultures (for severity assessment)
+   - Sputum culture (to guide antibiotics)
+   - Start azithromycin 500mg daily
+
+PROBLEM-ORIENTED MEDICAL RECORD (POMR)
+--------------------------------------
+Traditional approach: Organize around problems
+
+Each Problem Has:
+1. SUBJECTIVE: Chief complaint and HPI
+2. OBJECTIVE: Physical exam findings, test results
+3. ASSESSMENT: Diagnosis and clinical reasoning
+4. PLAN: Treatment plan and follow-up
+
+Problem 1: Community-Acquired Pneumonia
+├─ S: Fever, productive cough, dyspnea x3 days
+├─ O: Temp 101.3°F, RR 22, SpO2 94%, CXR with RLL infiltrate, WBC 14.5
+├─ A: Pneumonia, likely bacterial
+└─ P: Azithromycin, follow CXR in 7 days
+
+Problem 2: Hypertension
+├─ S: None (no symptoms)
+├─ O: BP 130/85 today
+├─ A: Hypertension, on current medications
+└─ P: Continue lisinopril, recheck in 1 month
+
+ICD-10 CODING
+--------------
+International Classification of Diseases (ICD-10)
+
+Purpose:
+- Standardizes diagnoses across healthcare systems
+- Used for billing/insurance
+- Used for research and public health
+
+Example Codes:
+- J18.9: Pneumonia, unspecified
+- J18.01: Staphylococcal pneumonia
+- J18.11: Streptococcal pneumonia
+- E11.9: Type 2 diabetes without complications
+- I10: Essential hypertension
+
+Coding Best Practices:
+- Use most specific code available
+- Include laterality if applicable (right vs left)
+- Include severity if applicable (mild vs severe)
+- Multiple codes if multiple diagnoses
+
+DIAGNOSTIC TEST ORDERING & RESULT TRACKING
+-------------------------------------------
+Test Order Process:
+
+1. ORDER CREATED
+   Doctor selects test from test catalog
+   Indicates reason (clinical indication)
+   Sets urgency (routine, stat)
+   Submits order
+   Status: ORDERED
+
+2. ORDER TRANSMITTED
+   Order sent to lab/imaging department
+   Status: TRANSMITTED
+
+3. SPECIMEN COLLECTION
+   Patient provides specimen (blood, urine, sputum)
+   Or imaging study performed
+   Status: SPECIMEN_COLLECTED
+
+4. PROCESSING
+   Lab processes specimen
+   Analyzer runs tests
+   Status: IN_PROCESS
+
+5. RESULT AVAILABLE
+   Test completed, results available
+   Status: RESULT_AVAILABLE
+
+6. RESULT REVIEWED
+   Doctor reviews result
+   Takes action if needed (abnormal result)
+   Status: REVIEWED
+
+Test Order API:
+
+POST /patients/{patientId}/diagnostic-orders
+{
+  "testCode": "CBC",
+  "testName": "Complete Blood Count",
+  "indication": "Fever workup",
+  "urgency": "routine",  // routine, stat
+  "orderedBy": "Dr. Sarah Johnson",
+  "notes": "Also check differential"
+}
+
+Get Orders:
+GET /patients/{patientId}/diagnostic-orders
+
+Get Results:
+GET /patients/{patientId}/diagnostic-results
+GET /patients/{patientId}/diagnostic-results/{resultId}
+
+ABNORMAL RESULT HANDLING
+------------------------
+When test result is abnormal:
+
+1. FLAG RESULT
+   Result marked as abnormal (High, Low, or Critical)
+   Example: Glucose 450 (HIGH, normal 70-100)
+
+2. NOTIFY DOCTOR
+   Alert sent to ordering doctor
+   Critical results: Immediate notification
+   Abnormal results: Within 24 hours
+   Email/SMS alert generated
+
+3. CONTEXT
+   Compare to previous results (trending)
+   Show reference range
+   Show units
+   Clinical interpretation provided
+
+4. FOLLOW-UP
+   Doctor decides action needed
+   Order follow-up test
+   Prescribe treatment
+   Schedule patient follow-up
+
+Example Abnormal Result:
+{
+  "testName": "Potassium",
+  "value": 2.8,
+  "unit": "mEq/L",
+  "referenceRange": "3.5-5.0",
+  "status": "CRITICAL_LOW",
+  "previousValue": 4.2,
+  "trend": "Decreased",
+  "interpretation": "CRITICAL: Severe hypokalemia may cause cardiac arrhythmias",
+  "alert": "CRITICAL_VALUE_ALERT",
+  "alertSent": true,
+  "alertRecipient": "Dr. Sarah Johnson",
+  "alertTime": "2024-01-15 15:30:00"
+}
+
+DIFFERENTIAL DIAGNOSIS TRACKING
+-------------------------------
+Differential Diagnosis:
+
+Doctor considers multiple possible diagnoses, ordered by likelihood
+
+Example:
+Patient has chest pain:
+
+Differential Diagnosis:
+1. Acute MI (most likely given EKG changes)
+   Supporting: ST elevation, elevated troponin
+   Against: Young age, no risk factors
+
+2. Unstable angina
+   Supporting: Worse with exertion
+   Against: EKG changes more consistent with MI
+
+3. Aortic dissection
+   Supporting: Sudden onset, severe
+   Against: No radiation to back
+
+4. Pulmonary embolism
+   Supporting: Dyspnea
+   Against: Normal D-dimer
+
+Final Diagnosis: Acute MI, STEMI
+
+Differential Diagnosis Entry:
+
+POST /patients/{patientId}/encounters/{encounterId}/differential-diagnosis
+{
+  "rank": 1,
+  "diagnosis": "Acute MI",
+  "icdCode": "I21.9",
+  "likelihood": "high",
+  "supporting": ["ST elevation on EKG", "elevated troponin"],
+  "against": ["Young age", "no cardiac risk factors"],
+  "nextSteps": "Cardiology consult, serial troponin"
+}
+
+SYNDROMIC CLASSIFICATION
+------------------------
+Group diagnoses by syndrome (cluster of related symptoms/findings)
+
+Example Syndromes:
+- Sepsis: Fever + systemic inflammatory response + infection source
+- Shock: Hypotension + inadequate tissue perfusion + organ dysfunction
+- SIRS (Systemic Inflammatory Response Syndrome): Fever + tachycardia + tachypnea + leukocytosis
+
+Syndrome-based management:
+- Sepsis → Antibiotics, fluid resuscitation, vasopressors
+- Shock → IV fluids, hemodynamic support, treat underlying cause
+- SIRS → Supportive care, identify and treat cause
+
+CLINICAL DECISION SUPPORT
+------------------------
+Diagnostic decision support:
+
+1. RECOMMENDED TESTS BASED ON DIAGNOSIS
+   Doctor enters diagnosis → System suggests tests
+   
+   Diagnosis: Acute MI
+   Suggested tests:
+   - Troponin (serial, at 0h, 3h, 6h)
+   - EKG (12-lead)
+   - Chest X-ray
+   - CBC, CMP, coagulation studies
+   - Lipid panel
+
+2. CRITICAL VALUE ALERTS
+   Test result abnormal → Immediate notification
+   
+   Glucose 45 (hypoglycemic emergency)
+   Potassium 7.5 (hyperkalemic emergency)
+   INR 12 (anticoagulation too aggressive)
+
+3. DIAGNOSIS SUGGESTIONS
+   Symptoms/findings entered → System suggests diagnoses
+   
+   Symptoms: Fever, productive cough, dyspnea
+   Suggested diagnoses:
+   - Pneumonia
+   - Acute bronchitis
+   - Acute exacerbation COPD
+
+4. DIFFERENTIAL DIAGNOSIS REFINEMENT
+   Test results narrow differential
+   
+   Before chest X-ray: Pneumonia vs bronchitis
+   After chest X-ray shows infiltrate: Pneumonia confirmed
+
+TESTING STRATEGY
+----------------
+Diagnostic Data Tests:
+
+Chief Complaint & HPI:
+[ ] Chief complaint captured
+[ ] HPI documented
+[ ] Duration recorded
+[ ] Severity recorded
+[ ] Associated symptoms captured
+
+Review of Systems:
+[ ] ROS template working
+[ ] All body systems included
+[ ] Positive/negative options available
+[ ] Details captured
+
+Physical Exam:
+[ ] All exam systems documented
+[ ] Vital signs included
+[ ] Normal and abnormal findings recorded
+[ ] Exam findings searchable
+
+Diagnosis & Assessment:
+[ ] Diagnosis entered with ICD-10 code
+[ ] Multiple diagnoses supported
+[ ] Differential diagnosis tracked
+[ ] Status (confirmed/suspected) recorded
+
+Test Ordering:
+[ ] Test order created
+[ ] Test transmitted to lab
+[ ] Status tracked
+[ ] Doctor notified of completion
+
+Test Results:
+[ ] Results received and stored
+[ ] Abnormal values flagged
+[ ] Reference ranges shown
+[ ] Trending calculated
+[ ] Critical results alerted
+[ ] Doctor notified
+
+Decision Support:
+[ ] Suggested tests generated
+[ ] Suggested diagnoses generated
+[ ] Critical value alerts work
+[ ] Differential refinement supported
+
+Performance:
+[ ] Diagnostic search <500ms
+[ ] Load encounter <2 seconds
+[ ] 100+ concurrent users no slowdown
+
+Compliance:
+[ ] HIPAA audit logged
+[ ] All data retrievable
+[ ] No data loss
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Chief complaint/HPI system implemented
+[ ] Review of systems template working
+[ ] Physical examination documentation
+[ ] Diagnosis entry with ICD-10 codes
+[ ] Differential diagnosis tracking
+[ ] Test ordering system working
+[ ] Test result integration
+[ ] Abnormal value flagging
+[ ] Critical value alerts
+[ ] Clinical decision support rules
+[ ] Trending calculations
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Diagnostic data model
+2. Chief complaint/HPI APIs
+3. Review of systems templates
+4. Physical exam documentation
+5. Diagnosis entry APIs
+6. ICD-10 code integration
+7. Differential diagnosis tracking
+8. Test ordering APIs
+9. Test result integration
+10. Abnormal value detection
+11. Critical value alerting
+12. Decision support rules engine
+13. Test suite (50+ tests)
+
+DEPENDENCIES
+-----------
+BLOCKING: Medical History (Task 13), Patient data (Task 12)
+BLOCKS: Treatment planning, Prescription system
+
+RELATED TASKS
+-----------
+- Medical History Management (Task 13)
+- Clinical Attachments (Task 15)
+- Prescription System (uses diagnoses)
+- Consultation Module (documents diagnoses)
+
+NOTES
+-----
+Accurate diagnosis is critical.
+Test result interpretation varies by context.
+Differential diagnosis tracking supports learning.
+Decision support reduces diagnostic errors.
+
+Timeline: Week 1-2 of Phase 1
+Priority: HIGH (core clinical functionality)
+
+STATUS: Ready for implementation
+================================================================================

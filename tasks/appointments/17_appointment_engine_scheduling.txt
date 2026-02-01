@@ -1,0 +1,739 @@
+================================================================================
+TASK: Appointment Engine & Scheduling - Core Scheduling Logic
+Module: Appointments - Engine
+Phase: PHASE 1 (Features)
+Priority: CRITICAL (Core scheduling system)
+Duration: 8-9 days
+Effort: 38 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement appointment scheduling engine responsible for checking availability,
+booking appointments, managing conflicts, handling cancellations, and
+coordinating resources (doctors, rooms, staff).
+
+BUSINESS LOGIC
+--------------
+Appointment Engine Purpose:
+
+The appointment engine is the "brain" of scheduling:
+- Checks what appointments are available
+- Books confirmed appointments
+- Prevents double-booking (doctor can't be in 2 rooms)
+- Checks resource availability (rooms, equipment)
+- Handles cancellations and rescheduling
+- Enforces clinic policies (advance booking, buffer times)
+- Manages patient confirmations
+
+Appointment Lifecycle:
+
+REQUESTED → CONFIRMED → IN_PROGRESS → COMPLETED
+    ↓
+ CANCELLED
+
+Request: Patient wants appointment
+  - Patient selects date, time, doctor
+  - System checks availability
+  - Request created (pending confirmation)
+
+Confirmed: Patient confirmed appointment
+  - Patient confirms via email/SMS
+  - Appointment locked (patient can't easily cancel)
+  - Calendar slots reserved
+  - Reminders scheduled
+
+In Progress: Appointment happening now
+  - Patient checked in
+  - Vital signs recorded
+  - Doctor seeing patient
+  - Notes being documented
+
+Completed: Appointment done
+  - Visit complete
+  - Clinical notes documented
+  - Follow-up scheduled (if needed)
+  - Billing processed
+
+Cancelled: Appointment cancelled
+  - Patient cancelled (within policy window)
+  - Doctor cancelled (automatic reschedule)
+  - No-show (patient didn't show up)
+  - Slot returned to availability
+
+APPOINTMENT DATA MODEL
+---------------------
+Appointment Record:
+
+CREATE TABLE appointments (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  tenant_id UUID NOT NULL,
+  
+  -- Patient & Doctor
+  patient_id UUID NOT NULL,
+  doctor_id UUID NOT NULL,
+  
+  -- Scheduling Info
+  appointment_type_id UUID NOT NULL,
+  appointment_date DATE,
+  start_time TIME,
+  end_time TIME,
+  
+  -- Resources
+  room_id UUID,  -- Nullable if telehealth
+  
+  -- Status
+  status VARCHAR(50),
+  -- REQUESTED, CONFIRMED, IN_PROGRESS, COMPLETED, 
+  -- CANCELLED, NO_SHOW, RESCHEDULED
+  
+  -- Patient Info at time of booking
+  patient_reason TEXT,  -- Why patient is scheduling
+  notes TEXT,  -- Additional notes
+  
+  -- Cancellation Info
+  cancelled_at TIMESTAMP,
+  cancelled_by UUID,  -- Patient or staff
+  cancellation_reason VARCHAR(255),
+  
+  -- Clinical Data
+  check_in_time TIMESTAMP,
+  check_out_time TIMESTAMP,
+  vital_signs_recorded BOOLEAN,
+  encounter_id UUID,  -- FK to clinical encounters
+  
+  -- Confirmations
+  confirmed_at TIMESTAMP,
+  confirmation_method VARCHAR(50),  -- EMAIL, SMS, PHONE
+  
+  -- Reminders
+  reminder_sent_at TIMESTAMP,
+  reminder_method VARCHAR(50),
+  
+  created_at TIMESTAMP,
+  created_by UUID,
+  updated_at TIMESTAMP,
+  updated_by UUID,
+  is_deleted BOOLEAN
+);
+
+Appointment Request (Before Confirmation):
+
+When patient first requests appointment:
+{
+  "id": "uuid-req-123",
+  "patientId": "uuid-patient",
+  "clinicId": "uuid-clinic",
+  "appointmentTypeId": "uuid-type-general",
+  "preferredDate": "2024-02-15",
+  "preferredTimeWindow": "morning",  // or specific time
+  "preferredDoctor": "uuid-doctor",  // Optional, let clinic choose
+  "reason": "Annual checkup",
+  "status": "REQUESTED",
+  "createdAt": "2024-01-20 10:30:00"
+}
+
+Clinic reviews request and either:
+1. Confirms automatically (if available)
+2. Offers alternatives (requested time not available)
+3. Puts on waiting list (all slots full)
+
+AVAILABILITY CHECKING
+---------------------
+When checking for available slots:
+
+System considers:
+
+1. CLINIC HOURS
+   Clinic is closed on Sunday?
+   → Can't book on Sunday
+
+2. OPERATING HOURS
+   Clinic hours: 8am-5pm
+   → Can't book at 6pm
+
+3. DOCTOR AVAILABILITY
+   Doctor working on date?
+   → Check doctor_schedules table
+   
+   Doctor on vacation?
+   → Check doctor_leaves table
+   
+   Doctor hours: 9am-12pm, 1pm-5pm?
+   → Can't book 12pm-1pm (lunch)
+
+4. EXISTING APPOINTMENTS
+   Doctor already has appointment 2-3pm?
+   → Can't book overlapping time
+
+5. BUFFER TIMES
+   General visit: 30 minutes + 5 min before + 5 min after
+   → Need 40 minutes total blocked time
+
+6. ROOM AVAILABILITY
+   Exam room available?
+   → Can't book if room already used
+
+7. RESOURCE AVAILABILITY
+   Nurse required but only doctor available?
+   → Wait for nurse
+
+8. CLINIC POLICIES
+   Book max 90 days in advance?
+   → Reject requests >90 days out
+   
+   Book min 24 hours in advance?
+   → Reject requests <24 hours
+
+9. PATIENT STATUS
+   Patient blocked (excessive no-shows)?
+   → Require staff approval
+
+10. PATIENT HISTORY
+    Prone to no-shows?
+    → May require deposit or confirmation
+
+Availability Query Process:
+
+1. USER REQUESTS: "Show me available times for Feb 15"
+
+2. SYSTEM CHECKS:
+   - Clinic open on Feb 15? YES
+   - Doctor working Feb 15? YES
+   - Doctor on leave? NO
+   - Operating hours: 8am-5pm
+   - Doctor hours: 8am-5pm
+   - Lunch: 12-1pm
+   - Existing appointments: 9-10am, 11am-12pm, 2-3pm, 4-5pm
+
+3. CALCULATE AVAILABLE SLOTS (30-min visit):
+   - 8am: AVAILABLE
+   - 8:30am: AVAILABLE
+   - 9am: OCCUPIED (existing appointment)
+   - 9:30am: OCCUPIED (existing appointment)
+   - 10am: AVAILABLE
+   - 10:30am: AVAILABLE
+   - 11am: OCCUPIED (existing appointment)
+   - 11:30am: OCCUPIED (buffer for 11am appointment)
+   - 12pm: LUNCH
+   - 1pm: AVAILABLE
+   - 1:30pm: AVAILABLE
+   - 2pm: OCCUPIED (existing appointment)
+   - 3pm: AVAILABLE (buffer added)
+   - 3:30pm: AVAILABLE
+   - 4pm: OCCUPIED (existing appointment)
+   - 4:30pm: AVAILABLE (buffer added)
+
+4. RETURN TO USER:
+   Available times: [8am, 8:30am, 10am, 10:30am, 1pm, 1:30pm, 3pm, 3:30pm, 4:30pm]
+
+API Example:
+
+GET /appointments/availability?
+    clinicId=uuid-clinic
+    &appointmentTypeId=uuid-type-general
+    &doctorId=uuid-doctor
+    &date=2024-02-15
+    &timezone=America/New_York
+
+Response:
+{
+  "date": "2024-02-15",
+  "doctor": "Dr. Smith",
+  "appointmentType": "General Office Visit",
+  "availableSlots": [
+    {
+      "time": "08:00",
+      "timeFormatted": "8:00 AM",
+      "slotId": "slot-001"
+    },
+    {
+      "time": "08:30",
+      "timeFormatted": "8:30 AM",
+      "slotId": "slot-002"
+    },
+    ... more slots
+  ]
+}
+
+APPOINTMENT BOOKING FLOW
+------------------------
+Step 1: Patient Initiates Request
+
+GET /clinics/uuid-clinic → List clinic info
+GET /clinics/uuid-clinic/doctors → List doctors
+GET /clinics/uuid-clinic/appointment-types → List visit types
+GET /appointments/availability (as above) → Show available times
+
+Step 2: Patient Selects Slot
+
+User clicks on desired time slot
+
+Step 3: Create Appointment Request
+
+POST /appointments/request
+{
+  "patientId": "uuid-patient",
+  "clinicId": "uuid-clinic",
+  "appointmentTypeId": "uuid-type-general",
+  "doctorId": "uuid-doctor",
+  "slotId": "slot-001",  // Or time: "2024-02-15 08:00"
+  "reason": "Annual checkup",
+  "notes": "Has persistent cough"
+}
+
+Response:
+{
+  "id": "appt-123",
+  "status": "REQUESTED",
+  "message": "Appointment request submitted. Confirmation will be sent.",
+  "appointmentTime": "2024-02-15 08:00",
+  "estimatedConfirmationTime": "Within 24 hours"
+}
+
+Step 4: Clinic Reviews Request (Auto or Manual)
+
+Option A: Automatic Confirmation
+- Time is available
+- Patient has no flags
+- Appointment automatically confirmed
+- Confirmation email sent
+
+Option B: Clinic Reviews & Approves
+- Clinic staff reviews request
+- Approves or offers alternative
+- Patient receives notification
+
+Step 5: Patient Receives Confirmation
+
+Email:
+Subject: "Your appointment with Dr. Smith confirmed"
+Body: "Friday, February 15, 2024 at 8:00 AM
+      Clinic: Downtown Family Medicine
+      Room: Exam 1
+      Please arrive 10 minutes early"
+
+SMS: Optional reminder 24 hours before
+
+Step 6: Day of Appointment
+
+Patient Checks In:
+- Receptionist verifies appointment
+- Insurance/consent verified
+- Vital signs recorded
+- Checked into waiting area
+
+Check In API:
+
+POST /appointments/uuid-appt-123/check-in
+{
+  "checkInTime": "2024-02-15 07:58:00",
+  "method": "KIOSK"  // Or STAFF
+}
+
+Response:
+{
+  "status": "CHECKED_IN",
+  "message": "Welcome! Please have a seat in the waiting area.",
+  "doctor": "Dr. Smith",
+  "room": "Exam Room 1"
+}
+
+Appointment In Progress:
+- Doctor enters room
+- Consultation happens
+- Clinical notes documented
+- Prescriptions written
+- Follow-up arranged
+
+Check Out:
+- Patient checks out at reception
+- Billing processed
+- Appointment marked complete
+
+POST /appointments/uuid-appt-123/complete
+{
+  "completionTime": "2024-02-15 08:32:00",
+  "notes": "Patient educated on preventive care"
+}
+
+DOUBLE-BOOKING PREVENTION
+-------------------------
+Critical Issue: Doctor can't be in two places at once
+
+Scenario: Dr. Smith has appointment 9-10am in Room 1
+
+If system tries to book Dr. Smith 9:30-10:30am in Room 2:
+→ CONFLICT! Dr. Smith already in Room 1 at 9:30am
+
+Prevention Logic:
+
+Availability Query:
+  FOR each existing appointment with same doctor
+    IF existing.start_time < requested.end_time AND
+       existing.end_time > requested.start_time
+    THEN CONFLICT
+    RETURN unavailable
+
+Example Times for 30-min appointment with 5-min buffer:
+
+Existing: 9am-10am (appointment) + 5min buffer = 9am-10:05am
+Request: 9:30am-10am
+  → Overlaps with 9am-10:05am block
+  → REJECTED
+
+Request: 10:05am-10:35am
+  → Starts exactly when existing appointment + buffer ends
+  → ACCEPTED (if no other conflicts)
+
+Request: 10am-10:30am
+  → Starts before buffer ends (at 10:05am)
+  → REJECTED
+
+Room Double-Booking Prevention:
+
+Similar logic for rooms:
+
+FOR each appointment using room
+  IF appointment.start < requested.end AND
+     appointment.end > requested.start
+  THEN CONFLICT
+  RETURN unavailable
+
+Multiple Resource Conflicts:
+
+Appointment requires: Doctor + Room + Nurse
+
+Must check conflicts for ALL resources:
+
+checkConflict(doctor, date, startTime, endTime):
+  → Checks doctor availability
+
+checkConflict(room, date, startTime, endTime):
+  → Checks room availability
+
+checkConflict(nurse, date, startTime, endTime):
+  → Checks nurse availability
+
+If ANY resource conflicts → Reject request
+
+CANCELLATION & RESCHEDULING
+----------------------------
+Patient Cancellation:
+
+CREATE TABLE cancellations (
+  id UUID PRIMARY KEY,
+  appointment_id UUID NOT NULL,
+  cancelled_by UUID NOT NULL,  -- Patient or staff
+  cancelled_at TIMESTAMP,
+  cancellation_reason VARCHAR(255),
+  cancellation_type VARCHAR(50),  -- PATIENT, CLINIC, NO_SHOW
+  fee_charged DECIMAL,  -- Late cancellation fee
+  
+  created_at TIMESTAMP
+);
+
+Cancellation Policy Enforcement:
+
+Current time: 2024-02-14 10:00am
+Appointment: 2024-02-15 08:00am (24 hours away)
+
+Cancellation Policy: Must cancel 24+ hours before
+
+Can patient cancel? YES (exactly 24 hours notice)
+
+Later: 2024-02-15 09:00am
+Appointment: 2024-02-15 10:00am (1 hour away)
+
+Can patient cancel? NO (less than 24 hours notice)
+→ Late cancellation fee charged: $25
+
+API:
+
+DELETE /appointments/uuid-appt-123
+{
+  "reason": "Found another doctor"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Appointment cancelled successfully",
+  "refund": {
+    "amountCharged": 100.00,
+    "cancellationFee": -25.00,
+    "refundAmount": 75.00
+  }
+}
+
+Clinic Cancellation:
+
+When clinic cancels (emergency, doctor sick):
+
+POST /appointments/uuid-appt-123/cancel-clinic
+{
+  "reason": "Doctor emergency - clinic closed today",
+  "autoReschedule": true,
+  "rescheduleFor": "next_available"
+}
+
+System:
+1. Cancels appointment
+2. Optionally auto-reschedules patient
+3. Sends notification to patient
+4. Marks as urgent (need to reach patient)
+5. Full refund (no cancellation fee)
+
+No-Show Handling:
+
+When patient doesn't show up:
+
+POST /appointments/uuid-appt-123/no-show
+{
+  "noShowType": "AUTO"  // Or STAFF marked
+}
+
+System:
+1. Marks as NO_SHOW
+2. Increments patient no-show counter
+3. If threshold reached → Flag patient
+4. Cancellation fee charged
+5. Slot returned to availability
+6. Notification sent to clinic staff
+
+Rescheduling:
+
+Patient wants different time:
+
+POST /appointments/uuid-appt-123/reschedule
+{
+  "newDate": "2024-02-20",
+  "newTime": "2pm",
+  "reason": "Schedule conflict"
+}
+
+System:
+1. Checks if new time available
+2. Releases current slot
+3. Books new slot
+4. Sends new confirmation
+
+OVERBOOKING & WAITLIST
+---------------------
+Overbooking Strategy (10% allowed):
+
+Clinic capacity: 20 patients per day
+Overbooking: 10% = 2 extra patients
+
+Total allowed: 22 patients
+
+Why? Account for no-shows (~10% don't show)
+
+If 2 patients cancel, clinic still has 20 patients (good utilization)
+If all 22 show, slight overbooking (acceptable for clinic)
+
+Overbooking Queue:
+
+CREATE TABLE overbooked_appointments (
+  id UUID PRIMARY KEY,
+  appointment_id UUID NOT NULL,
+  overbooking_position INT,  -- 1st overbooked, 2nd overbooked, etc.
+  created_at TIMESTAMP
+);
+
+When booking appointment #21 (within overbooking):
+→ Marked as overbooking_position = 1
+
+When booking appointment #22 (within overbooking):
+→ Marked as overbooking_position = 2
+
+If patient #20 cancels:
+→ Patient at overbooking_position = 1 moves to regular slot
+→ Patient at overbooking_position = 2 moves to position 1
+
+Waitlist:
+
+If clinic fully booked (including overbooking):
+
+POST /appointments/waitlist
+{
+  "patientId": "uuid-patient",
+  "clinicId": "uuid-clinic",
+  "preferredDate": "2024-02-15",
+  "preferredDoctor": "uuid-doctor"
+}
+
+System:
+1. Adds to waitlist
+2. Monitors cancellations
+3. Auto-books if slot becomes available
+4. Notifies patient of availability
+
+Waitlist Table:
+
+CREATE TABLE waitlists (
+  id UUID PRIMARY KEY,
+  patient_id UUID NOT NULL,
+  clinic_id UUID NOT NULL,
+  preferred_date DATE,
+  doctor_id UUID,
+  position INT,  -- 1st on waitlist, 2nd, etc.
+  status VARCHAR(50),  -- WAITING, OFFERED, BOOKED, EXPIRED
+  created_at TIMESTAMP,
+  offered_at TIMESTAMP,
+  offer_expiration TIMESTAMP
+);
+
+APPOINTMENT REMINDERS
+---------------------
+Reminder Schedule:
+
+24 hours before:
+  - Email reminder
+  - SMS reminder (if opted in)
+  - Message: "Reminder: Your appointment with Dr. Smith tomorrow at 8am"
+
+2 hours before:
+  - SMS only (if opted in)
+  - Message: "Friendly reminder - appointment in 2 hours"
+
+1 hour before:
+  - Email (preferred method)
+  - Message: "Dr. Smith is ready for your appointment"
+
+Reminder Table:
+
+CREATE TABLE appointment_reminders (
+  id UUID PRIMARY KEY,
+  appointment_id UUID NOT NULL,
+  reminder_type VARCHAR(50),  -- EMAIL, SMS, PUSH
+  scheduled_time TIMESTAMP,
+  sent_time TIMESTAMP,
+  status VARCHAR(50),  -- SCHEDULED, SENT, FAILED, SKIPPED
+  created_at TIMESTAMP
+);
+
+TESTING STRATEGY
+----------------
+Availability Tests:
+
+[ ] Available slot returned for open time
+[ ] No slot returned for occupied time
+[ ] Buffer time respected (5 min before/after)
+[ ] Doctor availability checked
+[ ] Clinic hours respected
+[ ] Holiday blocks availability
+[ ] Doctor lunch break blocks availability
+[ ] Overbooking capacity respected
+
+Booking Tests:
+
+[ ] Valid appointment created
+[ ] Double-booking prevented (doctor conflict)
+[ ] Room conflict prevented
+[ ] Resource conflict prevented (nurse required but unavailable)
+[ ] Policy constraints enforced (advance booking limit)
+[ ] Patient status checked (blocked patients)
+[ ] Request creates pending appointment
+[ ] Auto-confirmation works (when criteria met)
+[ ] Confirmation email sent
+[ ] Appointment locked after confirmation
+
+Cancellation Tests:
+
+[ ] Patient can cancel within policy window
+[ ] Late cancellation rejected (or charged)
+[ ] Clinic can cancel any appointment
+[ ] No-show handled correctly
+[ ] Slot returned to availability after cancellation
+[ ] Refund calculated correctly
+[ ] Notification sent to patient
+
+Rescheduling Tests:
+
+[ ] Appointment rescheduled successfully
+[ ] New time available and booked
+[ ] Old slot released
+[ ] Confirmation sent for new time
+[ ] No double-booking on reschedule
+
+Reminders Tests:
+
+[ ] Reminder scheduled for correct time
+[ ] Reminder sent via correct channel
+[ ] Reminder not sent if patient opted out
+[ ] Failed reminder logged
+[ ] Retry attempted on failure
+
+Performance Tests:
+
+[ ] Availability check <500ms
+[ ] Booking completes <1 second
+[ ] Cancellation completes <500ms
+[ ] 100+ concurrent booking attempts handled
+[ ] No race conditions (conflicts on simultaneous bookings)
+
+Compliance Tests:
+
+[ ] HIPAA audit logged
+[ ] All cancellations tracked
+[ ] No-show documented
+[ ] Refund calculations auditable
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Availability checking working
+[ ] Appointment booking functional
+[ ] Double-booking prevented
+[ ] Resource conflicts prevented
+[ ] Cancellation system working
+[ ] Rescheduling functional
+[ ] No-show handling working
+[ ] Reminder system functional
+[ ] Overbooking policy enforced
+[ ] Waitlist working
+[ ] Patient confirmations sent
+[ ] All policies enforced
+[ ] Performance benchmarks met
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Appointment data model
+2. Availability checking algorithm
+3. Booking engine APIs
+4. Conflict detection logic
+5. Cancellation/refund system
+6. Rescheduling system
+7. No-show handling
+8. Reminder scheduling
+9. Overbooking/waitlist management
+10. Test suite (70+ tests)
+11. Conflict resolution guide
+12. Booking flow documentation
+
+DEPENDENCIES
+-----------
+BLOCKING: Clinic Lifecycle (Task 16), Patient Management (Task 12), Database (Phase 0)
+BLOCKS: Slot Management (Task 18), Doctor Schedule (Task 19)
+
+RELATED TASKS
+-----------
+- Clinic Lifecycle Management (Task 16) - Provides clinic config
+- Slot Management (Task 18) - Refinement of availability
+- Doctor Schedule (Task 19) - Doctor availability
+- Patient Management (Task 12) - Patient data
+
+NOTES
+-----
+Appointment engine is heart of scheduling system.
+Double-booking prevention critical (cannot make mistakes).
+Performance important (users won't wait for availability check).
+Policies must be flexible (different clinics have different rules).
+
+Timeline: Week 1-2 of Phase 1 Appointments
+Priority: CRITICAL (core scheduling)
+
+STATUS: Ready for implementation
+================================================================================

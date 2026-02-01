@@ -1,0 +1,648 @@
+================================================================================
+TASK: Infrastructure, DevOps & Deployment Strategy
+Module: CORE - INFRASTRUCTURE & DEVOPS
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Required for all deployments)
+Duration: 7-10 days
+Effort: 25 hours
+================================================================================
+
+OBJECTIVE
+---------
+Design cloud infrastructure, CI/CD pipeline, deployment automation, and
+operational procedures supporting multi-tenant SaaS at scale with 99.9%
+uptime SLA.
+
+BUSINESS LOGIC
+--------------
+SaaS Platform Requirements:
+- Support multiple clinics (tenants) on shared infrastructure
+- Scalable: Add resources as clinics are added
+- Reliable: 99.9% uptime (8.7 hours downtime/year)
+- Secure: Isolated per tenant, encrypted
+- Cost-effective: Efficient resource utilization
+- Observable: Full visibility into system health
+
+Deployment Environments:
+
+1. LOCAL (Developer)
+   - Purpose: Local development
+   - Infrastructure: Docker Compose
+   - Data: Dummy/test data
+   - Scope: Single developer
+
+2. DEVELOPMENT
+   - Purpose: Feature testing
+   - Infrastructure: Cloud (small footprint)
+   - Data: Test data
+   - Scope: Development team
+   - Duration: Temporary, ephemeral
+
+3. STAGING (Pre-Production)
+   - Purpose: Pre-release testing
+   - Infrastructure: Production-like
+   - Data: Copy of production (anonymized for GDPR)
+   - Scope: QA team
+   - Duration: 3 months
+   - Purpose: Mirror production exactly (catch issues before release)
+
+4. PRODUCTION
+   - Purpose: Live clinics
+   - Infrastructure: High-availability setup
+   - Data: Real patient data (encrypted)
+   - Scope: All clinics
+   - Redundancy: Multi-region failover
+   - SLA: 99.9% uptime
+
+CLOUD PROVIDER SELECTION
+------------------------
+Options:
+
+1. AWS (Amazon Web Services)
+   ✓ Most mature, largest market share
+   ✓ Comprehensive service offerings
+   ✓ Good healthcare/HIPAA compliance
+   ✗ Complex pricing model
+   Estimated monthly: $2,000-5,000 (starting)
+
+2. Microsoft Azure
+   ✓ Good for .NET applications
+   ✓ HIPAA and HITRUST certified
+   ✓ Enterprise support
+   ✗ Steeper learning curve
+   Estimated monthly: $2,500-6,000 (starting)
+
+3. Google Cloud Platform (GCP)
+   ✓ Good for data/ML workloads
+   ✓ Straightforward pricing
+   ✗ Smaller healthcare ecosystem
+   Estimated monthly: $1,500-4,000 (starting)
+
+Recommendation: AWS (most experience, largest community)
+
+ARCHITECTURE OVERVIEW
+---------------------
+Typical SaaS Architecture:
+
+Internet
+   ↓
+CDN (CloudFront) - Cache static assets
+   ↓
+Load Balancer (ALB) - Distribute traffic
+   ↓
+Auto Scaling Group
+├─ API Server 1
+├─ API Server 2
+├─ API Server 3
+└─ (Auto scales 1-10 based on load)
+   ↓
+RDS Database (PostgreSQL)
+├─ Primary (Production)
+├─ Read Replica (Backups)
+└─ Multi-AZ Failover
+   ↓
+ElastiCache (Redis) - Caching/Sessions
+   ↓
+S3 (File Storage) - Patient documents/images
+   ↓
+CloudWatch (Monitoring) - Metrics/logs
+
+INFRASTRUCTURE AS CODE (IaC)
+----------------------------
+Tools: Terraform or CloudFormation
+
+Benefits:
+- Reproducible infrastructure
+- Version controlled
+- Documentation of setup
+- Consistent dev/staging/prod
+- Disaster recovery (rebuild in minutes)
+
+Example (Terraform):
+```hcl
+# Production environment
+resource "aws_rds_instance" "production" {
+  allocated_storage    = 100
+  engine               = "postgres"
+  instance_class       = "db.t3.large"
+  identifier           = "clinic-saas-prod"
+  username             = var.db_username
+  password             = var.db_password
+  
+  backup_retention_period = 30
+  backup_window           = "02:00-03:00"
+  multi_az                = true
+  
+  tags = {
+    Name        = "Production Database"
+    Environment = "production"
+  }
+}
+```
+
+DATABASE ARCHITECTURE
+--------------------
+PostgreSQL RDS Setup:
+
+1. Primary Instance (Production)
+   - Multi-AZ deployment (redundancy)
+   - 100+ GB storage (scales automatically)
+   - Automated backups (daily)
+   - 30-day backup retention
+
+2. Read Replica (Analytics)
+   - Read-only copy for reporting
+   - Offloads heavy analytics queries
+   - Kept in sync automatically
+
+3. Backup Strategy
+   - Automated daily snapshots
+   - 30-day retention
+   - Test restore monthly
+   - Separate AWS account for disaster recovery
+
+4. High Availability
+   - RDS Multi-AZ (automatic failover)
+   - Failover time: 1-2 minutes
+   - Synchronous replication to standby
+
+CACHING LAYER
+-------------
+Redis (ElastiCache)
+
+Use cases:
+- Session storage (active user sessions)
+- Rate limit counters
+- Patient lookups (frequently accessed)
+- Role/permission caching
+
+Configuration:
+- Multi-AZ for HA
+- 10GB cluster (start small)
+- Automatic failover
+- Encryption at rest and in transit
+
+Cache Key Naming:
+```
+session:{user_id}:{tenant_id}
+patient:{patient_id}:{tenant_id}
+role_permissions:{role_id}:{tenant_id}
+```
+
+Cache Invalidation:
+- Time-based: 15 min expiry for most
+- Event-based: Invalidate on update
+- Manual: Cache clear on deployment
+
+CONTAINER ORCHESTRATION
+-----------------------
+Two approaches:
+
+1. Elastic Container Service (ECS)
+   ✓ Simpler, less to manage
+   ✓ AWS-native
+   ✓ Good for monoliths
+   ✗ Less flexible than Kubernetes
+
+2. Elastic Kubernetes Service (EKS)
+   ✓ Industry standard
+   ✓ Highly scalable
+   ✓ Better for microservices
+   ✗ More complex, steeper learning curve
+
+Recommendation for MVP: ECS (simpler)
+Migration path: ECS → EKS as complexity grows
+
+CONTAINER IMAGE STRATEGY
+------------------------
+Docker images:
+
+1. Dockerfile
+   - Base: Node.js 20.x LTS
+   - Size: ~200MB (optimized)
+   - Multi-stage build (reduce size)
+   - Non-root user (security)
+
+2. Image Registry
+   - Elastic Container Registry (ECR)
+   - Store all versions
+   - Scan for vulnerabilities
+
+3. Image Versioning
+   - Semantic versioning (1.2.3)
+   - Tag: latest, v1.2.3, stable
+   - Immutable images (never update published image)
+
+CI/CD PIPELINE
+--------------
+GitHub Actions (or GitLab CI)
+
+Workflow Stages:
+
+1. PUSH TO REPOSITORY
+   └→ Trigger: Code pushed to main/dev
+
+2. BUILD
+   - Checkout code
+   - Install dependencies
+   - Run linter (code style)
+   - Run unit tests
+   - Build Docker image
+   - Scan image for vulnerabilities
+
+3. DEPLOY TO DEVELOPMENT
+   (If main branch)
+   - Deploy to dev environment
+   - Run integration tests
+   - Run smoke tests
+
+4. STAGING APPROVAL
+   (Manual) - Wait for approval
+
+5. DEPLOY TO STAGING
+   - Deploy to staging environment
+   - Run full test suite
+   - Run performance tests
+   - Run security scans
+   - Load testing
+
+6. PRODUCTION APPROVAL
+   (Manual) - Wait for approval
+
+7. DEPLOY TO PRODUCTION
+   - Blue-green deployment
+   - Canary release (5% traffic)
+   - Monitor error rate
+   - If error rate high, rollback
+   - If error rate low, full deployment
+   - Database migrations (if needed)
+   - Cache warming
+
+Example (GitHub Actions):
+```yaml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run tests
+        run: npm test
+      - name: Build image
+        run: docker build -t clinic-saas:${{ github.sha }} .
+      - name: Push to ECR
+        run: aws ecr push ...
+  
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to staging
+        run: ./deploy-staging.sh
+```
+
+DEPLOYMENT STRATEGY
+-------------------
+Three deployment methods:
+
+1. BLUE-GREEN DEPLOYMENT
+   - Blue: Current production version
+   - Green: New version deployed
+   - Route 100% traffic to Green
+   - If issues, route back to Blue
+   - Advantage: Instant rollback
+   - Downtime: Zero
+
+2. CANARY DEPLOYMENT
+   - Deploy new version to 5% of servers
+   - Monitor error rate
+   - If error rate > threshold, rollback
+   - If OK, gradually shift: 5% → 25% → 50% → 100%
+   - Advantage: Catch issues early
+   - Duration: 30-60 minutes
+
+3. ROLLING DEPLOYMENT
+   - Stop 1 server, deploy new version
+   - Wait for health checks pass
+   - Repeat for next server
+   - Advantage: No downtime
+   - Duration: Slow (depends on server count)
+
+Recommendation: Canary (catches issues, low risk)
+
+LOAD BALANCING & AUTO-SCALING
+-----------------------------
+AWS Application Load Balancer (ALB)
+
+Configuration:
+- Distribute traffic across instances
+- Health checks every 30 seconds
+- Target group: API servers
+
+Auto Scaling Group (ASG):
+- Minimum instances: 2 (high availability)
+- Maximum instances: 10 (cost control)
+- Scale up: If CPU > 70% for 2 min
+- Scale down: If CPU < 30% for 10 min
+- Scale-up time: 2-3 minutes
+- Scale-down time: 10+ minutes (conservative)
+
+Scaling metrics:
+- CPU Utilization
+- Memory Utilization
+- Request Count per Target
+- Custom metrics (queue depth)
+
+DATABASE MIGRATION STRATEGY
+---------------------------
+Zero-downtime database migrations:
+
+1. Add New Column (Backwards Compatible)
+   - Add column with NULL default
+   - Update application to use both old and new
+   - Migrate data: UPDATE table SET new_col = old_col
+   - Remove old column reference from code
+   - Drop old column (in follow-up release)
+
+2. Remove Column (Backwards Compatible)
+   - Stop code from using column
+   - Wait for code deploy to complete
+   - Then drop column
+
+3. Schema Changes
+   - Test on staging first
+   - Deploy code that handles new schema
+   - Run migration (pg_dump/restore)
+   - Verify data integrity
+   - Monitor production for issues
+
+Tool: Flyway or Liquibase for versioned migrations
+
+MONITORING & ALERTING
+---------------------
+CloudWatch Metrics:
+
+Performance:
+- API response time (p50, p95, p99)
+- Database query duration
+- Error rate
+- Request rate
+
+Infrastructure:
+- CPU utilization
+- Memory utilization
+- Disk space
+- Network I/O
+
+Application:
+- Pending jobs in queue
+- Cache hit rate
+- Authentication failures
+- Authorization denials
+
+Alarms configured:
+- Error rate > 5% → Page on-call
+- Response time p95 > 2s → Alert team
+- Disk space < 10% → Alert ops
+- Database connections > 80% of pool → Alert
+
+Logging:
+- CloudWatch Logs
+- Elasticsearch (if heavy volume)
+- Retention: 30 days hot, archive older
+
+DISASTER RECOVERY
+-----------------
+RTO (Recovery Time Objective): 1 hour
+RPO (Recovery Point Objective): 15 minutes
+
+Failure Scenarios:
+
+1. Server Down
+   - ALB health check detects failure (30 sec)
+   - ASG launches replacement (1-2 min)
+   - Total time: 2-3 minutes
+   - No data loss
+
+2. Database Server Down
+   - RDS Multi-AZ failover (1-2 min)
+   - Automatic promotion of standby
+   - Total time: 1-2 minutes
+   - No data loss
+
+3. Region Down (rare)
+   - Database backup in another region
+   - Restore from backup (15-20 min)
+   - Redeploy application (5 min)
+   - Update DNS (1-2 min)
+   - Total time: 25-30 minutes
+   - RPO: Last backup (15 min old)
+
+4. Data Corruption
+   - Restore from backup
+   - Test restore monthly
+   - Restore time: 30-45 minutes
+   - Target RPO: 1 hour (nightly backup, or continuous replication)
+
+Backup Strategy:
+- Automated daily backups
+- 30-day retention
+- Monthly backup for archival
+- Quarterly restore tests
+- Cross-region backup replication
+
+COST OPTIMIZATION
+-----------------
+Typical Monthly Costs:
+
+Fixed:
+- RDS Database: $500-1000
+- Load Balancer: $150
+- Elastic IPs: $50
+
+Variable (per clinic):
+- API servers (t3.medium): $30/month each
+- Storage (S3): $0.023/GB/month
+- Bandwidth: $0.09/GB
+- Backup storage: $0.05/GB/month
+
+Example: 50 clinics
+- API servers (50 × 4 instances): $6,000
+- Database: $1,000
+- Storage: $2,000 (per clinic avg)
+- Backup: $500
+- Networking: $1,000
+- Total: ~$12,500/month
+
+Cost Optimization Strategies:
+- Reserved instances (1-3 year): 30-40% discount
+- Spot instances (non-critical): 70% discount
+- Auto-scaling (down) during off-hours
+- Right-sizing (monitor and adjust instance types)
+- Consolidate logging (cheaper bulk storage)
+
+SECURITY IN INFRASTRUCTURE
+--------------------------
+Network Security:
+
+1. VPC (Virtual Private Cloud)
+   - Private subnets for database
+   - Public subnets for load balancer
+   - No direct internet access to DB
+
+2. Security Groups
+   - ALB accepts: TCP 80, 443
+   - API accepts: ALB traffic only
+   - Database accepts: API traffic only
+   - SSH access: Bastion host only
+
+3. Secrets Management
+   - AWS Secrets Manager
+   - Database credentials rotated automatically
+   - API keys never in code
+   - Environment variables injected at runtime
+
+4. DDoS Protection
+   - AWS Shield (basic, included)
+   - AWS WAF (Web Application Firewall)
+   - Rate limiting
+   - Geo-blocking (if applicable)
+
+COMPLIANCE IN INFRASTRUCTURE
+----------------------------
+HIPAA Requirements:
+
+✓ Encryption in transit (TLS 1.3)
+✓ Encryption at rest (AES-256)
+✓ Access logging (CloudTrail)
+✓ Multi-factor auth for admins
+✓ Regular patching
+✓ Backup and disaster recovery
+✓ Business Associate Agreements (BAA) with AWS
+
+GDPR Requirements:
+
+✓ Data residency (EU data in EU)
+✓ Data backup outside EU (with encryption)
+✓ Data subject access (export data)
+✓ Right to erasure (delete data)
+✓ Audit trails (access logs)
+
+OPERATIONS & RUNBOOKS
+---------------------
+Documented procedures for:
+
+1. Deployment Procedure
+   - Check code review approved
+   - Run tests
+   - Deploy to staging
+   - Staging tests pass
+   - Deploy canary to production
+   - Monitor for errors
+   - Roll out to 100%
+
+2. Emergency Rollback
+   - Detect issue
+   - Determine if rollback needed
+   - Trigger rollback script
+   - Verify previous version running
+   - Post-mortem within 24 hours
+
+3. Database Backup & Restore
+   - Backup procedure
+   - Verify backup integrity
+   - Restore procedure (to test environment)
+   - Restore to production (catastrophic)
+
+4. Security Incident
+   - Detect incident
+   - Notify incident commander
+   - Contain incident
+   - Investigate
+   - Notify users and regulators
+   - Fix vulnerability
+   - Post-mortem
+
+TESTING BEFORE PRODUCTION
+------------------------
+Load Testing:
+
+- 1000 concurrent users
+- 100 requests/second
+- Spike to 500 req/s for 1 minute
+- Monitor: Response time, errors, database
+- Pass: p99 response < 2s, error rate < 0.1%
+
+Security Scanning:
+- SAST (static code)
+- DAST (dynamic, running app)
+- Dependency scanning
+- Container scanning
+- Infrastructure scanning
+
+Performance Testing:
+- API response time baseline
+- Database query performance
+- Cache hit rate
+- Memory usage
+- Compare staging vs production
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] IaC (Terraform) for all infrastructure
+[ ] CI/CD pipeline automated
+[ ] Deployments zero-downtime (canary)
+[ ] Rollback automated
+[ ] Monitoring and alerting configured
+[ ] Backup and disaster recovery tested
+[ ] Load testing passed
+[ ] Security scanning passed
+[ ] Database migration strategy defined
+[ ] Runbooks documented
+[ ] Cost optimization implemented
+[ ] HIPAA/GDPR compliance verified
+[ ] On-call rotation established
+[ ] Incident response tested
+
+DELIVERABLES
+-----------
+1. Infrastructure Architecture Diagram
+2. Terraform/IaC Code
+3. CI/CD Pipeline Configuration
+4. Deployment Runbook
+5. Disaster Recovery Plan
+6. Monitoring & Alerting Configuration
+7. Security Network Architecture
+8. Cost Analysis & Budget
+9. Performance Testing Results
+10. Operational Procedures
+
+DEPENDENCIES
+-----------
+BLOCKING: Security architecture, Database design
+BLOCKS: Production deployment, Multi-clinic launch
+
+RELATED TASKS
+-----------
+- Security & compliance architecture
+- Database schema
+- Monitoring & logging
+- Testing strategy
+
+NOTES
+-----
+Infrastructure as Code is essential for reliability.
+Start small (1 server) and scale gradually.
+Regular disaster recovery tests are critical.
+Monitor costs closely - cloud bills grow quickly.
+
+Timeline: Week 3-4 of Phase 0
+Priority: CRITICAL
+
+STATUS: Ready for implementation
+================================================================================

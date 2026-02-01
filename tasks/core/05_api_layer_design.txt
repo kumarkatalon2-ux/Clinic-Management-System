@@ -1,0 +1,522 @@
+================================================================================
+TASK: Core API Layer & Architecture
+Module: CORE - API DESIGN
+Phase: PHASE 0 (Foundation - CRITICAL)
+Priority: CRITICAL (Blocks all integrations)
+Duration: 5-7 days
+Effort: 20 hours
+================================================================================
+
+OBJECTIVE
+---------
+Design and implement the RESTful API layer that serves as the backbone for
+all clinic system features. Establish consistent patterns, error handling,
+and documentation standards.
+
+BUSINESS LOGIC
+--------------
+API Design Philosophy:
+1. RESTful conventions (resources, methods, status codes)
+2. Consistent request/response formats
+3. Predictable error handling
+4. Comprehensive audit logging
+5. Multi-tenant isolation at API layer
+6. Version-aware (v1, v2 for backwards compatibility)
+7. Rate limiting for stability
+8. OpenAPI/Swagger documentation
+
+BASE ENDPOINT STRUCTURE
+-----------------------
+Base URL: https://api.clinic-saas.com/v1 (or subdomain)
+Example: https://clinic1.clinic-saas.com/api/v1
+
+API VERSIONING STRATEGY
+-----------------------
+Two approaches:
+1. URL-based: /v1/, /v2/ (easier for clients)
+2. Header-based: Accept: application/vnd.api.v1+json (more RESTful)
+
+Recommendation: Use URL-based versioning (/v1/) for clarity.
+Plan to support v1 for 2+ years, deprecate with 6-month notice.
+
+STANDARD REST ENDPOINTS PATTERN
+--------------------------------
+For each resource:
+
+Create:
+  POST /api/v1/{resource}
+  Body: {...resource_data...}
+  Response: 201 Created
+  Headers: Location: /api/v1/{resource}/{id}
+
+Read (Single):
+  GET /api/v1/{resource}/{id}
+  Response: 200 OK + resource data
+
+Read (List):
+  GET /api/v1/{resource}?page=1&limit=50&sort=created_at&filter=status:active
+  Response: 200 OK + paginated list
+
+Update:
+  PUT /api/v1/{resource}/{id} (full update)
+  PATCH /api/v1/{resource}/{id} (partial update)
+  Response: 200 OK + updated resource
+
+Delete:
+  DELETE /api/v1/{resource}/{id}
+  Response: 204 No Content (or 200 with soft delete info)
+
+REQUEST FORMAT STANDARD
+-----------------------
+All requests must include:
+1. Authorization header (Bearer JWT token)
+2. Content-Type: application/json
+3. X-Tenant-ID (optional, can be in JWT)
+
+Example Request:
+```
+POST /api/v1/patients
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "first_name": "John",
+  "last_name": "Doe",
+  "date_of_birth": "1990-01-15",
+  "phone": "+1-555-1234",
+  "email": "john@example.com"
+}
+```
+
+RESPONSE FORMAT STANDARD
+------------------------
+All responses follow standardized format:
+
+Success Response (2xx):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "first_name": "John",
+    "last_name": "Doe",
+    "created_at": "2024-01-15T10:30:00Z",
+    ...
+  },
+  "meta": {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "request_id": "req_abc123xyz"
+  }
+}
+```
+
+List Response (with pagination):
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "...", "first_name": "John", ... },
+    { "id": "...", "first_name": "Jane", ... }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 487,
+    "pages": 10
+  },
+  "meta": {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "request_id": "req_abc123xyz"
+  }
+}
+```
+
+Error Response (4xx, 5xx):
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "Patient with ID 123 not found",
+    "details": {
+      "resource": "patient",
+      "resource_id": "123",
+      "tenant_id": "clinic-001"
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "request_id": "req_abc123xyz"
+  }
+}
+```
+
+HTTP STATUS CODES
+-----------------
+200 OK - Request succeeded, response has body
+201 Created - Resource created, Location header has URL
+204 No Content - Request succeeded, no response body
+400 Bad Request - Invalid input (validation error)
+401 Unauthorized - Missing/invalid auth
+402 Payment Required - Subscription expired
+403 Forbidden - Authenticated but not allowed
+404 Not Found - Resource doesn't exist
+409 Conflict - Duplicate/conflicting resource
+422 Unprocessable Entity - Validation error (semantic)
+429 Too Many Requests - Rate limit exceeded
+500 Internal Server Error - Server error
+502 Bad Gateway - Upstream service failure
+503 Service Unavailable - Maintenance/overloaded
+
+ERROR CODES (Custom)
+--------------------
+Authentication/Auth Errors:
+- UNAUTHORIZED: Missing JWT token
+- INVALID_TOKEN: JWT invalid/expired
+- INSUFFICIENT_PERMISSIONS: User lacks permission
+- INVALID_TENANT: User not associated with tenant
+
+Validation Errors:
+- VALIDATION_ERROR: Input validation failed
+- INVALID_EMAIL: Invalid email format
+- DUPLICATE_RECORD: Resource already exists
+- INVALID_STATE_TRANSITION: Cannot transition state
+
+Resource Errors:
+- RESOURCE_NOT_FOUND: Resource doesn't exist
+- RESOURCE_DELETED: Resource was deleted
+- RESOURCE_LOCKED: Resource cannot be modified
+- CONFLICT: Conflicting state
+
+Business Logic Errors:
+- BUSINESS_RULE_VIOLATION: Business rule breached
+- INVALID_OPERATION: Operation not allowed
+- INSUFFICIENT_CREDITS: Billing issue
+- SUBSCRIPTION_EXPIRED: Clinic subscription expired
+
+System Errors:
+- INTERNAL_SERVER_ERROR: Server error
+- SERVICE_UNAVAILABLE: Service down
+- DATABASE_ERROR: DB connectivity
+- EXTERNAL_SERVICE_ERROR: Third-party API failure
+
+PAGINATION PATTERN
+------------------
+Query Parameters:
+- page: 1-indexed (default: 1)
+- limit: Results per page (default: 50, max: 1000)
+- sort: Comma-separated sort fields (default: -created_at)
+  - Prefix with '-' for descending
+  - Example: sort=status,-created_at,name
+- filter: Comma-separated filters
+  - Example: filter=status:active,type:consultation
+
+Response includes:
+- data: Array of resources
+- pagination: {page, limit, total, pages}
+
+FILTERING PATTERN
+-----------------
+Example: GET /api/v1/patients?filter=status:active,type:vip
+
+Supported operators:
+- Equality: field:value
+- Range: field:[10..100]
+- Comparison: field:>100, field:<50, field:>=50
+- Contains: field:~substring
+- NOT: field:!value
+- In list: field:value1,value2
+
+Complex filters:
+- AND: filter1,filter2 (comma = AND)
+- OR: filter1|filter2
+- Nested: (filter1,filter2)|(filter3)
+
+AUTHENTICATION IN API
+---------------------
+Every request must include JWT token:
+
+Header:
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+JWT Claims:
+{
+  "sub": "user-id",
+  "iss": "clinic-saas",
+  "aud": "api",
+  "tenant_id": "clinic-001",
+  "clinic_id": "clinic-001",
+  "roles": ["doctor", "admin"],
+  "permissions": ["patient:read", "prescription:write"],
+  "iat": 1705316400,
+  "exp": 1705317300
+}
+
+Refresh Token:
+- Used to get new access token
+- POST /api/v1/auth/refresh
+- Body: {refresh_token: "..."}
+- Response: {access_token: "...", refresh_token: "..."}
+
+RATE LIMITING
+-------------
+Limits per API key/user:
+- Anonymous: 10 requests/minute
+- Authenticated: 1000 requests/hour
+- Premium: 10000 requests/hour
+
+Headers in response:
+- X-RateLimit-Limit: Maximum allowed
+- X-RateLimit-Remaining: Remaining this window
+- X-RateLimit-Reset: Unix timestamp when limit resets
+
+429 Response:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests",
+    "retry_after": 60
+  }
+}
+```
+
+BATCH OPERATIONS
+----------------
+Efficient batch operations:
+
+Batch Create/Update:
+```
+POST /api/v1/patients/batch
+Body:
+{
+  "operations": [
+    { "method": "POST", "resource": "/patients", "body": {...} },
+    { "method": "PATCH", "resource": "/patients/123", "body": {...} }
+  ]
+}
+
+Response: 207 Multi-Status
+{
+  "results": [
+    { "status": 201, "resource_id": "new-id" },
+    { "status": 200, "resource_id": "123" }
+  ]
+}
+```
+
+WEBHOOK SUPPORT (FUTURE PHASE)
+------------------------------
+For event notifications:
+```
+POST https://customer-domain.com/webhooks/clinic-saas
+
+Headers:
+- X-Signature: SHA256 HMAC of body
+- X-Timestamp: Request timestamp
+- X-Event-ID: Unique event ID
+
+Body:
+{
+  "event_type": "patient.created|patient.updated|appointment.scheduled",
+  "tenant_id": "...",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {...resource data...}
+}
+```
+
+SEARCH FUNCTIONALITY
+--------------------
+Global search endpoint:
+```
+GET /api/v1/search?q=john%20doe&scope=patients&limit=10
+
+Response:
+{
+  "results": [
+    {
+      "type": "patient",
+      "id": "123",
+      "name": "John Doe",
+      "match_score": 0.95,
+      "preview": {...}
+    }
+  ]
+}
+```
+
+API MIDDLEWARE STACK
+--------------------
+Request Flow:
+1. CORS Check (origin validation)
+2. Rate Limiting (check quota)
+3. Authentication (JWT validation)
+4. Authorization (permission check)
+5. Request Logging (audit trail)
+6. Input Validation (schema validation)
+7. Multi-Tenant Injection (tenant_id in context)
+8. Handler Execution
+9. Response Formatting
+10. Audit Logging (record result)
+
+Error Handling:
+- Try-catch all handlers
+- Convert exceptions to standard error responses
+- Log all errors to audit trail
+- Return safe error messages (no stack traces to client)
+- Alert on critical errors (500s)
+
+CACHING STRATEGY
+----------------
+Client-side caching headers:
+- Cache-Control: max-age=300 (for immutable resources)
+- ETag: Weak entity tags for validation
+- Last-Modified: For conditional GET
+
+Example:
+```
+GET /api/v1/patients/123
+Response:
+- ETag: "abc123xyz"
+- Last-Modified: Mon, 15 Jan 2024 10:30:00 GMT
+- Cache-Control: max-age=300
+
+Subsequent request:
+GET /api/v1/patients/123
+If-None-Match: "abc123xyz"
+Response: 304 Not Modified
+```
+
+Server-side caching:
+- Cache patient lookup by ID (5 minutes)
+- Cache role/permission definitions (1 hour)
+- Invalidate on updates
+- Use Redis for distributed caching
+
+VERSIONING & DEPRECATION
+------------------------
+When creating v2:
+1. Support both v1 and v2 simultaneously
+2. Mark v1 endpoints as deprecated (Deprecation header)
+3. Warn clients in documentation
+4. Provide 6-month migration period
+5. Announce EOL date 3 months in advance
+6. Retire v1 after EOL
+
+Example:
+```
+Deprecation: true
+Deprecation-Date: "Sat, 15 Jan 2025 00:00:00 GMT"
+Sunset: "Sat, 15 Jul 2025 00:00:00 GMT"
+Link: <https://docs.clinic-saas.com/api/v2>; rel="successor-version"
+```
+
+DOCUMENTATION STRATEGY
+---------------------
+Use OpenAPI 3.0 specification:
+- Auto-generate from code (using decorators)
+- Swagger UI for interactive docs
+- ReDoc for static docs
+- API reference guide (PDF)
+- Code examples in multiple languages
+- Postman collection for testing
+
+TESTING STRATEGY
+---------------
+API Tests Required:
+[ ] All endpoints return correct status codes
+[ ] Request validation works
+[ ] Authentication required
+[ ] Authorization enforced
+[ ] Rate limiting works
+[ ] Response format consistent
+[ ] Error handling works
+[ ] Multi-tenant isolation enforced
+[ ] Pagination works
+[ ] Filtering works
+[ ] Sorting works
+[ ] Null fields handled
+[ ] Large payloads handled
+[ ] Concurrent requests handled
+[ ] Performance baseline: <500ms for 95th percentile
+
+MONITORING & OBSERVABILITY
+--------------------------
+Metrics to track:
+- Request count by endpoint
+- Response time distribution
+- Error rate by endpoint
+- Rate limit hits
+- Token validation failures
+- Authorization denials
+- Database query latency
+
+Logs should include:
+- Request ID (for tracing)
+- Timestamp
+- Endpoint
+- HTTP method
+- Status code
+- Response time
+- User ID
+- Tenant ID
+- Error details
+- Stack trace (if error)
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] All endpoints follow REST conventions
+[ ] Standard response format implemented
+[ ] Error handling consistent
+[ ] Authentication working
+[ ] Authorization enforced
+[ ] Multi-tenant isolation enforced
+[ ] Rate limiting implemented
+[ ] OpenAPI documentation generated
+[ ] Pagination working
+[ ] Filtering/sorting working
+[ ] All API tests passing (50+)
+[ ] Performance benchmarks met
+[ ] Security review passed
+
+DELIVERABLES
+-----------
+1. API Design Document (endpoints, contracts)
+2. OpenAPI/Swagger specification
+3. Middleware implementations
+4. Error handling layer
+5. Response formatting utilities
+6. Authentication middleware
+7. API test suite (50+ tests)
+8. API documentation (Swagger UI)
+9. Postman collection
+10. Rate limiting configuration
+
+DEPENDENCIES
+-----------
+BLOCKING: Authentication system, Database schema
+BLOCKS: All feature development, Mobile app development
+
+RELATED TASKS
+-----------
+- Authentication system
+- Database schema
+- Audit logging
+- Frontend API integration
+
+NOTES
+-----
+This API will be used by:
+- Web frontend (React/Vue)
+- Mobile apps (iOS/Android)
+- Third-party integrations
+- Internal tools
+
+Plan for future: GraphQL layer (Phase 2-3)
+
+Timeline: Week 2 of Phase 0
+Priority: CRITICAL
+
+STATUS: Ready for implementation
+================================================================================

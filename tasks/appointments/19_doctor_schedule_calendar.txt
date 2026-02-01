@@ -1,0 +1,627 @@
+================================================================================
+TASK: Doctor Schedule & Calendar - Personal Scheduling System
+Module: Appointments - Doctor Schedules
+Phase: PHASE 1 (Features)
+Priority: HIGH
+Duration: 5-6 days
+Effort: 24 hours
+================================================================================
+
+OBJECTIVE
+---------
+Implement doctor personal scheduling system managing individual doctor's working
+hours, calendar, availability, leave/vacation, and personal preferences.
+
+BUSINESS LOGIC
+--------------
+Doctor Schedule Purpose:
+
+Each doctor has unique schedule:
+
+Dr. Smith:
+  - Monday-Friday: 8am-5pm
+  - Saturday: Off
+  - Lunch: 12-1pm daily
+  - Vacation: March 15-25
+  - Prefers: Morning appointments
+  - Max patients: 20 per day
+
+Dr. Johnson:
+  - Monday-Wednesday: 9am-3pm (part-time)
+  - Thursday-Friday: 8am-5pm
+  - No Saturday
+  - Vacation: Spring (entire April)
+  - Prefers: Complex cases, longer visits
+  - Max patients: 15 per day
+
+Scheduler must track all this information to:
+1. Show correct availability to patients
+2. Prevent overbooking
+3. Respect doctor preferences
+4. Handle absences (vacation, sick leave)
+5. Manage part-time vs full-time
+
+DOCTOR SCHEDULE DATA MODEL
+--------------------------
+Doctor Base Info:
+
+CREATE TABLE doctors (
+  id UUID PRIMARY KEY,
+  clinic_id UUID NOT NULL,
+  tenant_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  specialty VARCHAR(100),
+  
+  -- Licensing
+  npi VARCHAR(10),
+  license_number VARCHAR(50),
+  license_state VARCHAR(50),
+  
+  -- Credentials
+  credentials TEXT,  -- "MD, Board Certified in Family Medicine"
+  
+  -- Capacity
+  max_patients_per_day INT DEFAULT 20,
+  accepting_new_patients BOOLEAN DEFAULT true,
+  
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  hire_date DATE,
+  termination_date DATE,
+  
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+Weekly Schedule:
+
+CREATE TABLE doctor_weekly_schedules (
+  id UUID PRIMARY KEY,
+  doctor_id UUID NOT NULL,
+  clinic_id UUID NOT NULL,
+  
+  -- Which week (usually Monday of week)
+  week_start_date DATE,
+  
+  -- Monday
+  monday_is_working BOOLEAN,
+  monday_start_time TIME,  -- 08:00
+  monday_end_time TIME,    -- 17:00
+  monday_lunch_start TIME, -- 12:00
+  monday_lunch_end TIME,   -- 13:00
+  
+  -- Tuesday (same structure)
+  tuesday_is_working BOOLEAN,
+  tuesday_start_time TIME,
+  tuesday_end_time TIME,
+  tuesday_lunch_start TIME,
+  tuesday_lunch_end TIME,
+  
+  -- ... Wednesday through Sunday
+  
+  -- Notes
+  notes TEXT,  -- "Partial day (conference 2-3pm)"
+  
+  UNIQUE(doctor_id, week_start_date)
+);
+
+Example Weekly Schedule - Dr. Smith:
+
+{
+  "weekStartDate": "2024-02-12",
+  "doctor": "Dr. Smith",
+  "schedule": {
+    "monday": {
+      "isWorking": true,
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "lunchStart": "12:00",
+      "lunchEnd": "13:00"
+    },
+    "tuesday": {
+      "isWorking": true,
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "lunchStart": "12:00",
+      "lunchEnd": "13:00"
+    },
+    "wednesday": {
+      "isWorking": true,
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "lunchStart": "12:00",
+      "lunchEnd": "13:00",
+      "notes": "Department meeting 2-3pm (unavailable)"
+    },
+    "thursday": {
+      "isWorking": true,
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "lunchStart": "12:00",
+      "lunchEnd": "13:00"
+    },
+    "friday": {
+      "isWorking": true,
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "lunchStart": "12:00",
+      "lunchEnd": "13:00"
+    },
+    "saturday": {
+      "isWorking": false
+    },
+    "sunday": {
+      "isWorking": false
+    }
+  }
+}
+
+SCHEDULE VARIATIONS
+-------------------
+Full-Time vs Part-Time:
+
+Dr. Smith (Full-time):
+  Monday-Friday: 8am-5pm (40 hours)
+
+Dr. Johnson (Part-time):
+  Monday-Wednesday: 9am-3pm (18 hours)
+  Thursday-Friday: Off
+  Total: 18 hours/week
+
+Shift-Based:
+
+Dr. Lee (Shift worker):
+  Monday-Wednesday: 3pm-11pm (night shift)
+  Thursday-Friday: Off
+  Saturday-Sunday: 8am-4pm
+
+Variable Hours:
+
+Dr. Patel (Flexible):
+  Each week negotiated
+  Week 1: 8am-5pm full-time
+  Week 2: 9am-3pm (conference attendance)
+  Week 3: 8am-5pm full-time
+
+LEAVE & ABSENCE MANAGEMENT
+--------------------------
+Leave Types:
+
+1. VACATION
+   - Planned time off (1-2 weeks)
+   - Doctor chooses dates
+   - Must request advance notice
+   - Replacement coverage arranged
+
+2. SICK LEAVE
+   - Unplanned absence
+   - Doctor calls in morning
+   - Same-day notice
+   - Appointments rescheduled
+
+3. CONFERENCE
+   - Professional development
+   - Doctor at conference
+   - Planned advance
+   - May be partial week
+
+4. TRAINING
+   - New procedure training
+   - New staff training
+   - Planned advance
+
+5. PERSONAL
+   - Personal appointments
+   - Doctor absence during work hours
+   - Impacts scheduling
+
+6. UNPAID LEAVE
+   - Extended absence
+   - Educational leave
+   - Family leave
+
+Leave Table:
+
+CREATE TABLE doctor_leaves (
+  id UUID PRIMARY KEY,
+  doctor_id UUID NOT NULL,
+  clinic_id UUID NOT NULL,
+  
+  leave_type VARCHAR(50),
+  -- VACATION, SICK, CONFERENCE, TRAINING, PERSONAL, UNPAID
+  
+  start_date DATE,
+  end_date DATE,
+  
+  reason TEXT,  -- "Family emergency", "Annual vacation", etc.
+  
+  status VARCHAR(50),
+  -- REQUESTED, APPROVED, REJECTED, CANCELLED
+  
+  requested_at TIMESTAMP,
+  requested_by UUID,
+  
+  approved_at TIMESTAMP,
+  approved_by UUID,  -- Manager approval
+  
+  replacement_doctor_id UUID,  -- Who covers?
+  
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+Leave Request Flow:
+
+1. REQUEST
+   Doctor submits leave request:
+
+   POST /doctors/uuid-dr-smith/leaves
+   {
+     "leaveType": "VACATION",
+     "startDate": "2024-03-15",
+     "endDate": "2024-03-25",
+     "reason": "Family vacation",
+     "replacementDoctorId": "uuid-dr-johnson"
+   }
+
+2. APPROVAL
+   Manager reviews:
+
+   PATCH /doctors/uuid-dr-smith/leaves/uuid-leave-123
+   {
+     "status": "APPROVED",
+     "replacementDoctorId": "uuid-dr-johnson"
+   }
+
+3. IMPACT ON SCHEDULING
+   System:
+   - Blocks all dates (March 15-25)
+   - Reschedules existing appointments to Dr. Johnson
+   - Notifies patients: "Your appointment moved to Dr. Johnson"
+   - Updates slot availability
+
+4. COVERAGE
+   Dr. Johnson covers:
+   - Accepts Dr. Smith's patients
+   - Extra appointments that week
+   - Patient notification sent
+
+Sick Leave (Same-Day):
+
+Doctor calls at 8am: "I'm sick, can't work today"
+
+POST /doctors/uuid-dr-smith/leaves
+{
+  "leaveType": "SICK",
+  "startDate": "2024-02-15",
+  "endDate": "2024-02-15",
+  "reason": "Flu",
+  "status": "APPROVED"  // Auto-approved for same-day
+}
+
+System:
+- Marks Dr. Smith unavailable for Feb 15
+- Finds all appointments that day (8am-5pm)
+- For each appointment:
+  - Find replacement doctor available at same time
+  - Reschedule patient
+  - Send notification: "Your appointment has been rescheduled"
+
+DOCTOR PREFERENCES
+------------------
+Doctor Preferences Table:
+
+CREATE TABLE doctor_preferences (
+  id UUID PRIMARY KEY,
+  doctor_id UUID NOT NULL,
+  clinic_id UUID NOT NULL,
+  
+  -- Scheduling Preferences
+  prefers_morning_appointments BOOLEAN,
+  prefers_afternoon_appointments BOOLEAN,
+  min_appointment_duration_minutes INT,  -- Won't see patients <20min
+  
+  -- Patient Preferences
+  prefers_new_patients BOOLEAN,
+  prefers_follow_ups BOOLEAN,
+  prefers_procedures BOOLEAN,
+  
+  -- Break Preferences
+  lunch_start_time TIME,  -- Flexible lunch time
+  lunch_duration_minutes INT,
+  
+  -- Load Preferences
+  max_patients_per_day INT,
+  max_procedures_per_week INT,
+  
+  -- Other
+  notes TEXT,
+  
+  updated_at TIMESTAMP
+);
+
+Example Preferences - Dr. Smith:
+
+{
+  "doctorId": "uuid-dr-smith",
+  "preferences": {
+    "scheduling": {
+      "prefersMoreMorningAppointments": true,
+      "minAppointmentDuration": 20,
+      "maxPatientsPerDay": 20
+    },
+    "patients": {
+      "acceptsNewPatients": true,
+      "prefersFollowUps": false,  // Likes variety
+      "acceptsProcedures": true
+    },
+    "breaks": {
+      "lunchStartTime": "12:00",
+      "lunchDurationMinutes": 60
+    },
+    "restrictions": {
+      "maxProceduresPerWeek": 5,
+      "noAppointmentsAfter": "16:00"  // Leaves at 4pm to do admin
+    }
+  }
+}
+
+Impact on Scheduling:
+
+When scheduling:
+- Dr. Smith prefers morning → Offer morning slots first
+- Max 20 patients/day → After 20 booked, no more
+- No appointments after 4pm → Block 4-5pm slots
+- Prefers follow-ups → Could filter suggestions
+
+DOCTOR CALENDAR VIEW
+-------------------
+Doctor Personal Calendar:
+
+Doctor logs in, sees their calendar:
+
+Weekly View:
+┌─ Week of Feb 12, 2024
+├─ Mon Feb 12
+│  ├─ 8:00am: Available
+│  ├─ 9:00am: Patient (John Doe) - Gen Visit
+│  ├─ 9:30am: Patient (Jane Smith) - Follow-up
+│  ├─ 10:00am: Available
+│  ├─ 10:30am: Patient (Bob Jones) - Procedure
+│  ├─ 12:00pm: Lunch (blocked)
+│  ├─ 1:00pm: Department Meeting (blocked)
+│  ├─ 2:00pm: Patient (Alice Brown) - Gen Visit
+│  └─ 3:00pm-5:00pm: Available
+│
+├─ Tue Feb 13
+│  └─ Normal schedule
+│
+└─ ... etc
+
+Doctor Actions on Calendar:
+
+- View daily/weekly/monthly schedule
+- See patient appointments
+- See blocked time
+- See available slots
+- Drag-and-drop reschedule (if needed)
+- Add personal blocks (don't disturb)
+- View patient notes from calendar
+- Quick actions (call patient, view history)
+
+Personal Blocks:
+
+Doctor wants "do not disturb 3-4pm for admin work":
+
+POST /doctors/uuid-dr-smith/personal-blocks
+{
+  "title": "Admin time",
+  "dayOfWeek": 1,  // Monday
+  "startTime": "15:00",
+  "endTime": "16:00",
+  "recurring": true,
+  "recurringDays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+}
+
+System:
+- Blocks 3-4pm every weekday
+- No patients can be scheduled
+- Appointment slots don't generate for this time
+
+SCHEDULE SHARING & COORDINATION
+-------------------------------
+Multi-Doctor Coordination:
+
+Clinic has 3 doctors, need coverage:
+
+Scenario: Need someone available for walk-in patients
+
+View All Doctors Schedule:
+
+GET /clinics/uuid-clinic/schedule?date=2024-02-15
+
+Response:
+{
+  "date": "2024-02-15",
+  "doctors": [
+    {
+      "name": "Dr. Smith",
+      "isWorking": true,
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "appointmentsCount": 18,
+      "availableSlotsCount": 2,
+      "capacity": "90% full"
+    },
+    {
+      "name": "Dr. Johnson",
+      "isWorking": true,
+      "startTime": "09:00",
+      "endTime": "15:00",
+      "appointmentsCount": 8,
+      "availableSlotsCount": 7,
+      "capacity": "50% full"
+    },
+    {
+      "name": "Dr. Lee",
+      "isWorking": false,
+      "isOff": true,
+      "availableSlotsCount": 0
+    }
+  ]
+}
+
+Team Coordination:
+
+Team Manager sees:
+- Dr. Smith: Heavily booked (might need help)
+- Dr. Johnson: Under-utilized (can absorb more)
+- Dr. Lee: Off (vacation approved)
+
+Actions:
+- Move some patients from Dr. Smith to Dr. Johnson
+- Ask Dr. Johnson to open more slots
+- Request Dr. Lee approval for leave covered
+
+SCHEDULE ANALYTICS
+------------------
+Utilization Metrics per Doctor:
+
+Dr. Smith (Full-time):
+- Average patients per day: 18
+- Max capacity: 20
+- Utilization: 90%
+- No-show rate: 2%
+
+Dr. Johnson (Part-time):
+- Average patients per day: 10
+- Max capacity: 15
+- Utilization: 67%
+- No-show rate: 1%
+
+Dr. Lee (Full-time):
+- Average patients per day: 12
+- Max capacity: 20
+- Utilization: 60%
+- No-show rate: 5%
+
+Recommendations:
+- Dr. Smith close some slots or increase capacity
+- Dr. Johnson accepting more patients (underutilized)
+- Dr. Lee investigate high no-show rate
+
+Peak Hours Analysis:
+
+Morning (8am-12pm):
+- Dr. Smith: 95% booked
+- Dr. Johnson: 70% booked
+- Dr. Lee: 60% booked
+
+Afternoon (12pm-5pm):
+- Dr. Smith: 85% booked
+- Dr. Johnson: 60% booked
+- Dr. Lee: 60% booked
+
+Recommendation: Open more morning slots with Dr. Lee
+
+TESTING STRATEGY
+----------------
+Schedule Creation Tests:
+
+[ ] Weekly schedule created correctly
+[ ] All days populated
+[ ] Lunch breaks set
+[ ] Time ranges valid
+[ ] Schedule unique per week
+
+Schedule Retrieval Tests:
+
+[ ] Doctor schedule retrieved for date
+[ ] Correct availability returned
+[ ] Lunch break respected
+[ ] Off-days show unavailable
+
+Leave Management Tests:
+
+[ ] Leave request created
+[ ] Leave approval workflow works
+[ ] Vacation blocks all dates
+[ ] Sick leave same-day approval works
+[ ] Appointments rescheduled on leave
+[ ] Coverage doctor assigned
+[ ] Patients notified
+
+Preferences Tests:
+
+[ ] Preferences stored
+[ ] Morning preference affects slot order
+[ ] Max patients per day enforced
+[ ] Preferences respected in scheduling
+
+Calendar Tests:
+
+[ ] Doctor calendar displays correctly
+[ ] Appointments shown on calendar
+[ ] Blocks shown on calendar
+[ ] Personal blocks honored
+[ ] Daily/weekly/monthly views work
+
+Performance Tests:
+
+[ ] Schedule query <300ms
+[ ] Calendar loads <1 second
+[ ] Bulk schedule updates <5 seconds
+
+ACCEPTANCE CRITERIA
+-------------------
+[ ] Doctor profile with schedule fields
+[ ] Weekly schedule management
+[ ] Leave/absence management
+[ ] Doctor preferences system
+[ ] Schedule conflicts checked
+[ ] Doctor calendar UI functional
+[ ] Availability calculations correct
+[ ] Leave approval workflow
+[ ] Appointment rescheduling on leave
+[ ] Schedule analytics available
+[ ] All tests passing
+
+DELIVERABLES
+-----------
+1. Doctor profile data model
+2. Weekly schedule management APIs
+3. Leave management system
+4. Doctor preferences system
+5. Schedule conflict detection
+6. Doctor calendar APIs
+7. Schedule analytics queries
+8. Test suite (40+ tests)
+9. Doctor schedule guide
+10. Leave policy guide
+
+DEPENDENCIES
+-----------
+BLOCKING: Doctor Management (Task 16), Slot Management (Task 18)
+BLOCKS: Appointment Engine refinements
+
+RELATED TASKS
+-----------
+- Clinic Lifecycle Management (Task 16)
+- Slot Management (Task 18)
+- Appointment Engine (Task 17)
+
+NOTES
+-----
+Doctor schedules are critical input to availability.
+Flexibility needed (many schedule variations).
+Leave management impacts patients (must reschedule).
+Performance important (schedule lookups frequent).
+
+Timeline: Week 1-2 of Phase 1 Appointments
+Priority: HIGH (enables scheduling)
+
+STATUS: Ready for implementation
+================================================================================

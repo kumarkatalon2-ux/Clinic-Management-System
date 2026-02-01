@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinical Management System - Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .login-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 40px 30px;
+      text-align: center;
+      color: white;
+    }
+
+    .login-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .login-header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .login-body {
+      padding: 40px 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-group input::placeholder {
+      color: #999;
+    }
+
+    .remember-forgot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    .remember-forgot input[type="checkbox"] {
+      margin-right: 6px;
+      cursor: pointer;
+    }
+
+    .remember-forgot a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .remember-forgot a:hover {
+      text-decoration: underline;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 15px;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-login:active {
+      transform: translateY(0);
+    }
+
+    .btn-login:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 25px 0;
+      color: #999;
+      font-size: 13px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+
+    .divider span {
+      padding: 0 10px;
+    }
+
+    .signup-link {
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .signup-link a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .signup-link a:hover {
+      text-decoration: underline;
+    }
+
+    .demo-credentials {
+      background: #f0f4ff;
+      border-left: 4px solid #667eea;
+      padding: 12px 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .demo-credentials strong {
+      display: block;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    .demo-credentials code {
+      background: white;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: monospace;
+      color: #667eea;
+    }
+
+    .alert {
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .alert-error {
+      background: #fee;
+      color: #c33;
+      border: 1px solid #fcc;
+    }
+
+    .alert-success {
+      background: #efe;
+      color: #3c3;
+      border: 1px solid #cfc;
+    }
+
+    .alert-info {
+      background: #eef;
+      color: #33c;
+      border: 1px solid #ccf;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .role-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .role-btn {
+      padding: 10px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+    }
+
+    .role-btn:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .role-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: transparent;
+    }
+
+    .tab-switcher {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: #999;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .tab-btn.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <!-- Header -->
+    <div class="login-header">
+      <h1>🏥 Clinical Management System</h1>
+      <p>Professional Healthcare Administration Platform</p>
+    </div>
+
+    <!-- Body -->
+    <div class="login-body">
+      <!-- Alert Messages -->
+      <div id="alert" class="alert"></div>
+
+      <!-- Tab Switcher -->
+      <div class="tab-switcher">
+        <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+        <button class="tab-btn" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- LOGIN TAB -->
+      <div id="login-tab" class="tab-content active">
+        <div class="demo-credentials">
+          <strong>Demo Credentials:</strong>
+          Email: <code>admin@clinic.local</code><br>
+          Password: <code>password123</code>
+        </div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)" novalidate>
+          <div class="form-group">
+            <label for="login-email">Email Address</label>
+            <input 
+              type="email" 
+              id="login-email" 
+              name="email"
+              placeholder="admin@clinic.local"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input 
+              type="password" 
+              id="login-password" 
+              name="password"
+              placeholder="Enter your password"
+              required
+            >
+          </div>
+
+          <div class="remember-forgot">
+            <label>
+              <input type="checkbox" id="remember-me">
+              Remember me
+            </label>
+            <a href="#" onclick="event.preventDefault(); showAlert('Password reset feature coming soon', 'info')">Forgot Password?</a>
+          </div>
+
+          <button type="submit" class="btn-login" id="loginBtn">
+            Sign In
+          </button>
+        </form>
+      </div>
+
+      <!-- REGISTER TAB -->
+      <div id="register-tab" class="tab-content">
+        <form id="registerForm" onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label for="reg-first-name">First Name</label>
+            <input 
+              type="text" 
+              id="reg-first-name" 
+              placeholder="John"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="reg-last-name">Last Name</label>
+            <input 
+              type="text" 
+              id="reg-last-name" 
+              placeholder="Doe"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email">Email Address</label>
+            <input 
+              type="email" 
+              id="reg-email" 
+              placeholder="john.doe@clinic.com"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password">Password</label>
+            <input 
+              type="password" 
+              id="reg-password" 
+              placeholder="Minimum 8 characters"
+              required
+              minlength="8"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="reg-confirm-password">Confirm Password</label>
+            <input 
+              type="password" 
+              id="reg-confirm-password" 
+              placeholder="Confirm your password"
+              required
+              minlength="8"
+            >
+          </div>
+
+          <div class="form-group">
+            <label>User Role</label>
+            <div class="role-selector">
+              <button type="button" class="role-btn active" onclick="selectRole('patient', this)">👤 Patient</button>
+              <button type="button" class="role-btn" onclick="selectRole('doctor', this)">🏥 Doctor</button>
+              <button type="button" class="role-btn" onclick="selectRole('nurse', this)">⚕️ Nurse</button>
+              <button type="button" class="role-btn" onclick="selectRole('receptionist', this)">📞 Receptionist</button>
+            </div>
+            <input type="hidden" id="reg-role" value="patient">
+          </div>
+
+          <button type="submit" class="btn-login" id="registerBtn">
+            Create Account
+          </button>
+        </form>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider">
+        <span>OR</span>
+      </div>
+
+      <!-- Test Endpoints -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px;">
+        <button onclick="testHealth()" class="btn-login" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 8px; font-size: 13px;">
+          ✓ Test Health
+        </button>
+        <button onclick="testStatus()" class="btn-login" style="background: linear-gradient(135deg, #2196F3 0%, #0b7dda 100%); padding: 8px; font-size: 13px;">
+          📊 API Status
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+    let selectedRole = 'patient';
+
+    // Tab Switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      
+      document.getElementById(tabName + '-tab').classList.add('active');
+      event.target.classList.add('active');
+      
+      clearAlert();
+    }
+
+    // Role Selection
+    function selectRole(role, btn) {
+      document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedRole = role;
+      document.getElementById('reg-role').value = role;
+    }
+
+    // Show Alert
+    function showAlert(message, type = 'error') {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert show alert-${type}`;
+    }
+
+    // Clear Alert
+    function clearAlert() {
+      const alert = document.getElementById('alert');
+      alert.classList.remove('show');
+    }
+
+    // Handle Login
+    async function handleLogin(e) {
+      console.log('🔐 handleLogin function called!');
+      e.preventDefault();
+      console.log('✅ Form submission prevented, proceeding with async login');
+      
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const loginBtn = document.getElementById('loginBtn');
+      
+      console.log('📝 Form values:', { email, password });
+      console.log('🔘 Login button:', loginBtn);
+      
+      if (!email || !password) {
+        console.log('❌ Form validation failed - missing email or password');
+        showAlert('Please enter email and password', 'error');
+        return;
+      }
+      
+      // Disable button and show loading
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="loading-spinner"></span>Signing in...';
+      console.log('🔄 Button disabled, showing loading state');
+      
+      try {
+        console.log('📤 Sending login request to:', `${API_BASE}/api/auth/login`);
+        
+        const response = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        console.log('📥 Response status:', response.status);
+        const data = await response.json();
+        console.log('📊 Response data:', data);
+
+        if (response.ok) {
+          // Store tokens - Handle both formats
+          const user = data.data?.user || data.user || { firstName: 'User', lastName: '', role: 'user', email };
+          const tokens = data.data?.tokens || data.tokens || {};
+          
+          console.log('👤 User data:', user);
+          console.log('🔑 Tokens:', tokens);
+          
+          localStorage.setItem('accessToken', tokens.accessToken || tokens.token || '');
+          localStorage.setItem('refreshToken', tokens.refreshToken || '');
+          localStorage.setItem('user', JSON.stringify(user));
+          
+          console.log('✅ Tokens stored in localStorage');
+          showAlert(`✅ Login successful! Welcome, ${user.firstName}! Redirecting to dashboard...`, 'success');
+          
+          // Redirect after 2 seconds
+          console.log('⏰ Scheduling redirect to dashboard.html in 2 seconds');
+          setTimeout(() => {
+            console.log('🚀 NOW REDIRECTING to /dashboard.html');
+            window.location.href = '/dashboard.html';
+          }, 2000);
+        } else {
+          const errorMsg = data.error?.message || data.message || 'Invalid email or password';
+          console.log('❌ Login failed:', errorMsg);
+          showAlert(errorMsg, 'error');
+          loginBtn.disabled = false;
+          loginBtn.innerHTML = 'Sign In';
+        }
+      } catch (err) {
+        console.error('💥 Login error:', err);
+        showAlert(`❌ Connection error: ${err.message}`, 'error');
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = 'Sign In';
+      }
+    }
+
+    // Handle Register
+    async function handleRegister(e) {
+      e.preventDefault();
+      
+      const firstName = document.getElementById('reg-first-name').value;
+      const lastName = document.getElementById('reg-last-name').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+      const confirmPassword = document.getElementById('reg-confirm-password').value;
+      const registerBtn = document.getElementById('registerBtn');
+      
+      if (password !== confirmPassword) {
+        showAlert('Passwords do not match', 'error');
+        return;
+      }
+      
+      registerBtn.disabled = true;
+      registerBtn.innerHTML = '<span class="loading-spinner"></span>Creating Account...';
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            email,
+            password,
+            role: selectedRole
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showAlert('Account created successfully! Redirecting to login...', 'success');
+          
+          setTimeout(() => {
+            document.getElementById('registerForm').reset();
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').value = password;
+            switchTab('login');
+          }, 1500);
+        } else {
+          showAlert(data.error?.message || data.message || 'Registration failed', 'error');
+        }
+      } catch (err) {
+        showAlert(`Connection error: ${err.message}`, 'error');
+      } finally {
+        registerBtn.disabled = false;
+        registerBtn.innerHTML = 'Create Account';
+      }
+    }
+
+    // Test Endpoints
+    async function testHealth() {
+      try {
+        const response = await fetch(`${API_BASE}/health`);
+        const data = await response.json();
+        showAlert(`✓ Health OK - Uptime: ${data.uptime.toFixed(1)}s`, 'success');
+        console.log('Health Check:', data);
+      } catch (err) {
+        showAlert(`✗ Health Check Failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function testStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/api/status`);
+        const data = await response.json();
+        showAlert(`✓ API Status: ${data.phase}`, 'success');
+        console.log('API Status:', data);
+      } catch (err) {
+        showAlert(`✗ Status Check Failed: ${err.message}`, 'error');
+      }
+    }
+
+    // Check if already logged in
+    window.addEventListener('load', function() {
+      // Attach form submit handler
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) {
+        console.log('✅ Attaching login form submit listener');
+        loginForm.addEventListener('submit', function(e) {
+          console.log('📋 Form submit event triggered');
+          handleLogin(e);
+        }, false);
+      }
+      
+      // Check if already logged in
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        window.location.href = '/dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>

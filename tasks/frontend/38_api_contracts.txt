@@ -1,0 +1,441 @@
+================================================================================
+TASK 38: API CONTRACTS & DATA MODELS SPECIFICATION
+================================================================================
+Module: Frontend & Data
+Phase: Phase 1 - Implementation
+Priority: HIGH
+Effort Estimate: 28 hours (1 developer, 1 week)
+Dependencies: Tasks 1-10 (Phase 0), Tasks 11-35 (All core/security tasks)
+Blocking: Task 36 (Web), Task 37 (Mobile)
+
+================================================================================
+1. OBJECTIVE STATEMENT
+================================================================================
+
+The API Contracts document defines the complete REST API specification for all
+backend services. It standardizes request/response formats, status codes, error
+handling, pagination, filtering, authentication headers, and data models. The
+specification serves as the contract between frontend and backend teams, enabling
+parallel development. It includes OpenAPI/Swagger documentation, code generation,
+and mock servers for frontend testing.
+
+Key Responsibilities:
+- OpenAPI 3.0 specification for all API endpoints
+- Request/response schema definitions (JSON)
+- Error response standardization
+- Authentication and authorization headers
+- Pagination and filtering standards
+- Rate limiting and throttling
+- Versioning strategy
+- Webhook definitions (async events)
+- Code generation from specification
+- Mock server for frontend testing
+
+================================================================================
+2. API DESIGN PRINCIPLES
+================================================================================
+
+2.1 REST CONVENTIONS
+- Resource-based URLs: /api/v1/patients, /api/v1/patients/{id}/consultations
+- HTTP methods: GET (read), POST (create), PUT (update), DELETE (delete)
+- Status codes: 200 (success), 201 (created), 400 (bad request), 403 (forbidden), 404 (not found), 500 (server error)
+- Stateless: Each request contains all info needed (no session state)
+
+2.2 NAMING CONVENTIONS
+- Endpoints: Lowercase, kebab-case: /api/v1/appointment-slots
+- Fields: camelCase: patientId, appointmentDate, visitType
+- Timestamps: ISO 8601: 2026-01-31T14:30:00Z
+- IDs: UUID v4 format
+- Errors: Standard error object with code, message, details
+
+2.3 VERSIONING
+- URL versioning: /api/v1/, /api/v2/ for major versions
+- Backward compatibility: Minor changes don't require version bump
+- Deprecation: Old endpoints deprecated for 6 months before removal
+- Support: Support current + 1 previous major version
+
+================================================================================
+3. REQUEST & RESPONSE STANDARDS
+================================================================================
+
+3.1 SUCCESS RESPONSE FORMAT
+Standard Success (200 OK):
+{
+  "status": "success",
+  "code": 200,
+  "data": { ... },
+  "timestamp": "2026-01-31T14:30:00Z"
+}
+
+Paginated Response (200 OK):
+{
+  "status": "success",
+  "code": 200,
+  "data": [ ... ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "totalPages": 5,
+    "totalRecords": 100
+  },
+  "timestamp": "2026-01-31T14:30:00Z"
+}
+
+3.2 ERROR RESPONSE FORMAT
+Error Response (4xx or 5xx):
+{
+  "status": "error",
+  "code": 400,
+  "error": {
+    "type": "VALIDATION_ERROR",
+    "message": "Patient not found",
+    "details": {
+      "patient_id": "Invalid UUID format"
+    }
+  },
+  "timestamp": "2026-01-31T14:30:00Z"
+}
+
+3.3 AUTHENTICATION HEADER
+All requests require:
+Authorization: Bearer {JWT_TOKEN}
+
+Token Format (JWT):
+{
+  "sub": "user_id",
+  "iat": 1234567890,
+  "exp": 1234571490,
+  "roles": ["provider", "clinic_manager"],
+  "clinic_id": "clinic_id"
+}
+
+3.4 COMMON HEADERS
+- Content-Type: application/json
+- Accept: application/json
+- X-Request-ID: Unique request ID for tracing
+- X-Idempotency-Key: For idempotent operations (POST)
+- Accept-Language: Language preference (en-US, es-MX)
+
+================================================================================
+4. DATA MODELS & SCHEMAS
+================================================================================
+
+4.1 CORE ENTITIES
+Patient Schema:
+{
+  "patientId": "uuid",
+  "firstName": "John",
+  "lastName": "Doe",
+  "dateOfBirth": "1990-01-15",
+  "gender": "M",
+  "email": "john@example.com",
+  "phone": "+1-555-0123",
+  "address": { ... },
+  "insurance": [ ... ],
+  "allergies": [ ... ],
+  "createdAt": "2025-01-01T00:00:00Z",
+  "updatedAt": "2025-01-31T00:00:00Z"
+}
+
+Consultation Schema:
+{
+  "consultationId": "uuid",
+  "patientId": "uuid",
+  "visitType": "office_visit",
+  "consultationDate": "2026-01-31T14:00:00Z",
+  "vitalSigns": {
+    "temperature": 98.6,
+    "bloodPressure": "120/80",
+    "heartRate": 72
+  },
+  "findings": "...",
+  "assessment": "...",
+  "plan": "...",
+  "status": "completed",
+  "createdAt": "2026-01-31T14:30:00Z"
+}
+
+Prescription Schema:
+{
+  "prescriptionId": "uuid",
+  "patientId": "uuid",
+  "medication": {
+    "drugName": "Lisinopril",
+    "strength": "10mg",
+    "form": "tablet"
+  },
+  "dosage": {
+    "strength": "10",
+    "unit": "mg",
+    "frequency": "once daily",
+    "duration": "30 days"
+  },
+  "quantity": 30,
+  "refills": 3,
+  "indication": "Hypertension",
+  "status": "transmitted",
+  "createdAt": "2026-01-31T14:00:00Z"
+}
+
+4.2 FILTER & PAGINATION
+Filtering:
+- Query: ?status=completed&visitType=office_visit&provider=provider_id
+- Multi-value: ?status=completed&status=pending (OR condition)
+- Date range: ?createdAt_start=2026-01-01&createdAt_end=2026-01-31
+
+Pagination:
+- Query: ?page=1&pageSize=20&sortBy=createdAt&sortOrder=desc
+- Defaults: page=1, pageSize=20
+- Max pageSize: 100 (prevent abuse)
+
+================================================================================
+5. ENDPOINT CATALOG
+================================================================================
+
+5.1 PATIENT ENDPOINTS
+GET /api/v1/patients - List patients (with filters, pagination)
+GET /api/v1/patients/{patientId} - Get patient details
+POST /api/v1/patients - Create new patient
+PUT /api/v1/patients/{patientId} - Update patient
+DELETE /api/v1/patients/{patientId} - Archive patient
+
+GET /api/v1/patients/{patientId}/consultations - List consultations
+POST /api/v1/patients/{patientId}/consultations - Start consultation
+GET /api/v1/patients/{patientId}/prescriptions - List prescriptions
+GET /api/v1/patients/{patientId}/allergies - Get allergies
+GET /api/v1/patients/{patientId}/medications - Get active medications
+
+5.2 CONSULTATION ENDPOINTS
+POST /api/v1/consultations - Create consultation
+GET /api/v1/consultations/{consultationId} - Get consultation details
+PUT /api/v1/consultations/{consultationId} - Update consultation
+PUT /api/v1/consultations/{consultationId}/finalize - Complete consultation
+DELETE /api/v1/consultations/{consultationId} - Delete draft
+
+5.3 PRESCRIPTION ENDPOINTS
+POST /api/v1/prescriptions - Create prescription
+GET /api/v1/prescriptions/{prescriptionId} - Get prescription
+PUT /api/v1/prescriptions/{prescriptionId} - Update prescription
+PUT /api/v1/prescriptions/{prescriptionId}/approve - Approve
+PUT /api/v1/prescriptions/{prescriptionId}/transmit - Transmit to pharmacy
+GET /api/v1/prescriptions/{prescriptionId}/status - Check status
+POST /api/v1/prescriptions/{prescriptionId}/refill-request - Request refill
+
+5.4 APPOINTMENT ENDPOINTS
+GET /api/v1/appointments - List appointments (with filters)
+POST /api/v1/appointments - Create appointment
+GET /api/v1/appointments/{appointmentId} - Get appointment
+PUT /api/v1/appointments/{appointmentId} - Update appointment
+DELETE /api/v1/appointments/{appointmentId} - Cancel appointment
+GET /api/v1/providers/{providerId}/availability - Get available slots
+
+5.5 FINANCIAL ENDPOINTS
+GET /api/v1/billing/charges - List charges
+POST /api/v1/billing/charges - Create charge
+GET /api/v1/billing/payments - List payments
+POST /api/v1/billing/payments - Create payment
+GET /api/v1/billing/balance/{patientId} - Get patient balance
+
+5.6 AUTHENTICATION ENDPOINTS
+POST /api/v1/auth/login - Login with credentials
+POST /api/v1/auth/logout - Logout
+POST /api/v1/auth/refresh - Refresh token
+POST /api/v1/auth/reset-password - Request password reset
+POST /api/v1/auth/verify-mfa - Verify MFA code
+
+5.7 ANALYTICS ENDPOINTS
+GET /api/v1/analytics/dashboard/{dashboard_type} - Get dashboard data
+GET /api/v1/analytics/kpis/{kpi_name} - Get KPI
+GET /api/v1/analytics/reports - List reports
+POST /api/v1/analytics/reports - Generate report
+
+5.8 USER MANAGEMENT ENDPOINTS
+GET /api/v1/admin/users - List users
+POST /api/v1/admin/users - Create user
+PUT /api/v1/admin/users/{userId} - Update user
+DELETE /api/v1/admin/users/{userId} - Delete user
+POST /api/v1/admin/users/{userId}/roles - Assign role
+GET /api/v1/admin/audit-logs - Query audit logs
+
+================================================================================
+6. ERROR HANDLING & STATUS CODES
+================================================================================
+
+6.1 HTTP STATUS CODES
+- 200 OK: Successful GET, PUT
+- 201 Created: Successful POST
+- 204 No Content: Successful DELETE
+- 400 Bad Request: Validation error, malformed request
+- 401 Unauthorized: Authentication required or failed
+- 403 Forbidden: Authenticated but not authorized
+- 404 Not Found: Resource not found
+- 409 Conflict: Resource conflict (e.g., duplicate)
+- 429 Too Many Requests: Rate limit exceeded
+- 500 Internal Server Error: Server error
+- 503 Service Unavailable: Server maintenance or overloaded
+
+6.2 ERROR TYPES
+- VALIDATION_ERROR: Field validation failed
+- AUTHENTICATION_FAILED: Credentials invalid
+- AUTHORIZATION_FAILED: Insufficient permissions
+- RESOURCE_NOT_FOUND: Entity not found
+- DUPLICATE_RECORD: Unique constraint violation
+- BUSINESS_LOGIC_ERROR: Business rule violated
+- EXTERNAL_SERVICE_ERROR: Third-party service error
+- DATABASE_ERROR: Database operation failed
+- RATE_LIMIT_EXCEEDED: Too many requests
+
+================================================================================
+7. WEBHOOKS & ASYNC EVENTS
+================================================================================
+
+Webhook Events:
+- patient.created: New patient registered
+- consultation.completed: Consultation finalized
+- prescription.transmitted: Prescription sent to pharmacy
+- prescription.filled: Pharmacy filled prescription
+- appointment.scheduled: New appointment scheduled
+- appointment.cancelled: Appointment cancelled
+- payment.received: Payment posted
+
+Webhook Payload:
+{
+  "eventId": "uuid",
+  "eventType": "consultation.completed",
+  "timestamp": "2026-01-31T14:30:00Z",
+  "data": { ... }
+}
+
+Retry Policy:
+- Retry on 5xx errors
+- Exponential backoff: 1s, 4s, 16s, 64s (max)
+- Max retries: 10
+- Delivery confirmation: Webhook consumer must respond 2xx
+
+================================================================================
+8. OPENAPI SPECIFICATION
+================================================================================
+
+OpenAPI file (openapi.yml):
+- Defines all endpoints
+- Request/response schemas
+- Authentication
+- Error definitions
+- Code generation
+
+Usage:
+- Swagger UI: Interactive API documentation
+- Code generation: Generate client libraries (JavaScript, Python, Java)
+- Mock server: Prism for frontend testing without backend
+- Validation: Validate requests/responses against spec
+
+================================================================================
+9. RATE LIMITING
+================================================================================
+
+Rate Limits:
+- Per user: 1000 requests per hour
+- Per IP: 5000 requests per hour
+- Per endpoint: Some endpoints lower (e.g., login: 5 per minute)
+
+Response Headers:
+- X-RateLimit-Limit: 1000
+- X-RateLimit-Remaining: 950
+- X-RateLimit-Reset: 1234567890 (Unix timestamp)
+
+On Limit Exceeded:
+- Status: 429 Too Many Requests
+- Retry-After: 60 (seconds to wait before retry)
+
+================================================================================
+10. ACCEPTANCE CRITERIA
+================================================================================
+
+1. All endpoints documented in OpenAPI 3.0
+2. Request/response schemas standardized
+3. Error handling standardized
+4. Authentication and authorization documented
+5. Pagination and filtering documented
+6. Rate limiting documented
+7. Code generation working
+8. Mock server working for frontend testing
+9. API contract signed off by frontend and backend teams
+10. All endpoints covered by tests
+
+================================================================================
+11. DELIVERABLES & DEPENDENCIES
+================================================================================
+
+Deliverables:
+1. OpenAPI 3.0 specification (openapi.yml)
+2. Request/response schemas (JSON schema)
+3. Error definitions and status codes
+4. Authentication scheme
+5. Pagination and filtering standards
+6. Webhooks specification
+7. Rate limiting policy
+8. Code generation configuration
+9. Mock server setup (Prism)
+10. API documentation (Swagger UI)
+11. Client library generation (TypeScript, Python, Java)
+12. API contract document (signed)
+
+Dependencies:
+- Tasks 1-35 (All backend tasks should have API specs defined)
+- Tasks 36-37 (Frontend/mobile teams need API contract)
+
+Blockers For:
+- Tasks 36-37 (Frontend/mobile development needs completed contract)
+
+================================================================================
+12. EFFORT ESTIMATION
+================================================================================
+
+Analysis: 3 hours
+- Review all backend tasks for API specs
+- Identify gaps and inconsistencies
+
+Specification: 18 hours
+- Write OpenAPI specification
+- Define request/response schemas
+- Document error handling, pagination, filtering
+
+Code Generation: 4 hours
+- Configure code generation
+- Generate client libraries
+- Setup mock server (Prism)
+
+Documentation: 2 hours
+- API documentation
+- Code generation guide
+- Deployment instructions
+
+Contingency: 1 hour (5%)
+
+Total: 28 hours (1 developer, 1 week)
+
+================================================================================
+13. RISKS & MITIGATION
+================================================================================
+
+Risk: API specification doesn't match implementation
+Mitigation: Generated code from spec, automated validation
+
+Risk: Breaking changes to API
+Mitigation: Versioning strategy, deprecation period
+
+Risk: Frontend teams blocked waiting for API
+Mitigation: Early API design, mock server for testing
+
+================================================================================
+14. SUCCESS METRICS
+================================================================================
+
+- API specification completeness: 100% of endpoints
+- Code generation success: 100% of endpoints
+- Mock server accuracy: All responses accurate
+- Documentation completeness: >95%
+- Frontend/backend teams aligned: 100% sign-off
+- API contract accuracy: Zero discrepancies
+
+================================================================================
