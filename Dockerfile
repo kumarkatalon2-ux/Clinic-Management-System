@@ -4,14 +4,15 @@ FROM node:22-alpine
 # Set working directory in container
 WORKDIR /app
 
-# Copy backend package files
-COPY src/backend/package.json src/backend/package-lock.json ./
+# Copy entire project
+COPY . .
 
-# Install dependencies
+# Install dependencies from backend
+WORKDIR /app/src/backend
 RUN npm install --production
 
-# Copy the rest of the application
-COPY . .
+# Set working directory back to app root
+WORKDIR /app
 
 # Expose port 3000
 EXPOSE 3000
