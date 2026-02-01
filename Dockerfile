@@ -4,8 +4,8 @@ FROM node:22-alpine
 # Set working directory in container
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy backend package files
+COPY src/backend/package.json src/backend/package-lock.json ./
 
 # Install dependencies
 RUN npm install --production
