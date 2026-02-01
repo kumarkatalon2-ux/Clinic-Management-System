@@ -216,7 +216,7 @@ CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
 -- ==========================================
 -- Password hashes generated from bcrypt with salt rounds=10
 -- admin123 hash
--- doctor123 hash
+-- doctor123 hash 
 -- nurse123 hash
 -- patient123 hash
 INSERT INTO users (email, password_hash, first_name, last_name, role, status, phone)
