@@ -1,11 +1,11 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "buildCommand": "echo 'Static HTML deployment'",
+  "outputDirectory": "src/frontend/public",
   "public": true,
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/dashboard.html"
     }
   ]
 }
