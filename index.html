@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinical Dashboard - Healthcare Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f5f7fa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 280px;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      overflow-y: auto;
+      padding-top: 20px;
+      z-index: 1000;
+    }
+
+    .sidebar-header {
+      padding: 20px 25px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .sidebar-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .sidebar-header p {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .sidebar-menu {
+      padding: 0 15px;
+    }
+
+    .sidebar-menu a {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: all 0.3s;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .sidebar-menu a:hover,
+    .sidebar-menu a.active {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .sidebar-menu a span {
+      margin-right: 12px;
+      font-size: 16px;
+    }
+
+    .main-content {
+      margin-left: 280px;
+      padding: 20px;
+    }
+
+    .top-bar {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .top-bar-left {
+      flex: 1;
+    }
+
+    .top-bar-left h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    .top-bar-left p {
+      font-size: 14px;
+      color: #999;
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .user-info {
+      text-align: right;
+    }
+
+    .user-info .name {
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .user-info .role {
+      font-size: 12px;
+      color: #999;
+      text-transform: capitalize;
+    }
+
+    .btn-logout {
+      background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+      font-size: 13px;
+    }
+
+    .btn-logout:hover {
+      transform: translateY(-2px);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .card-description {
+      font-size: 13px;
+      color: #999;
+      line-height: 1.5;
+    }
+
+    .card-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #667eea;
+      margin-top: 12px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 32px;
+      font-weight: 700;
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .recent-activity {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .recent-activity h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    .activity-item {
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .activity-content {
+      flex: 1;
+    }
+
+    .activity-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 3px;
+    }
+
+    .activity-time {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .alert-box {
+      background: #fffbea;
+      border-left: 4px solid #ffc107;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .alert-box strong {
+      color: #ff9800;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 200px;
+      }
+
+      .main-content {
+        margin-left: 200px;
+        padding: 15px;
+      }
+
+      .top-bar {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .top-bar-right {
+        justify-content: center;
+        width: 100%;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error-message {
+      background: #fee;
+      color: #c33;
+      border: 1px solid #fcc;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>🏥 CMS</h2>
+      <p>Clinical Management System</p>
+      <div id="sidebar-user" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 12px;">
+        <div id="sidebar-user-name" style="font-weight: 600; margin-bottom: 3px;">Loading...</div>
+        <div id="sidebar-user-role" style="opacity: 0.8;">User</div>
+      </div>
+    </div>
+
+    <div class="sidebar-menu">
+      <a href="#" class="active" onclick="showSection('dashboard')">
+        <span>📊</span> Dashboard
+      </a>
+      <a href="#" onclick="showSection('patients')">
+        <span>👥</span> Patients
+      </a>
+      <a href="#" onclick="showSection('appointments')">
+        <span>📅</span> Appointments
+      </a>
+      <a href="#" onclick="showSection('consultations')">
+        <span>💬</span> Consultations
+      </a>
+      <a href="#" onclick="showSection('prescriptions')">
+        <span>💊</span> Prescriptions
+      </a>
+      <a href="#" onclick="showSection('labs')">
+        <span>🧪</span> Lab Results
+      </a>
+      <a href="#" onclick="showSection('billing')">
+        <span>💰</span> Billing
+      </a>
+      <a href="#" onclick="showSection('settings')">
+        <span>⚙️</span> Settings
+      </a>
+      <hr style="margin: 15px 0; border: none; border-top: 1px solid rgba(255,255,255,0.2);">
+      <a href="#" onclick="logout()" style="color: rgba(255,255,255,0.6);">
+        <span>🚪</span> Logout
+      </a>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <h1 id="page-title">Dashboard</h1>
+        <p id="page-subtitle">Welcome to your Clinical Management System</p>
+      </div>
+      <div class="top-bar-right">
+        <div class="user-info">
+          <div class="name" id="user-name">Loading...</div>
+          <div class="role" id="user-role">Loading...</div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-message" class="error-message" style="display: none;"></div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-section">
+      <div class="alert-box">
+        <strong>⚠️ Phase 2 Status:</strong> Authentication infrastructure complete. Database integration in progress.
+      </div>
+
+      <!-- Statistics -->
+      <div class="dashboard-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="total-patients">--</div>
+          <div class="stat-label">Total Patients</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="appointments-today">--</div>
+          <div class="stat-label">Today's Appointments</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="pending-consultations">--</div>
+          <div class="stat-label">Pending Consultations</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="lab-results-pending">--</div>
+          <div class="stat-label">Pending Lab Results</div>
+        </div>
+      </div>
+
+      <!-- Feature Cards -->
+      <div class="dashboard-grid">
+        <div class="card" onclick="showSection('patients')">
+          <div class="card-icon">👥</div>
+          <div class="card-title">Patient Management</div>
+          <div class="card-description">Create, view, and manage patient records</div>
+        </div>
+
+        <div class="card" onclick="showSection('appointments')">
+          <div class="card-icon">📅</div>
+          <div class="card-title">Appointment Scheduling</div>
+          <div class="card-description">Schedule and manage appointments</div>
+        </div>
+
+        <div class="card" onclick="showSection('consultations')">
+          <div class="card-icon">💬</div>
+          <div class="card-title">Consultations</div>
+          <div class="card-description">Conduct and track consultations</div>
+        </div>
+
+        <div class="card" onclick="showSection('prescriptions')">
+          <div class="card-icon">💊</div>
+          <div class="card-title">Prescriptions</div>
+          <div class="card-description">Manage medications and refills</div>
+        </div>
+
+        <div class="card" onclick="showSection('labs')">
+          <div class="card-icon">🧪</div>
+          <div class="card-title">Lab Integration</div>
+          <div class="card-description">Import and track lab results</div>
+        </div>
+
+        <div class="card" onclick="showSection('billing')">
+          <div class="card-icon">💰</div>
+          <div class="card-title">Billing & Insurance</div>
+          <div class="card-description">Manage claims and payments</div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="recent-activity">
+        <h3>Recent Activity</h3>
+        <div class="activity-item">
+          <div class="activity-icon" style="background: #e8f5e9;">✓</div>
+          <div class="activity-content">
+            <div class="activity-title">Login Successful</div>
+            <div class="activity-time" id="login-time">Just now</div>
+          </div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon" style="background: #e3f2fd;">🔐</div>
+          <div class="activity-content">
+            <div class="activity-title">Authentication Token Generated</div>
+            <div class="activity-time">Just now</div>
+          </div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon" style="background: #fff3e0;">📊</div>
+          <div class="activity-content">
+            <div class="activity-title">Dashboard Loaded</div>
+            <div class="activity-time">Just now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patients Section (Placeholder) -->
+    <div id="patients-section" style="display: none;">
+      <div class="alert-box">
+        <strong>🚀 Coming Soon:</strong> Phase 3 - Full patient management system with search, filters, and medical history.
+      </div>
+    </div>
+
+    <!-- Appointments Section (Placeholder) -->
+    <div id="appointments-section" style="display: none;">
+      <div class="alert-box">
+        <strong>🚀 Coming Soon:</strong> Phase 4 - Complete appointment scheduling with calendar and conflict detection.
+      </div>
+    </div>
+
+    <!-- Consultations Section (Placeholder) -->
+    <div id="consultations-section" style="display: none;">
+      <div class="alert-box">
+        <strong>🚀 Coming Soon:</strong> Phase 5 - Telemedicine integration with Jitsi for video consultations.
+      </div>
+    </div>
+
+    <!-- Prescriptions Section (Placeholder) -->
+    <div id="prescriptions-section" style="display: none;">
+      <div class="alert-box">
+        <strong>🚀 Coming Soon:</strong> Phase 6 - Prescription management with pharmacy integration.
+      </div>
+    </div>
+
+    <!-- Labs Section (Placeholder) -->
+    <div id="labs-section" style="display: none;">
+      <div class="alert-box">
+        <strong>🚀 Coming Soon:</strong> Phase 7 - Lab result import and tracking system.
+      </div>
+    </div>
+
+    <!-- Billing Section (Placeholder) -->
+    <div id="billing-section" style="display: none;">
+      <div class="alert-box">
+        <strong>🚀 Coming Soon:</strong> Phase 8 - Insurance claims and billing management.
+      </div>
+    </div>
+
+    <!-- Settings Section (Placeholder) -->
+    <div id="settings-section" style="display: none;">
+      <div class="alert-box">
+        <strong>⚙️ Settings:</strong> Configuration and preferences coming soon.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+
+    // Initialize Dashboard
+    window.addEventListener('load', function() {
+      checkAuthentication();
+      loadUserInfo();
+      loadDashboardStats();
+    });
+
+    // Check Authentication
+    function checkAuthentication() {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      // Verify token is still valid
+      verifyToken(token);
+    }
+
+    // Verify Token
+    async function verifyToken(token) {
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/verify`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok && response.status === 401) {
+          logout();
+        }
+      } catch (err) {
+        console.error('Token verification failed:', err);
+      }
+    }
+
+    // Load User Info
+    function loadUserInfo() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const fullName = user.firstName ? `${user.firstName} ${user.lastName}` : 'User';
+      const role = (user.role || 'user').charAt(0).toUpperCase() + (user.role || 'user').slice(1);
+      
+      // Update top bar
+      document.getElementById('user-name').textContent = fullName;
+      document.getElementById('user-role').textContent = role;
+      
+      // Update sidebar
+      document.getElementById('sidebar-user-name').textContent = fullName;
+      document.getElementById('sidebar-user-role').textContent = role;
+      
+      console.log('✅ User info loaded:', { fullName, role });
+    }
+
+    // Load Dashboard Stats
+    function loadDashboardStats() {
+      // Mock data for now
+      document.getElementById('total-patients').textContent = '142';
+      document.getElementById('appointments-today').textContent = '8';
+      document.getElementById('pending-consultations').textContent = '5';
+      document.getElementById('lab-results-pending').textContent = '12';
+    }
+
+    // Show Section
+    function showSection(section) {
+      // Hide all sections
+      document.querySelectorAll('[id$="-section"]').forEach(el => {
+        el.style.display = 'none';
+      });
+
+      // Show selected section
+      const sectionEl = document.getElementById(section + '-section');
+      if (sectionEl) {
+        sectionEl.style.display = 'block';
+      }
+
+      // Update active menu item
+      document.querySelectorAll('.sidebar-menu a').forEach(link => {
+        link.classList.remove('active');
+      });
+      event.target.closest('a').classList.add('active');
+
+      // Update page title
+      const titles = {
+        dashboard: 'Dashboard',
+        patients: 'Patient Management',
+        appointments: 'Appointments',
+        consultations: 'Consultations',
+        prescriptions: 'Prescriptions',
+        labs: 'Lab Results',
+        billing: 'Billing & Insurance',
+        settings: 'Settings'
+      };
+
+      document.getElementById('page-title').textContent = titles[section] || 'Dashboard';
+      document.getElementById('page-subtitle').textContent = `Manage your ${titles[section].toLowerCase()}`;
+    }
+
+    // Logout
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        console.log('🚪 Logging out...');
+        localStorage.clear();
+        console.log('✅ Session cleared');
+        window.location.href = '/login.html?logout=true';
+      }
+    }
+  </script>
+</body>
+</html>
