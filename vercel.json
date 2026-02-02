@@ -1,12 +1,19 @@
 {
   "version": 2,
-  "public": false,
-  "buildCommand": "echo 'Static HTML'",
-  "outputDirectory": ".",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "https://clinic-management-system-3gev.onrender.com/api/:path*"
+      "src": "*.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://clinic-management-system-3gev.onrender.com/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
