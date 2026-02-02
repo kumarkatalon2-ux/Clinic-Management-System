@@ -380,7 +380,7 @@
       console.log('[BUTTON CLICK] testBackendAPI triggered');
       alert('🔄 Testing Backend API...\n\nPlease wait...');
       
-      fetch('http://localhost:3000/health', {
+      fetch('https://clinic-management-system-3gev.onrender.com/health', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -405,7 +405,7 @@
       console.log('[BUTTON CLICK] viewSampleData triggered');
       alert('🔄 Fetching Sample Data...\n\nPlease wait...');
       
-      fetch('http://localhost:3000/api/patients', {
+      fetch('https://clinic-management-system-3gev.onrender.com/api/patients', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -444,7 +444,7 @@
     console.log('✅ viewSampleData function:', typeof window.viewSampleData);
     
     // Check API health on page load
-    fetch('http://localhost:3000/health')
+    fetch('https://clinic-management-system-3gev.onrender.com/health')
       .then(function(r) { return r.json(); })
       .then(function(d) { console.log('✅ Backend API responding:', d); })
       .catch(function(e) { console.warn('⚠️ Backend not ready yet:', e.message); });

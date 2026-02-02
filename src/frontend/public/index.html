@@ -143,7 +143,7 @@
       </div>
       <div class="space-x-4">
         <button class="btn btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Features</button>
-        <button class="btn btn-secondary" onclick="window.location.href='http://localhost:3000/login.html'">Sign In / Register</button>
+        <button class="btn btn-secondary" onclick="window.location.href='https://clinic-management-system-3gev.onrender.com/login.html'">Sign In / Register</button>
       </div>
     </div>
   </nav>
@@ -154,7 +154,7 @@
       <h1 class="text-6xl font-bold mb-4">Streamline Your Clinic Operations</h1>
       <p class="text-xl mb-8 opacity-95">Complete clinical management system designed for modern healthcare providers</p>
       <div class="space-x-4">
-        <button class="btn btn-primary" onclick="window.location.href='http://localhost:3000/login.html'">Get Started</button>
+        <button class="btn btn-primary" onclick="window.location.href='https://clinic-management-system-3gev.onrender.com/login.html'">Get Started</button>
         <button class="btn" style="background:rgba(255,255,255,0.2);color:white;border:2px solid white;" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Learn More</button>
       </div>
     </div>
@@ -299,7 +299,7 @@
     <div class="max-w-6xl mx-auto px-4 text-center">
       <h2 class="text-4xl font-bold mb-4">Ready to Streamline Your Clinic?</h2>
       <p class="text-xl mb-8 opacity-95">Start managing your clinic more efficiently today</p>
-      <button class="btn btn-primary bg-white text-teal-700 hover:bg-gray-100" onclick="window.location.href='http://localhost:3000/login.html'">Get Started Today</button>
+      <button class="btn btn-primary bg-white text-teal-700 hover:bg-gray-100" onclick="window.location.href='https://clinic-management-system-3gev.onrender.com/login.html'">Get Started Today</button>
     </div>
   </section>
   
@@ -316,7 +316,7 @@
     // Check API health
     async function checkHealth() {
       try {
-        const response = await fetch('http://localhost:3000/health');
+        const response = await fetch('https://clinic-management-system-3gev.onrender.com/health');
         const data = await response.json();
         console.log('Health check:', data);
       } catch (e) {
