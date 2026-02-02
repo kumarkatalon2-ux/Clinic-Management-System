@@ -23,9 +23,16 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 // Configure CORS for both local and production
-const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://clinic-management-system-ten-lyart.vercel.app',
+  'https://clinic-management-system-3gev.onrender.com',
+  process.env.CORS_ORIGIN
+].filter(Boolean);
+
 app.use(cors({
-  origin: [corsOrigin, 'http://localhost:3000', 'http://localhost:3001'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -40,7 +47,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", corsOrigin, "http://localhost:3000"],
+      connectSrc: ["'self'", "https://clinic-management-system-3gev.onrender.com", "https://clinic-management-system-ten-lyart.vercel.app", "http://localhost:3000"],
       frameSrc: ["'self'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: []
