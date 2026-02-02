@@ -1,19 +1,17 @@
 {
   "version": 2,
   "public": false,
-  "buildCommand": "echo 'Static site'",
-  "outputDirectory": "src/frontend/public",
+  "buildCommand": "echo 'Static HTML site'",
+  "outputDirectory": "./",
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://clinic-management-system-3gev.onrender.com/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://clinic-management-system-3gev.onrender.com/api/:path*"
     },
     {
-      "source": "/(.+)",
-      "destination": "/dashboard.html"
-    },
-    {
-      "source": "/",
+      "source": "/(.*)",
       "destination": "/dashboard.html"
     }
   ]
